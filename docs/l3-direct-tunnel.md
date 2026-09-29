@@ -262,7 +262,7 @@ The log names the cause rather than leaving a silent tunnel:
   is loaded. Each end has its own address in the `/30`; the kharej's
   `peer_ip` is the Iran end, not its own.
 - A forwarded port that something on the server already listens on — the web
-  panel's `7654` is the usual one — is refused by the wizard and the panel
+  panel's `7777` is the usual one — is refused by the wizard and the panel
   instead of failing to bind in the log.
 
 A tunnel that carries only one-way traffic, or none, is not torn down for it.
@@ -647,7 +647,7 @@ used exactly as written.
 
 **وقتی بالا نمی‌آید:** لاگ علت را می‌گوید — توکن متفاوت (`did not authenticate`)،
 آدرس یکسان برای `local_ip` و `peer_ip`، یا پورتی که چیز دیگری (مثل پنل روی
-`7654`) گرفته. تونلی که ترافیک یک‌طرفه یا هیچ ترافیکی ندارد دیگر قطع و وصل نمی‌شود،
+`7777`) گرفته. تونلی که ترافیک یک‌طرفه یا هیچ ترافیکی ندارد دیگر قطع و وصل نمی‌شود،
 و `xdi` روی سروری که ICMP را در فایروال می‌بندد خودش راه ورودش را باز می‌کند.
 
 هر ترنسپورت دیگری در FullPack **پورت** forward می‌کند: یک listener روی ایران، یک

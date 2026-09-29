@@ -1,5 +1,5 @@
 // Package webui serves an authenticated, dark-themed web dashboard on port
-// 7654 showing live system metrics, tunnels and their logs.
+// 7777 showing live system metrics, tunnels and their logs.
 package webui
 
 import (
@@ -20,7 +20,7 @@ type Config struct {
 	Port     int    `json:"port"`
 
 	// BasePath is the secret path segment the whole panel lives under, so it
-	// answers at http://host:7654/<BasePath>/ and at nothing else.
+	// answers at http://host:7777/<BasePath>/ and at nothing else.
 	//
 	// It is not authentication and does not pretend to be — the password is
 	// still what lets anybody in. What it changes is who ever reaches the
@@ -38,7 +38,7 @@ type Config struct {
 	// HTTPS, when set, serves the panel over TLS instead of plain HTTP.
 	//
 	// It is off by default and stays that way on upgrade: a panel reached at
-	// http://ip:7654 keeps working exactly as it did. Turning it on is a
+	// http://ip:7777 keeps working exactly as it did. Turning it on is a
 	// deliberate act, because it changes the address people have bookmarked.
 	//
 	// TLSDomain switches to Let's Encrypt for that name, which must resolve to

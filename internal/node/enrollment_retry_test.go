@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -72,6 +73,9 @@ func TestEnrollmentLostResponseReloadKeepsOneCredential(t *testing.T) {
 	second, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential)
 	if err != nil || second != first {
 		t.Fatalf("lost response did not converge: %+v, %v", second, err)
+	}
+	if same, err := AddManaged(e.Name, e.ControllerURL, e.NodeID, credential); err != nil || same.ID != e.NodeID {
+		t.Fatalf("exact registry retry was not idempotent: %+v, %v", same, err)
 	}
 	if len(List()) != 1 || findCredential(e.NodeID) != credential {
 		t.Fatal("retry duplicated or rotated the managed identity")
@@ -216,6 +220,29 @@ func TestEnrollmentDoesNotContactControllerWhenRetryIntentCannotBeSaved(t *testi
 	}
 	if len(List()) != 0 {
 		t.Fatal("controller committed despite Node-side intent failure")
+	}
+}
+
+func TestExpiredPendingIntentIsRemoved(t *testing.T) {
+	isolateEnrollment(t)
+	code, err := CreateEnrollment("kharej", "http://controller.example:9876", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := parseEnrollment(code)
+	credential, _ := GenerateCredential()
+	b, _ := json.Marshal(pendingEnrollment{
+		CodeHash: HashCredential(code), NodeID: e.NodeID, Credential: credential,
+		Created: time.Now().Add(-25 * time.Hour).Unix(),
+	})
+	if err := writePrivateFile(AgentConfigPath+".pending", b); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := JoinWithEnrollment(code, nil); err == nil || !strings.Contains(err.Error(), "pending enrollment has expired") {
+		t.Fatalf("stale pending intent was accepted: %v", err)
+	}
+	if _, err := os.Stat(AgentConfigPath + ".pending"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stale pending intent was not removed: %v", err)
 	}
 }
 

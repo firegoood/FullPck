@@ -1,6 +1,6 @@
 # Web panel
 
-A dashboard and tunnel-management panel on **port 7654** by default. It shows
+A dashboard and tunnel-management panel on **port 7777** by default. It shows
 live CPU / RAM / disk / traffic, each tunnel's state, real ping, and logs.
 Backup, Telegram setup and the panel password live in **Settings**.
 
@@ -14,7 +14,7 @@ The link and login code are shown in the CLI under **Web Panel** (whose settings
 also cover update, panel port and password). Open the port first:
 
 ```bash
-sudo ufw allow 7654
+sudo ufw allow 7777
 ```
 
 ## Using your own certificate (certbot or any other)
@@ -87,7 +87,7 @@ the same Security pane if that matters.
 
 ## خلاصهٔ فارسی
 
-یک پنل پایش و مدیریت تونل روی **پورت پیش‌فرض ۷۶۵۴** با ظاهری هماهنگ با CLI: پردازنده،
+یک پنل پایش و مدیریت تونل روی **پورت پیش‌فرض ۷۷۷۷** با ظاهری هماهنگ با CLI: پردازنده،
 حافظه، دیسک و ترافیک زنده، وضعیت هر تونل، پینگ واقعی و لاگ‌ها. پشتیبان‌گیری،
 تنظیمات تلگرام و رمز پنل در بخش **Settings** است.
 
@@ -105,7 +105,7 @@ the same Security pane if that matters.
 
 **ورود:** لینک و کد ورود در CLI زیر گزینهٔ **Web Panel** نشان داده می‌شود (پورت،
 رمز و گواهی پنل هم همان‌جا تنظیم می‌شود). اول پورت را باز کن:
-`sudo ufw allow 7654`.
+`sudo ufw allow 7777`.
 
 </div>
 

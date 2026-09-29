@@ -206,7 +206,7 @@ func withNonce(page []byte, r *http.Request) []byte {
 // The panel's base path.
 //
 // Everything the panel serves lives under one unguessable segment, so the panel
-// answers at http://host:7654/x7Kq2p9wRt4mNs/ and at nothing else. Anything
+// answers at http://host:7777/x7Kq2p9wRt4mNs/ and at nothing else. Anything
 // outside it gets a 404 — not a redirect, which would hand the path back to
 // whoever asked.
 //

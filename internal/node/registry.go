@@ -1,6 +1,7 @@
 package node
 
 import (
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -164,11 +165,20 @@ func AddManaged(name, controllerURL, id, credential string) (Node, error) {
 	var out Node
 	err = update(func(s *Store) error {
 		for _, n := range s.Nodes {
+			if n.ID != "" && n.ID == id {
+				// Enrollment retries can arrive after the controller has
+				// durably added the managed Node but before the caller received
+				// the response. Treat the exact same identity and credential as
+				// success; a different credential must never rotate it.
+				if !n.Revoked && n.ControllerURL == controllerURL &&
+					subtle.ConstantTimeCompare([]byte(n.Credential), []byte(credential)) == 1 {
+					out = n
+					return nil
+				}
+				return fmt.Errorf("node identity %q is already enrolled", id)
+			}
 			if strings.EqualFold(n.Name, name) {
 				return fmt.Errorf("a server called %q is already in the fleet", name)
-			}
-			if n.ID != "" && n.ID == id {
-				return fmt.Errorf("node identity %q is already enrolled", id)
 			}
 		}
 		out = Node{Name: name, ID: id, ControllerURL: controllerURL,

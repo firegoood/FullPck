@@ -32,7 +32,7 @@ be bookmarked or linked to.
 
 Addresses in this page are relative to the panel's secret base path, which is
 random per installation: the real URL of the Overview is
-`https://your-server:7654/<base>/#/`.
+`https://your-server:7777/<base>/#/`.
 
 ## The three sections
 

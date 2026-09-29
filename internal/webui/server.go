@@ -235,14 +235,12 @@ func Serve() error {
 	// token; which scope each one needs is in routes().
 	mux := srv.routes()
 
-	// Ready to reach the fleet. Nothing is contacted here and nothing can
-	// fail: the panel dials out when it has something to ask, so a server that
-	// is down costs the operation that wanted it and nothing else.
+	// Ready to use the fleet. Nothing is contacted here and nothing can fail:
+	// managed Nodes maintain the authenticated outbound session, and an
+	// operation that needs one pays the cost of asking that session.
 	//
-	// There is no switch for this any more. It guarded a listener that had to
-	// be opened before a server could connect; the panel dials out now, so with
-	// no servers in the fleet it does nothing at all, and turning "nothing at
-	// all" off was a setting that could only ever be in the way.
+	// There is no second management listener. The Agent gateway shares this
+	// WebUI listener, so an empty fleet has no extra socket to enable or disable.
 	_ = srv.nodes.Start()
 	// Loss and round trip to every managed server, measured in the background
 	// so no request ever waits on a ping. See internal/control/net.go.

@@ -113,7 +113,7 @@ Iran server:
     fullpack --webui
           |
           | existing configurable WebUI listener
-          | default is normally :7654
+          | default is normally :7777
           |
           +-- browser Web Panel
           +-- existing HTTP APIs
@@ -163,9 +163,9 @@ The management/control plane may use ONLY the already-configured WebUI listener 
 
 The default WebUI port is currently normally:
 
-    7654
+    7777
 
-but NO Agent/control-plane code may hard-code `7654`.
+but NO Agent/control-plane code may hard-code `7777`.
 
 Always use the configured Controller URL/port.
 
@@ -929,19 +929,19 @@ The Node must persist the actual enrolled Controller endpoint.
 
 Example:
 
-    http://controller.example:7654
+    http://controller.example:7777
 
 or:
 
     https://controller.example:8123
 
-Do not reconstruct or assume port 7654 later.
+Do not reconstruct or assume port 7777 later.
 
 Changing the configured WebUI port must be supported through explicit reconfiguration/re-enrollment semantics.
 
-No Agent/control-plane code may assume 7654 internally.
+No Agent/control-plane code may assume 7777 internally.
 
-7654 is only the default test/example configuration.
+7777 is only the default test/example configuration.
 
 ---
 
@@ -1847,7 +1847,7 @@ At minimum verify all of the following.
 
 11. Foreign managed Node has no inbound management listener.
 
-12. Agent uses configured Controller WebUI port, not hard-coded 7654.
+12. Agent uses configured Controller WebUI port, not hard-coded 7777.
 
 13. Changing browser path prefix does not move/break `/_bp/node`.
 
@@ -1996,9 +1996,9 @@ The finished design must satisfy all of these:
     ONE existing WebUI listener only
 
     Default example port:
-    7654
+    7777
 
-    Hard-coded 7654:
+    Hard-coded 7777:
     NO
 
     Port 80 required:

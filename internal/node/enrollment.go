@@ -64,6 +64,7 @@ type pendingEnrollment struct {
 	CodeHash   string `json:"code_hash"`
 	NodeID     string `json:"node_id"`
 	Credential string `json:"credential"`
+	Created    int64  `json:"created"`
 }
 
 var enrollmentMu sync.Mutex
@@ -377,6 +378,7 @@ type enrollmentMessage struct {
 // WebSocket session, and saved after the controller confirms success. The
 // one-time token never travels in a URL, HTTP body, or process argument.
 func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
+	code = strings.TrimSpace(code)
 	e, err := parseEnrollment(code)
 	if err != nil {
 		return AgentConfig{}, err
@@ -410,11 +412,23 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 		if genErr != nil {
 			return AgentConfig{}, genErr
 		}
-		pending = pendingEnrollment{CodeHash: HashCredential(code), NodeID: e.NodeID, Credential: credential}
+		pending = pendingEnrollment{CodeHash: HashCredential(code), NodeID: e.NodeID,
+			Credential: credential, Created: time.Now().Unix()}
 		b, _ := json.Marshal(pending)
 		if err := writePrivateFile(pendingPath, b); err != nil {
 			return AgentConfig{}, fmt.Errorf("saving retryable enrollment intent: %w", err)
 		}
+	}
+	if pending.Created <= 0 {
+		if info, statErr := os.Stat(pendingPath); statErr == nil {
+			pending.Created = info.ModTime().Unix()
+		} else {
+			return AgentConfig{}, fmt.Errorf("reading pending enrollment intent: %w", statErr)
+		}
+	}
+	if pending.Created <= 0 || time.Now().After(time.Unix(pending.Created, 0).Add(24*time.Hour)) {
+		_ = os.Remove(pendingPath)
+		return AgentConfig{}, errors.New("pending enrollment has expired; request a new code")
 	}
 	credential := pending.Credential
 	if raw, decodeErr := base64.RawURLEncoding.DecodeString(credential); decodeErr != nil || len(raw) != 32 {
@@ -470,6 +484,7 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 			case http.StatusConflict:
 				return AgentConfig{}, errors.New("enrollment code was already completed")
 			case http.StatusGone:
+				_ = os.Remove(pendingPath)
 				return AgentConfig{}, errors.New("enrollment code has expired")
 			case http.StatusForbidden:
 				return AgentConfig{}, errors.New("enrollment was revoked")

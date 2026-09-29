@@ -196,7 +196,7 @@ func TestEnrollmentEndpointRejectsUntrustedHostAndMalformedControllerURL(t *test
 	t.Cleanup(s.nodes.Stop)
 	for _, form := range []string{
 		"action=add&name=kharej",
-		"action=add&name=kharej&controller_url=http%3A%2F%2Fevil.example%3A7654%2Fother",
+		"action=add&name=kharej&controller_url=http%3A%2F%2Fevil.example%3A8443%2Fother",
 	} {
 		r := httptest.NewRequest(http.MethodPost, "/api/nodes", strings.NewReader(form))
 		r.Host = "injected.example:9999"

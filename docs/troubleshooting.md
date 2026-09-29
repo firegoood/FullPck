@@ -210,19 +210,22 @@ same screen.
 
 ## A managed server shows as offline
 
-The panel dials out over SSH; nothing is opened on the far side. So "offline"
+The managed Node keeps an authenticated outbound Agent session; nothing is
+opened on the far side. So "offline"
 means one of:
 
-- **The machine is down**, or its SSH port changed.
-- **The password changed.** The panel keeps it sealed with a key that is
-  deliberately not in the backup, so restoring a panel onto a new machine
-  returns the fleet list without the credentials. See
+- **The machine or its monitor service is down**, or it cannot reach the
+  configured Controller URL over the existing WebUI listener.
+- **The Agent configuration or certificate trust changed.** Check the
+  `fullpack-monitor` journal on the Node and the WebUI journal on the
+  Controller. If the Node was rebuilt, revoke the old entry and enroll it
+  again with a new one-time code.
+- **The Controller was restored without its sealing key.** The fleet list can
+  remain visible while the sealed Agent credentials are unavailable; restore
+  the key backup or re-enroll the affected Nodes. See
   [backup and restore](backup-restore.md) for the recovery.
-- **The host key changed.** The panel pins the key it first saw and refuses a
-  different one. If the server was rebuilt, this is expected — remove it from
-  the fleet and add it again.
 
-The card shows which of the three it is.
+The card records the last disconnect reason reported by the Agent.
 
 ---
 

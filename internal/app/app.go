@@ -64,7 +64,7 @@ const (
 	WebUIService = "fullpack-webui.service"
 
 	// WebUIPort is the default port the web panel listens on.
-	WebUIPort = 7654
+	WebUIPort = 7777
 
 	// MonitorService is the systemd unit that watches the tunnels and runs the
 	// Telegram bot and alerts. It is deliberately separate from the web panel:
