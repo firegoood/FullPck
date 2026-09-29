@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // A gated live check of the relaxation: it flips a strict rp_filter to loose and

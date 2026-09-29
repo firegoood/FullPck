@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/client/transport"
-	"github.com/backpack/backpack/internal/utils"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/client/transport"
+	"github.com/firegoood/FullPck/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // startTransport is two hundred lines of copying fields from a config into a

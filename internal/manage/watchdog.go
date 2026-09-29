@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/enginectl"
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/enginectl"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // Watchdog tuning.

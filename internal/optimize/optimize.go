@@ -122,22 +122,22 @@ func EngineStartupTuning() [][2]string {
 // manage.NodePairPath are overridden.
 //
 // It is named to come last. The kernel's settings are applied at boot file by
-// file in name order, and the last to set a key wins. It was 99-backpack.conf,
+// file in name order, and the last to set a key wins. It was 99-fullpack.conf,
 // which sorts before 99-sysctl.conf — the link to /etc/sysctl.conf that Debian
 // and Ubuntu install, and the file every other installer and "VPS optimizer"
 // script writes to. So on the next boot anything those had put there quietly
 // replaced what Optimize set, and Health Check went on saying "run Optimize" to
 // somebody who had, as many times as they liked. zz- sorts after every
 // numbered file.
-var sysctlFile = "/etc/sysctl.d/zz-backpack.conf"
+var sysctlFile = "/etc/sysctl.d/zz-fullpack.conf"
 
 // legacySysctlFile is where an older Optimize wrote the same thing. Apply
 // removes it, so the two cannot disagree; WasApplied still counts it.
-var legacySysctlFile = "/etc/sysctl.d/99-backpack.conf"
+var legacySysctlFile = "/etc/sysctl.d/99-fullpack.conf"
 
-const limitsFile = "/etc/security/limits.d/99-backpack.conf"
+const limitsFile = "/etc/security/limits.d/99-fullpack.conf"
 
-const limitsContent = `# Raised by backpack for high connection counts
+const limitsContent = `# Raised by fullpack for high connection counts
 * soft nofile 1048576
 * hard nofile 1048576
 root soft nofile 1048576
@@ -173,7 +173,7 @@ func Apply(logf func(string), reserve []int) {
 
 	// Persist sysctl settings.
 	var b strings.Builder
-	b.WriteString("# Managed by backpack — network optimizations\n")
+	b.WriteString("# Managed by fullpack — network optimizations\n")
 	for _, kv := range rows {
 		fmt.Fprintf(&b, "%s = %s\n", kv[0], kv[1])
 	}

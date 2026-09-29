@@ -25,7 +25,7 @@ func TestAReleaseSignatureIsGoodForItsOwnTagOnly(t *testing.T) {
 	}
 	dir := t.TempDir()
 	sumsPath := filepath.Join(dir, "SHA256SUMS")
-	sums := []byte("0123abcd  backpack_linux_amd64.tar.gz\n")
+	sums := []byte("0123abcd  fullpack_linux_amd64.tar.gz\n")
 	if err := os.WriteFile(sumsPath, sums, 0o644); err != nil {
 		t.Fatal(err)
 	}

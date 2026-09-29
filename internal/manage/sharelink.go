@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // Handing a tunnel's settings to the other server.
@@ -45,7 +45,7 @@ import (
 // shareScheme and shareVersion make the string recognisable and let a later
 // format be told apart before anything is decoded.
 const (
-	shareScheme  = "backpack://"
+	shareScheme  = "fullpack://"
 	shareVersion = "1"
 )
 
@@ -172,7 +172,7 @@ func DecodeShareLink(s string) (ShareLink, error) {
 		return out, fmt.Errorf("paste the setup link from the other server")
 	}
 	if !strings.HasPrefix(s, shareScheme) {
-		return out, fmt.Errorf("that does not look like a Backpack setup link — it should begin with %s", shareScheme)
+		return out, fmt.Errorf("that does not look like a FullPack setup link — it should begin with %s", shareScheme)
 	}
 	body := strings.TrimPrefix(s, shareScheme)
 	ver, payload, ok := strings.Cut(body, ".")

@@ -6,7 +6,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // The knob has to survive the CLI, or it does not exist. Editing a tunnel

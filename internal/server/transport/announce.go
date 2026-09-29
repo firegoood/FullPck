@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/utils"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // Reading a connection's announcement off the accept path.

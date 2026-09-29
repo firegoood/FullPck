@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 func recordSystemctl(t *testing.T) *[]string {
@@ -37,8 +37,8 @@ func fakeCgroup(t *testing.T, body string) {
 
 func TestOwnUnitReadsTheCgroup(t *testing.T) {
 	for body, want := range map[string]string{
-		"0::/system.slice/backpack-webui.service\n":                                app.WebUIService,
-		"12:pids:/\n1:name=systemd:/system.slice/backpack-monitor.service\n0::/\n": app.MonitorService,
+		"0::/system.slice/fullpack-webui.service\n":                                app.WebUIService,
+		"12:pids:/\n1:name=systemd:/system.slice/fullpack-monitor.service\n0::/\n": app.MonitorService,
 		"0::/user.slice/user-0.slice/session-3.scope\n":                            "",
 	} {
 		fakeCgroup(t, body)

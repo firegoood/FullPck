@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // What an update forces onto a server that an older version set up.
@@ -176,7 +176,7 @@ var systemMigrations = []systemMigration{
 		// Live only. Nothing persists this — the engine set it with `sysctl -w`
 		// on every start and it did not survive a reboot either, so there is no
 		// file to correct. A machine that ran Optimize has the right value in
-		// /etc/sysctl.d/99-backpack.conf already, and ApplyUpdate re-applies that
+		// /etc/sysctl.d/99-fullpack.conf already, and ApplyUpdate re-applies that
 		// file just before this runs.
 		id: "ephemeral-port-range",
 		apply: func() string {

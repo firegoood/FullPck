@@ -1,7 +1,7 @@
 # Monitor service
 
 The watchdog, the [Telegram bot](telegram-bot.md) and the [alerts](alerts.md)
-run as their own systemd unit, **`backpack-monitor.service`**, separately from
+run as their own systemd unit, **`fullpack-monitor.service`**, separately from
 the [web panel](web-panel.md).
 
 ## Why it is separate
@@ -26,7 +26,7 @@ is not running.
 ## خلاصهٔ فارسی
 
 واچ‌داگ، [ربات تلگرام](telegram-bot.md) و [هشدارها](alerts.md) در یک سرویس
-جداگانهٔ systemd به نام **`backpack-monitor.service`** اجرا می‌شوند، مستقل از
+جداگانهٔ systemd به نام **`fullpack-monitor.service`** اجرا می‌شوند، مستقل از
 [پنل وب](web-panel.md).
 
 **چرا جداست؟** قبلاً پایش داخل پروسهٔ پنل بود، یعنی پایش به پنل وابسته بود —
@@ -44,4 +44,4 @@ is not running.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

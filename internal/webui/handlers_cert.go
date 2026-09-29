@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // The panel's own certificate, from the panel.

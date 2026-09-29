@@ -3,7 +3,7 @@
 Ordered by how often each one is actually the answer, not by how interesting it
 is. Work down the list; most problems are settled in the first two sections.
 
-Everything here can be done from `sudo backpack` → **Health Check** and
+Everything here can be done from `sudo fullpack` → **Health Check** and
 **Diagnose**. The commands are given as well, for when the menu is not
 convenient — over a phone, from a script, or when the panel is the thing that
 is broken.
@@ -16,7 +16,7 @@ This is the most expensive failure in the product and it has a short list of
 causes. The tunnel holds its control channel, the panel shows green, and
 traffic dies — so nothing looks wrong anywhere.
 
-Backpack now notices this on its own: the watchdog watches for **one direction
+FullPack now notices this on its own: the watchdog watches for **one direction
 moving while the other is frozen**, which is what a stall looks like from the
 outside, and reports it before it restarts anything. If you have a Telegram bot
 configured you will have had a message. This is what to do about it.
@@ -28,13 +28,13 @@ invisible: the handshake is small and gets through, the first real transfer is
 full-sized and does not.
 
 ```
-sudo backpack        # → Diagnose → the tunnel
+sudo fullpack        # → Diagnose → the tunnel
 ```
 
 Look for the path MTU line. If it is below 1500, clamp to it:
 
 ```
-sudo backpack        # → Manage tunnels → <tunnel> → TCP MSS clamp
+sudo fullpack        # → Manage tunnels → <tunnel> → TCP MSS clamp
 ```
 
 A sensible clamp is **path MTU − 40** for IPv4, **− 60** for IPv6. If Diagnose
@@ -54,11 +54,11 @@ On the **kharej** machine:
 ss -tlnp | grep <the backend port>
 ```
 
-Backpack reports this itself when it can see it. The panel's tunnel card shows a
+FullPack reports this itself when it can see it. The panel's tunnel card shows a
 "last hop" warning, and so does the terminal:
 
 ```
-backpack tunnel status <name>
+fullpack tunnel status <name>
 ...
 last hop  127.0.0.1:8080 refused (42 failed)
 ```
@@ -75,7 +75,7 @@ FEC scheme, `stealth`, the encapsulation.
 The fastest check is to read the two files side by side:
 
 ```
-sudo cat /etc/backpack/<name>.toml          # on this machine
+sudo cat /etc/fullpack/<name>.toml          # on this machine
 ```
 
 and the same on the other. `token`, `transport`, the port, and — for a layer-3
@@ -90,7 +90,7 @@ linked to the server holding its other half from the tunnel's card. See
 ### 4. Look at what it is actually carrying
 
 ```
-backpack tunnel status <name>
+fullpack tunnel status <name>
 ```
 
 ```
@@ -123,7 +123,7 @@ stale.
 Then it is configuration, not the network. In order:
 
 ```
-backpack check -c /etc/backpack/<name>.toml
+fullpack check -c /etc/fullpack/<name>.toml
 ```
 
 This validates the file without starting anything, and it catches the quiet one:
@@ -149,7 +149,7 @@ Then check, in this order:
 Then something changed on the path, not in the config.
 
 ```
-sudo backpack        # → Diagnose → the tunnel
+sudo fullpack        # → Diagnose → the tunnel
 ```
 
 If the address is unreachable but the server is up, the IP has probably been
@@ -170,11 +170,11 @@ works from both and the tunnel still will not come up, the carrier is.
 ## The tunnel keeps restarting
 
 A tunnel that mostly works is harder to notice than one that is plainly down,
-and several real faults present this way. Backpack reports repeated restarts as
+and several real faults present this way. FullPack reports repeated restarts as
 **one** condition rather than twenty separate lines, so check the alerts first:
 
 ```
-sudo backpack        # → Alerts
+sudo fullpack        # → Alerts
 ```
 
 Common causes, in order:
@@ -191,8 +191,8 @@ Common causes, in order:
 ## The panel will not open
 
 ```
-systemctl status backpack-webui
-journalctl -u backpack-webui -n 50
+systemctl status fullpack-webui
+journalctl -u fullpack-webui -n 50
 ```
 
 The panel answers under a **secret path** and nowhere else, so a bookmark
@@ -200,7 +200,7 @@ without it gets a 404 rather than a login page. The path is printed at startup
 and is shown in the menu:
 
 ```
-sudo backpack        # → Web Panel
+sudo fullpack        # → Web Panel
 ```
 
 If the port was changed and the page did not come back, the address is in the
@@ -228,19 +228,19 @@ The card shows which of the three it is.
 
 ## After an update
 
-Backpack takes a snapshot before every update and rolls back on its own if the
+FullPack takes a snapshot before every update and rolls back on its own if the
 tunnels do not come back. If you are reading this, that either worked or you
 want to do it by hand:
 
 ```
-sudo backpack        # → Update → Rollback
+sudo fullpack        # → Update → Rollback
 ```
 
 If tunnels came back but something behaves differently, check that the two ends
 are on the same version:
 
 ```
-backpack version
+fullpack version
 ```
 
 A new end talking to an old one is supported and tested in both directions, but
@@ -251,18 +251,18 @@ a feature added on one side is not available until both have it.
 ## Reading the logs
 
 ```
-journalctl -u backpack-<name> -f       # one tunnel, live
-journalctl -u backpack-monitor -n 100   # the watchdog, the bot, the alerts
-journalctl -u backpack-webui -n 100     # the panel
+journalctl -u fullpack-<name> -f       # one tunnel, live
+journalctl -u fullpack-monitor -n 100   # the watchdog, the bot, the alerts
+journalctl -u fullpack-webui -n 100     # the panel
 ```
 
 The engine logs at `info` by default. For a fault you are actively chasing,
 raise it for that tunnel and watch:
 
 ```
-sudo sed -i 's/^log_level = .*/log_level = "debug"/' /etc/backpack/<name>.toml
-sudo systemctl restart backpack-<name>
-journalctl -u backpack-<name> -f
+sudo sed -i 's/^log_level = .*/log_level = "debug"/' /etc/fullpack/<name>.toml
+sudo systemctl restart fullpack-<name>
+journalctl -u fullpack-<name> -f
 ```
 
 Put it back to `info` afterwards. `trace` on a busy tunnel writes a line per
@@ -275,10 +275,10 @@ connection and will fill a journal quickly.
 Collect this before asking anyone:
 
 ```
-backpack version
-backpack tunnel list
-sudo backpack        # → Diagnose, and copy the output
-journalctl -u backpack-<name> -n 200
+fullpack version
+fullpack tunnel list
+sudo fullpack        # → Diagnose, and copy the output
+journalctl -u fullpack-<name> -n 200
 ```
 
 The same four from **both** machines. A tunnel has two ends and nearly every
@@ -292,11 +292,11 @@ question about one of them is answered by the other.
 
 به ترتیبِ اینکه هر کدام **چند وقت یک‌بار واقعاً جوابند** مرتب شده، نه به ترتیب
 جذابیت. از بالا برو؛ بیشتر مشکل‌ها در دو بخش اول تمام می‌شوند. همهٔ این‌ها از
-`sudo backpack` → **Health Check** و **Diagnose** هم در دسترس است.
+`sudo fullpack` → **Health Check** و **Diagnose** هم در دسترس است.
 
 ### تونل می‌گوید بالاست ولی چیزی رد نمی‌شود
 
-گران‌ترین خرابی این محصول، و فهرست علت‌هایش کوتاه است. خود Backpack این را
+گران‌ترین خرابی این محصول، و فهرست علت‌هایش کوتاه است. خود FullPack این را
 می‌بیند: watchdog دنبال حالتی می‌گردد که **یک جهت حرکت می‌کند و جهت دیگر یخ زده**
 — شکلِ بیرونیِ یک stall — و قبل از هر restart خبر می‌دهد.
 
@@ -309,7 +309,7 @@ probe جواب نداد، از ۱۴۰۰ شروع کن و ۲۰ تا ۲۰ تا پ�
 
 ۲. **سرویسِ آن‌طرف.** تونل هر اتصال را یک قدم جلوتر تحویل می‌دهد؛ اگر آنجا چیزی
 گوش نمی‌دهد، هر اتصال یک قدم بعدِ تونل می‌میرد و خود تونل کاملاً سالم است. روی
-سرور **خارج**: `ss -tlnp | grep <port>`. خود Backpack هم وقتی ببیند می‌گوید —
+سرور **خارج**: `ss -tlnp | grep <port>`. خود FullPack هم وقتی ببیند می‌گوید —
 `last hop ... refused` یعنی سرویس بالا نیست، `timeout` معمولاً یعنی فایروال روی
 همان ماشین. این دو راه‌حلشان فرق دارد و برای همین کلمه‌اش نوشته شده.
 
@@ -319,14 +319,14 @@ probe جواب نداد، از ۱۴۰۰ شروع کن و ۲۰ تا ۲۰ تا پ�
 پنل مدیریتش می‌کند، اصلاً فایل‌ها را مقایسه نکن — جفت را از خود پنل بساز، چون
 **هر دو سر** را می‌نویسد.
 
-۴. **ببین واقعاً چه حمل می‌کند:** `backpack tunnel status <name>`. بایت ورودی و
+۴. **ببین واقعاً چه حمل می‌کند:** `fullpack tunnel status <name>`. بایت ورودی و
 خروجی جدا شمرده می‌شوند و نکته همین است: **یکی بالا برود و دیگری یخ باشد** همان
 stall است؛ **هر دو یخ** یعنی تونل بیکار است، که خرابی نیست.
 
 ### تونل اصلاً وصل نمی‌شود
 
 **اگر هیچ‌وقت وصل نشده،** مشکل تنظیمات است نه شبکه. اول
-`backpack check -c /etc/backpack/<name>.toml`، بعد به همین ترتیب: توکن یکی باشد
+`fullpack check -c /etc/fullpack/<name>.toml`، بعد به همین ترتیب: توکن یکی باشد
 (رایج‌ترین اشتباه، و هیچ پیامی اسمش را نمی‌برد — سرور رد می‌کند و هیچ لاگی نمی‌گوید
 چرا، چون گفتنش به مهاجم می‌گوید نزدیک شده)، پورت یکی باشد، ترنسپورت یکی باشد، و
 فایروال سرور ایران پورت تونل را باز داشته باشد.
@@ -340,7 +340,7 @@ stall است؛ **هر دو یخ** یعنی تونل بیکار است، که خ�
 
 ### تونل مدام ری‌استارت می‌شود
 
-اول `sudo backpack → Alerts` — ری‌استارت‌های پیاپی به‌صورت **یک** وضعیت گزارش
+اول `sudo fullpack → Alerts` — ری‌استارت‌های پیاپی به‌صورت **یک** وضعیت گزارش
 می‌شوند نه بیست خط جدا. علت‌های رایج به ترتیب: **MTU** (مسیری که پکت کامل را دور
 می‌ریزد، سشن را روی اولین انتقال واقعی می‌کشد)، **keepalive خیلی تنگ** (روی مسیر
 بد بالاتر ببر)، و **ری‌استارت‌شدنِ آن‌طرف** — قبل از دست‌زدن به این ماشین آن یکی را
@@ -348,9 +348,9 @@ stall است؛ **هر دو یخ** یعنی تونل بیکار است، که خ�
 
 ### پنل باز نمی‌شود
 
-`systemctl status backpack-webui` و `journalctl -u backpack-webui -n 50`. پنل زیر
+`systemctl status fullpack-webui` و `journalctl -u fullpack-webui -n 50`. پنل زیر
 یک **مسیر مخفی** جواب می‌دهد و جای دیگری نه، پس bookmark بدون آن ۴۰۴ می‌گیرد نه
-صفحهٔ ورود. مسیر در `sudo backpack → Web Panel` نوشته شده.
+صفحهٔ ورود. مسیر در `sudo fullpack → Web Panel` نوشته شده.
 
 ### سرور مدیریت‌شده offline است
 
@@ -362,17 +362,17 @@ stall است؛ **هر دو یخ** یعنی تونل بیکار است، که خ�
 ### بعد از آپدیت
 
 قبل از هر آپدیت snapshot گرفته می‌شود و اگر تونل‌ها برنگردند خودش برمی‌گردد.
-دستی: `sudo backpack → Update → Rollback`. اگر تونل‌ها برگشتند ولی رفتار فرق
-دارد، نسخهٔ دو طرف را با `backpack version` مقایسه کن — نسخهٔ جدید با قدیم کار
+دستی: `sudo fullpack → Update → Rollback`. اگر تونل‌ها برگشتند ولی رفتار فرق
+دارد، نسخهٔ دو طرف را با `fullpack version` مقایسه کن — نسخهٔ جدید با قدیم کار
 می‌کند و در هر دو جهت تست شده، ولی قابلیتی که یک طرف اضافه کرده تا وقتی هر دو
 نداشته باشند در دسترس نیست.
 
 ### خواندن لاگ
 
 ```
-journalctl -u backpack-<name> -f
-journalctl -u backpack-monitor -n 100
-journalctl -u backpack-webui -n 100
+journalctl -u fullpack-<name> -f
+journalctl -u fullpack-monitor -n 100
+journalctl -u fullpack-webui -n 100
 ```
 
 پیش‌فرض `info` است. برای خطایی که دنبالش هستی موقتاً `log_level = "debug"` بگذار و
@@ -382,8 +382,8 @@ journalctl -u backpack-webui -n 100
 ### وقتی گیر کردی
 
 قبل از پرسیدن از کسی این چهارتا را جمع کن — **از هر دو ماشین**:
-`backpack version`، `backpack tunnel list`، خروجی `Diagnose`، و
-`journalctl -u backpack-<name> -n 200`. تونل دو سر دارد و تقریباً هر سؤالی دربارهٔ
+`fullpack version`، `fullpack tunnel list`، خروجی `Diagnose`، و
+`journalctl -u fullpack-<name> -n 200`. تونل دو سر دارد و تقریباً هر سؤالی دربارهٔ
 یک سر را آن یکی جواب می‌دهد.
 
 </div>
@@ -393,4 +393,4 @@ journalctl -u backpack-webui -n 100
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

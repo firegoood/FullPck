@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/client"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/server"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/client"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/server"
 )
 
 // kcpFromSpec mirrors the preset's KCP knobs into an engine config.

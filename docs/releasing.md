@@ -34,7 +34,7 @@ git push origin v1.8.4
 The release workflow builds every architecture, writes `SHA256SUMS`, signs it
 with the repository secret, and publishes.
 
-What is signed is the **tag and the list together** (`backpack release <tag>`,
+What is signed is the **tag and the list together** (`fullpack release <tag>`,
 a newline, then `SHA256SUMS`), not the list alone. The list names archives,
 not versions, so a signature over it alone would let a mirror serve an older
 release's genuine files under a newer tag and have every updater verify and
@@ -84,7 +84,7 @@ project's history and the one nothing else records.
 To check a binary you downloaded against it:
 
 ```
-go version -m ./backpack
+go version -m ./fullpack
 ```
 
 ## If the signing key is lost or leaked
@@ -139,4 +139,4 @@ during the incident.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

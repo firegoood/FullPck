@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/telegram"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/telegram"
 )
 
 // Settings endpoints: backup download and restore, and Telegram configuration.
@@ -29,7 +29,7 @@ func (s *server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	name := fmt.Sprintf("backpack-backup-%s.tar.gz", time.Now().Format("2006-01-02-1504"))
+	name := fmt.Sprintf("fullpack-backup-%s.tar.gz", time.Now().Format("2006-01-02-1504"))
 
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)

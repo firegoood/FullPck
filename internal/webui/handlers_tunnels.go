@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // Tunnel management endpoints.

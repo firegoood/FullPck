@@ -15,16 +15,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/geo"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/node"
-	"github.com/backpack/backpack/internal/schedule"
-	"github.com/backpack/backpack/internal/sysstat"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/geo"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/node"
+	"github.com/firegoood/FullPck/internal/schedule"
+	"github.com/firegoood/FullPck/internal/sysstat"
 )
 
-const cronMarker = "backpack-telegram"
+const cronMarker = "fullpack-telegram"
 
 // Config is the persisted Telegram bot configuration.
 type Config struct {
@@ -325,7 +325,7 @@ func bar(pct float64) string {
 // list, written once.
 func helpText(lang string) string {
 	var out strings.Builder
-	out.WriteString(b("🎒 Backpack") + " " + esc(app.Version) + "\n\n")
+	out.WriteString(b("🎒 FullPack") + " " + esc(app.Version) + "\n\n")
 	for _, e := range commandList() {
 		fmt.Fprintf(&out, "/%s — %s\n", e.name, esc(tr(lang, e.desc)))
 	}
@@ -382,7 +382,7 @@ func webPanelInfo() (password, url string) {
 }
 
 // SendStatusNow sends the current status to the configured admin. Called by
-// the `backpack --telegram-report` cron job.
+// the `fullpack --telegram-report` cron job.
 func SendStatusNow() error {
 	c := Load()
 	if c.Token == "" || c.AdminID == "" {
@@ -410,7 +410,7 @@ func SendStatusNow() error {
 // first attempt as a failure is how a working setup looks broken right after it
 // is configured.
 func SendTest(c Config) error {
-	const msg = "✅ Backpack is connected. You will receive status reports here."
+	const msg = "✅ FullPack is connected. You will receive status reports here."
 
 	// Only a relayed send has the restart-then-reconnect race; a direct send
 	// that fails is failing for a real reason and should say so at once.
@@ -765,11 +765,7 @@ func webUIText(lang string) string {
 
 func supportText(lang string) string {
 	return b("💛 "+tr(lang, "Support")) + "\n\n" +
-		"GitHub : https://github.com/AminMGMT\n" +
-		"Channel : https://t.me/BlackProtocols\n\n" +
-		"🔺 Tron [ TRX ] :\n" + code("TTzuUAtsEsrLgNpFVLNTyLVJVRRFNWESYc") + "\n\n" +
-		"💠 USDT [ BEP20 ] :\n" + code("0xc112AE9bfF7c59dEcFb34E988A397848D3093E82") + "\n\n" +
-		"💎 Gram [ TON ] :\n" + code("UQD9g40QubAICJ6zPqegtCY7s-joMx2DB8aIqA0xF1aHoCDs")
+		"GitHub : https://github.com/firegoood/FullPck"
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) {
@@ -790,7 +786,7 @@ func sendBackup(c Config) error {
 		return fmt.Errorf("could not build the backup: %w", err)
 	}
 
-	name := fmt.Sprintf("backpack-backup-%s.tar.gz", time.Now().Format("2006-01-02-1504"))
+	name := fmt.Sprintf("fullpack-backup-%s.tar.gz", time.Now().Format("2006-01-02-1504"))
 	caption := "🔐 Full backup — every tunnel and token, the panel password, " +
 		"Telegram settings and certificates.\n\nKeep it private: anyone with this " +
 		"file can connect to your tunnels."

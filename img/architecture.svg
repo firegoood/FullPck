@@ -9,7 +9,7 @@
   </defs>
 
   <rect x="1" y="1" width="998" height="310" rx="14" fill="#ffffff" stroke="#d0d7de"/>
-  <text x="500" y="30" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">How Backpack moves traffic</text>
+  <text x="500" y="30" text-anchor="middle" font-size="17" font-weight="700" fill="#1f2328">How FullPack moves traffic</text>
 
   <!-- End users -->
   <rect x="20" y="137" width="120" height="70" rx="10" fill="#eef1f4" stroke="#d0d7de"/>
@@ -22,7 +22,7 @@
   <text x="296" y="118" text-anchor="middle" font-size="10.5" fill="#6b7280">role: SERVER · exposes ports</text>
   <rect x="190" y="132" width="212" height="82" rx="8" fill="#f6f8fa" stroke="#d0d7de"/>
   <text x="296" y="158" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2328">Forwarded ports · :443 :8443</text>
-  <text x="296" y="180" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2328">Backpack engine</text>
+  <text x="296" y="180" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2328">FullPack engine</text>
   <text x="296" y="199" text-anchor="middle" font-size="10.5" fill="#6b7280">token auth · pool · monitor</text>
 
   <!-- Kharej server -->
@@ -30,7 +30,7 @@
   <text x="704" y="102" text-anchor="middle" font-size="13" font-weight="700" fill="#1f2328">KHAREJ / ABROAD</text>
   <text x="704" y="118" text-anchor="middle" font-size="10.5" fill="#6b7280">role: CLIENT · dials out</text>
   <rect x="598" y="132" width="212" height="82" rx="8" fill="#f6f8fa" stroke="#d0d7de"/>
-  <text x="704" y="166" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2328">Backpack engine</text>
+  <text x="704" y="166" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2328">FullPack engine</text>
   <text x="704" y="190" text-anchor="middle" font-size="12.5" font-weight="600" fill="#1f2328">forward to the real service</text>
 
   <!-- Real service -->

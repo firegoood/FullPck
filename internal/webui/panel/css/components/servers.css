@@ -342,7 +342,7 @@
 /* What the machine is doing right now.
  *
  * Two bars under the facts strip, on the same grid: the card said which
- * Backpack and how long up — facts that hold all week — and nothing about load,
+ * FullPack and how long up — facts that hold all week — and nothing about load,
  * so a node at 95% looked exactly like an idle one. */
 .panel .mp-load{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .panel .mp-m{--mm:var(--ok);display:flex;flex-direction:column;gap:5px;min-width:0}

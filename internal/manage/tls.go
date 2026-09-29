@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // certDir is where auto-generated self-signed certificates live.
@@ -65,7 +65,7 @@ func writeSelfSigned(name string, ips []net.IP, dns []string) (certPath, keyPath
 
 	tmpl := x509.Certificate{
 		SerialNumber:          serial,
-		Subject:               pkix.Name{CommonName: "backpack", Organization: []string{"backpack"}},
+		Subject:               pkix.Name{CommonName: "fullpack", Organization: []string{"fullpack"}},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,

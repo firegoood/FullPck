@@ -2,7 +2,7 @@ package manage
 
 import (
 	"fmt"
-	"github.com/backpack/backpack/internal/optimize"
+	"github.com/firegoood/FullPck/internal/optimize"
 	"math"
 	"net"
 	"os"
@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/manage/backup"
+	"github.com/firegoood/FullPck/internal/manage/backup"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // CheckLevel is how a diagnostic turned out.
@@ -72,7 +72,7 @@ func systemChecks() []Check {
 	const g = "System"
 	var out []Check
 
-	out = append(out, Check{Group: g, Name: "Backpack version", Level: CheckInfo, Detail: app.Version})
+	out = append(out, Check{Group: g, Name: "FullPack version", Level: CheckInfo, Detail: app.Version})
 
 	// Binary present and executable.
 	if fi, err := os.Stat(app.BinPath); err == nil {
@@ -83,7 +83,7 @@ func systemChecks() []Check {
 		out = append(out, Check{Group: g, Name: "Binary", Level: lvl, Detail: app.BinPath, Fix: fix})
 	} else {
 		out = append(out, Check{Group: g, Name: "Binary", Level: CheckFail,
-			Detail: "missing at " + app.BinPath, Fix: "reinstall Backpack"})
+			Detail: "missing at " + app.BinPath, Fix: "reinstall FullPack"})
 	}
 
 	// Running as root — everything here needs it.
@@ -91,7 +91,7 @@ func systemChecks() []Check {
 		out = append(out, Check{Group: g, Name: "Root privileges", Level: CheckOK, Detail: "running as root"})
 	} else {
 		out = append(out, Check{Group: g, Name: "Root privileges", Level: CheckFail,
-			Detail: "not root", Fix: "run: sudo backpack"})
+			Detail: "not root", Fix: "run: sudo fullpack"})
 	}
 
 	// systemd must be usable, otherwise nothing survives a reboot.
@@ -99,12 +99,12 @@ func systemChecks() []Check {
 		out = append(out, Check{Group: g, Name: "systemd", Level: CheckOK, Detail: "available"})
 	} else {
 		out = append(out, Check{Group: g, Name: "systemd", Level: CheckFail,
-			Detail: "systemctl not found", Fix: "Backpack needs systemd to manage services"})
+			Detail: "systemctl not found", Fix: "FullPack needs systemd to manage services"})
 	}
 
 	if runtime.GOOS != "linux" {
 		out = append(out, Check{Group: g, Name: "Platform", Level: CheckWarn,
-			Detail: runtime.GOOS, Fix: "Backpack is designed for Linux servers"})
+			Detail: runtime.GOOS, Fix: "FullPack is designed for Linux servers"})
 		return out
 	}
 
@@ -201,7 +201,7 @@ func monitorChecks() []Check {
 	if !fileExists(app.ServiceDir + "/" + app.MonitorService) {
 		return append(out, Check{Group: g, Name: "Service", Level: CheckWarn,
 			Detail: "not installed — no watchdog and no alerts",
-			Fix:    "restart the CLI (sudo backpack); it installs the service on launch"})
+			Fix:    "restart the CLI (sudo fullpack); it installs the service on launch"})
 	}
 	if MonitorRunning() {
 		out = append(out, Check{Group: g, Name: "Service", Level: CheckOK,
@@ -464,7 +464,7 @@ func tunnelChecksFor(t Tunnel, pairs [][2]string) []Check {
 	case spec.Token == "":
 		out = append(out, Check{Group: g, Name: "Token", Level: CheckFail,
 			Detail: "empty", Fix: "recreate the tunnel with a generated token"})
-	case len(spec.Token) < 16 || spec.Token == "backpack":
+	case len(spec.Token) < 16 || spec.Token == "fullpack":
 		out = append(out, Check{Group: g, Name: "Token", Level: CheckWarn,
 			Detail: "weak or default", Fix: "recreate the tunnel to get a 64-char token"})
 	default:
@@ -657,7 +657,7 @@ func humanSize(n int) string {
 
 // --- file locations ---------------------------------------------------------
 
-// Location is one file or directory Backpack owns, and whether it exists.
+// Location is one file or directory FullPack owns, and whether it exists.
 type Location struct {
 	Label  string
 	Path   string
@@ -665,7 +665,7 @@ type Location struct {
 	Note   string
 }
 
-// Locations lists every file and folder Backpack uses, so a user can see at a
+// Locations lists every file and folder FullPack uses, so a user can see at a
 // glance what is installed and where things live.
 func Locations() []Location {
 	out := []Location{

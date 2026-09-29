@@ -89,7 +89,7 @@ forward over TCP. Set it per tunnel:
 - **Web panel** — Edit → Fine Tune → the same switch
 - **By hand** — `accept_udp = false` in the `[server]` section
 
-With it off, the forwarded port binds TCP only, which is what Backpack did
+With it off, the forwarded port binds TCP only, which is what FullPack did
 before v1.7.1.
 
 If the UDP side of a port cannot be bound — something else already has it — the
@@ -122,14 +122,14 @@ tunnel logs a warning and carries on with TCP on that port. It is never fatal.
 ## If UDP still does not pass
 
 1. **Firewall** — `ufw allow <port>/udp`, on the Iran server. See above.
-2. **Both ends upgraded?** `backpack -v` on each. A mixed pair forwards TCP
+2. **Both ends upgraded?** `fullpack -v` on each. A mixed pair forwards TCP
    only.
 3. **Is the backend actually listening on UDP?** On the kharej machine:
    `ss -ulnp | grep <port>`. An Xray inbound with no UDP outbound configured has
    nothing to answer with.
-4. **Is it turned off?** `grep accept_udp /etc/backpack/<tunnel>.toml`. An
+4. **Is it turned off?** `grep accept_udp /etc/fullpack/<tunnel>.toml`. An
    explicit `false` is honoured.
-5. **Check the log** — `journalctl -u backpack-<tunnel> -n 50`. The line
+5. **Check the log** — `journalctl -u fullpack-<tunnel> -n 50`. The line
    `UDP listener started successfully, listening on address: …` should appear
    once per forwarded port at startup.
 
@@ -171,7 +171,7 @@ forward‌های TCP گرسنه می‌مانند — سایت نصفه لود �
 
 **اگر باز هم رد نشد:** فایروال را چک کن؛ هر دو طرف باید نسخهٔ ۱.۷.۱ به بالا
 باشند؛ روی سرور خارج با `ss -ulnp | grep <port>` ببین سرویس واقعاً روی UDP گوش
-می‌دهد؛ `grep accept_udp /etc/backpack/<tunnel>.toml` را نگاه کن؛ و در لاگ دنبال
+می‌دهد؛ `grep accept_udp /etc/fullpack/<tunnel>.toml` را نگاه کن؛ و در لاگ دنبال
 خط `UDP listener started successfully` بگرد.
 
 **ترنسپورت `udp` چیز دیگری است** — آن یعنی خودِ تونل روی دیتاگرام خام می‌رود و
@@ -185,4 +185,4 @@ forward‌های TCP گرسنه می‌مانند — سایت نصفه لود �
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

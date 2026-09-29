@@ -2,7 +2,7 @@
 
 Everything in one portable `.tar.gz`: every tunnel and token, the web-panel
 password, Telegram settings, TLS certificates, and the auto-refresh schedule.
-Backups live in `/root/BackPack/backups`.
+Backups live in `/root/FullPack/backups`.
 
 ## Restoring onto a different machine
 
@@ -20,14 +20,14 @@ one-time code.
 
 **On the machine that has the fleet, before you need it:**
 
-`sudo backpack` → **Backup & Restore** → **Show the fleet key**
+`sudo fullpack` → **Backup & Restore** → **Show the fleet key**
 
 Store it somewhere the backup is not. Keeping them together undoes the only
 thing sealing them achieves.
 
 **On the new machine, after restoring the backup:**
 
-`sudo backpack` → **Backup & Restore** → **Restore the fleet key**
+`sudo fullpack` → **Backup & Restore** → **Restore the fleet key**
 
 It refuses if that machine already has a key of its own, because overwriting one
 would make every Agent credential currently sealed there unreadable and there is no
@@ -58,7 +58,7 @@ from where the backup left off rather than resetting to zero.
 
 همه‌چیز در یک فایل `.tar.gz` قابل‌حمل: تمام تونل‌ها و توکن‌ها، رمز پنل وب،
 تنظیمات تلگرام، گواهی‌های TLS و زمان‌بندی ری‌فرش خودکار. فایل‌ها در
-`/root/BackPack/backups` ذخیره می‌شوند.
+`/root/FullPack/backups` ذخیره می‌شوند.
 
 **بازگردانی** همهٔ تونل‌ها را دوباره ثبت و استارت می‌کند و آمار ترافیک از همان
 جایی که بوده ادامه پیدا می‌کند، نه از صفر.
@@ -76,7 +76,7 @@ from where the backup left off rather than resetting to zero.
 
 ## Getting a backup off the machine
 
-Backups are written to `/var/backups/backpack` — on the server they describe.
+Backups are written to `/var/backups/fullpack` — on the server they describe.
 The case they exist for is the case where that server is gone, so a copy
 somewhere else is the only one that will be there.
 
@@ -84,8 +84,8 @@ somewhere else is the only one that will be there.
 `{}` standing for the backup file's path:
 
 ```
-rclone copy {} remote:backpack/
-scp {} backup@10.0.0.9:/srv/backpack/
+rclone copy {} remote:fullpack/
+scp {} backup@10.0.0.9:/srv/fullpack/
 restic backup {}
 ```
 
@@ -135,4 +135,4 @@ Run it after any change to what the machine holds, and once before you need it.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

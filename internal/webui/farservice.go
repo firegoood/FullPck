@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // What the far end says about the last hop.

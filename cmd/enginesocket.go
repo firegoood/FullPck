@@ -6,9 +6,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/enginectl"
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/enginectl"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // The engine's side of the control socket.

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-labelledby="t d">
-  <title id="t">The Backpack web panel's navigation</title>
+  <title id="t">The FullPack web panel's navigation</title>
   <desc id="d">A strip across the top belongs to no screen. Below it a dock selects one of three sections: Overview at #/, Servers at #/servers, and Tunnels at #/tunnels. Seven per-tunnel dialogs — live log, metrics, history, link test, speed test, edit and undo — and seven installation dialogs — add tunnel, settings, alerts, health check, maintenance, support and star — open over whichever section was showing, and closing one returns to that section.</desc>
 
   <style>

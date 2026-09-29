@@ -2,7 +2,7 @@
 
 ## Before anything else: the licence
 
-Backpack is **AGPL-3.0**, and `NOTICE` records that part of the data plane
+FullPack is **AGPL-3.0**, and `NOTICE` records that part of the data plane
 derives from prior AGPL/GPL work. That has three consequences worth knowing
 before you write anything:
 
@@ -12,7 +12,7 @@ before you write anything:
 - `NOTICE` carries two additional terms permitted by AGPL §7. They ask that the
   attribution line be kept, and they decline to license the name. `TRADEMARK.md`
   says exactly what that covers — in short: **fork freely, rename if you
-  redistribute**, and nominative use ("compatible with Backpack") is always
+  redistribute**, and nominative use ("compatible with FullPack") is always
   fine.
 
 You keep the copyright on what you write. There is no CLA.

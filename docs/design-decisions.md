@@ -1,6 +1,6 @@
 # Design decisions
 
-What Backpack deliberately does not do, and why.
+What FullPack deliberately does not do, and why.
 
 Most of this file is a list of things that were asked for, considered
 seriously, and turned down. That is the useful half of a roadmap: the features
@@ -19,7 +19,7 @@ information would be.
 single tunnel. Fault isolation comes free: a panic, a leak or a bad config
 takes down exactly one tunnel and systemd restarts exactly that one.
 
-**The data path carries opaque bytes.** Backpack does not look at what it
+**The data path carries opaque bytes.** FullPack does not look at what it
 carries, and several decisions below are downstream of refusing to start.
 
 **One maintainer, ~104k lines of Go, no runtime dependencies.** A feature is
@@ -29,7 +29,7 @@ worth defending.
 
 ## The licence, which decides what can be sold
 
-Backpack is AGPL-3.0, and `NOTICE` records that part of the data plane derives
+FullPack is AGPL-3.0, and `NOTICE` records that part of the data plane derives
 from prior AGPL/GPL work — so the copyright is not held outright and a closed
 build cannot be shipped or relicensed. AGPL §13 adds the network clause on top.
 What remains sellable is a *service*, support, and early access with source.
@@ -98,14 +98,14 @@ distributed-systems one.
 Distributed tracing through the tunnel.
 
 **Rejected.** Tracing answers 'which service in the chain was slow', and
-BackPack is one hop carrying opaque bytes — there is no span structure to
+FullPack is one hop carrying opaque bytes — there is no span structure to
 record. OTel *metrics* would duplicate the Prometheus endpoint. The cost is a
 large dependency tree in a binary that currently has sixteen direct
 requirements and installs as a single static file.
 
 ### INT-03 — Ansible and Terraform modules
 
-Provisioning BackPack from existing infrastructure-as-code.
+Provisioning FullPack from existing infrastructure-as-code.
 
 **Rejected as first-party.** These are thin wrappers over the API, they belong
 in their own repositories with their own release cycles, and the target user
@@ -118,7 +118,7 @@ enterprise adoption appears.
 Shipping logs to a central store.
 
 **Rejected as a built-in.** journald plus promtail already does this for anyone
-who wants it, without a line in this repo. What BackPack should do instead is
+who wants it, without a line in this repo. What FullPack should do instead is
 make its logs worth shipping — that is OBS-04, structured logs with a stable
 schema.
 
@@ -129,7 +129,7 @@ recipe. The decision stands: the shipping is still somebody else's collector.
 
 ### INT-05 — Docker image
 
-Running BackPack in a container.
+Running FullPack in a container.
 
 **Rejected.** The engine needs `CAP_NET_RAW` and `CAP_NET_ADMIN` for the raw
 and packet-socket carriers, creates TUN devices, writes sysctls, manages
@@ -149,11 +149,11 @@ picture. This would be a second product sharing a name.
 
 Accounting traffic per end user, with limits and invoices.
 
-**Rejected.** BackPack carries opaque bytes for a proxy that sits behind it; it
+**Rejected.** FullPack carries opaque bytes for a proxy that sits behind it; it
 has no concept of a user and cannot acquire one without inspecting traffic it
 deliberately does not look at. The panels that do this (Marzban, and the like)
 sit at the proxy layer where the identity actually exists. Adding it here would
-mean either a user database BackPack cannot populate or traffic inspection that
+mean either a user database FullPack cannot populate or traffic inspection that
 contradicts the product.
 
 ### MISC-06 — Built-in DNS or ad-blocking
@@ -161,7 +161,7 @@ contradicts the product.
 Resolving or filtering DNS inside the tunnel.
 
 **Rejected.** Out of scope, well served by existing software, and it would put
-BackPack in the position of inspecting traffic. The l3 engine carries whatever
+FullPack in the position of inspecting traffic. The l3 engine carries whatever
 the kernel routes; pointing that kernel at a resolver is the operator's
 one-line job.
 
@@ -207,9 +207,9 @@ Routing by hostname or by which application produced the traffic.
 
 **Rejected.** Domain routing needs DNS interception or SNI inspection on every
 flow; application awareness needs a client agent on the originating host.
-BackPack sits at the edge, carrying traffic that arrives already anonymous — it
+FullPack sits at the edge, carrying traffic that arrives already anonymous — it
 has neither the DNS view nor the process view. This is Xray/sing-box's job, and
-those already sit behind a BackPack tunnel in the normal deployment. Adding it
+those already sit behind a FullPack tunnel in the normal deployment. Adding it
 here duplicates a mature tool badly.
 
 ## Decisions recorded elsewhere
@@ -235,7 +235,7 @@ constrain, because that is where somebody about to undo them will be looking:
 
 ## خلاصهٔ فارسی
 
-این صفحه فهرست کارهایی است که Backpack **عمداً نمی‌کند**، و دلیل هر کدام.
+این صفحه فهرست کارهایی است که FullPack **عمداً نمی‌کند**، و دلیل هر کدام.
 
 بیشترش فهرست پیشنهادهایی است که جدی بررسی و رد شده‌اند. این همان نیمهٔ مفیدِ یک
 roadmap است: چیزهایی که ساخته می‌شوند دیگر جالب نیستند، ولی دلیلِ ردکردنِ بقیه هر
@@ -250,7 +250,7 @@ roadmap است: چیزهایی که ساخته می‌شوند دیگر جالب
 و یک نگه‌دارنده با حدود ۱۰۴ هزار خط Go و بدون وابستگی زمان اجرا، پس هر قابلیت با
 معیارِ «هزینهٔ نگه‌داریش را درمی‌آورد؟» سنجیده می‌شود نه «رقیب دارد؟».
 
-**مجوز، که تعیین می‌کند چه چیزی قابل فروش است:** Backpack با AGPL-3.0 منتشر شده
+**مجوز، که تعیین می‌کند چه چیزی قابل فروش است:** FullPack با AGPL-3.0 منتشر شده
 و `NOTICE` ثبت می‌کند که بخشی از مسیر داده از کار قبلیِ AGPL/GPL گرفته شده — پس
 کپی‌رایت به‌طور کامل در اختیار نیست و نه می‌شود نسخهٔ بسته ساخت و نه مجوز را عوض
 کرد. مادهٔ ۱۳ AGPL هم بند شبکه را اضافه می‌کند. آنچه می‌ماند: **سرویس**،
@@ -263,4 +263,4 @@ roadmap است: چیزهایی که ساخته می‌شوند دیگر جالب
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

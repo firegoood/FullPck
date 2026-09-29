@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // The record of what was done through the panel.
@@ -281,7 +281,7 @@ func describeAudit(e auditEntry) string {
 
 // Getting the record off the machine it describes.
 //
-// The audit file lives at /etc/backpack/audit.json, owned by root, on the box
+// The audit file lives at /etc/fullpack/audit.json, owned by root, on the box
 // the panel runs on — and the panel is root on that box. So an attacker who
 // reaches it can rewrite the record of how they got there, and the record's
 // whole value is that it can be trusted afterwards.

@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 	"github.com/flynn/noise"
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/hkdf"
@@ -40,7 +40,7 @@ const (
 	AgentPath = "/_bp/node"
 
 	agentProtocolVersion  = 1
-	agentPrologue         = "backpack-node-agent-v1"
+	agentPrologue         = "fullpack-node-agent-v1"
 	agentMaxMessage       = 1 << 20
 	agentQueueSize        = 64
 	agentMaxConcurrent    = 8
@@ -513,7 +513,7 @@ func credentialPSK(credential string) ([]byte, error) {
 	if strings.TrimSpace(credential) == "" {
 		return nil, errors.New("empty Agent credential")
 	}
-	key := hkdf.New(sha256.New, []byte(credential), []byte("backpack-node-agent-psk-v1"), nil)
+	key := hkdf.New(sha256.New, []byte(credential), []byte("fullpack-node-agent-psk-v1"), nil)
 	psk := make([]byte, 32)
 	_, err := io.ReadFull(key, psk)
 	return psk, err
@@ -618,7 +618,7 @@ type AgentConfig struct {
 }
 
 // AgentConfigPath can be redirected by tests; production uses the root-only
-// /etc/backpack path.
+// /etc/fullpack path.
 var AgentConfigPath = app.NodeAgentConfig
 
 func LoadAgentConfig() (AgentConfig, error) {

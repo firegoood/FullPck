@@ -595,7 +595,7 @@ export function addView(ctx) {
           result.innerHTML = !onNode
             ? `<div class="doneline"><span class="tick">✓</span><div>
                  <b>${esc(name || 'The tunnel')} is saved on this server</b>
-                 <span>Open Backpack on the other machine and choose the opposite side.</span>
+                 <span>Open FullPack on the other machine and choose the opposite side.</span>
                  <span>Name: <code>${esc(name)}</code> · Port: <code>${esc(payload.tunnelPort || '')}</code> · ${direct ? 'Carrier' : 'Transport'}: <code>${esc(direct ? payload.carrier : payload.transport)}</code></span>
                  <span>Security token: <code>${esc(payload.token || '')}</code></span>
                </div></div>`
@@ -724,7 +724,7 @@ export function addView(ctx) {
         .filter(b => /show as a cli command/i.test(b.textContent.trim()))
         .forEach(b => b.addEventListener('click', async () => {
           const get = n => root.querySelector(`[name="${n}"], #${n}`)?.value?.trim() || '';
-          const line = ['sudo backpack',
+          const line = ['sudo fullpack',
             chosen.direction === 'direct' ? 'direct' : 'reverse',
             chosen.side === 'server' ? '--iran' : '--kharej',
             chosen.transport ? '--transport ' + chosen.transport : '',

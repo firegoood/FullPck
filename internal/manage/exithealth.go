@@ -3,8 +3,8 @@ package manage
 import (
 	"fmt"
 
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // ExitHealth scores every server address a client tunnel can use and ranks them,

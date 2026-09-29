@@ -4,8 +4,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/backpack/backpack/internal/utils"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils/network"
 
 	"github.com/sirupsen/logrus"
 )

@@ -81,10 +81,10 @@ func TestRulesAreTaggedPerKindAndInterface(t *testing.T) {
 	l3 := strings.Join(Rules("l3", "bp0", 1400, 0)[0].Args("-A"), " ")
 	gre := strings.Join(Rules("gre", "gre1", 1400, 0)[0].Args("-A"), " ")
 
-	if !strings.Contains(l3, "backpack-l3-mss-bp0") {
+	if !strings.Contains(l3, "fullpack-l3-mss-bp0") {
 		t.Errorf("l3 rule is not tagged: %s", l3)
 	}
-	if !strings.Contains(gre, "backpack-gre-mss-gre1") {
+	if !strings.Contains(gre, "fullpack-gre-mss-gre1") {
 		t.Errorf("gre rule is not tagged: %s", gre)
 	}
 	if strings.Contains(l3, "gre1") || strings.Contains(gre, "bp0") {

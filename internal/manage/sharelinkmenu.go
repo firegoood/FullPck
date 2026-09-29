@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // The setup link, from the operator's side.
@@ -55,7 +55,7 @@ func printShareLink(name string) bool {
 		tui.Warn("On the KHAREJ server: Setup Kharej → Direct → the same carrier →")
 		tui.Warn("Setup Link, and paste this line.")
 	} else {
-		tui.Warn("Paste this into the OTHER server: sudo backpack → Setup from a link.")
+		tui.Warn("Paste this into the OTHER server: sudo fullpack → Setup from a link.")
 	}
 	tui.Warn("It carries everything the two ends have to agree on — the token, the")
 	tui.Warn("transport, the port, and the tuning — so nothing has to be retyped.")

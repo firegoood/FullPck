@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // The panel's half of the forged-source carrier. The CLI has a screen for it;

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // Getting a backup off the machine it describes.
@@ -32,8 +32,8 @@ import (
 // So the setting is a command line with one placeholder. Everything else is
 // theirs.
 //
-//	offsite = "rclone copy {} remote:backpack/"
-//	offsite = "scp {} backup@10.0.0.9:/srv/backpack/"
+//	offsite = "rclone copy {} remote:fullpack/"
+//	offsite = "scp {} backup@10.0.0.9:/srv/fullpack/"
 //	offsite = "restic backup {}"
 //
 // # What it deliberately does not do

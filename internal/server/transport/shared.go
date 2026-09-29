@@ -12,7 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // controlClaimTimeout is how long the server waits for a freshly accepted peer

@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/webui"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // backupMenu creates or restores a full configuration backup (all tunnels, the
@@ -219,8 +219,8 @@ func configureOffsite() {
 	tui.Info("Now: " + offsiteLabel())
 	fmt.Println()
 	tui.Warn("Enter a command. {} is replaced with the backup file's path:")
-	tui.Warn("    rclone copy {} remote:backpack/")
-	tui.Warn("    scp {} backup@10.0.0.9:/srv/backpack/")
+	tui.Warn("    rclone copy {} remote:fullpack/")
+	tui.Warn("    scp {} backup@10.0.0.9:/srv/fullpack/")
 	tui.Warn("    restic backup {}")
 	fmt.Println()
 	tui.Warn("It is run directly, not through a shell, so a ';' or a '|' in it is")

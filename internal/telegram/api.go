@@ -78,7 +78,7 @@ func call(c Config, method string, form url.Values) (apiResult, error) {
 			if resp.StatusCode == http.StatusUnauthorized {
 				return out, fmt.Errorf("telegram rejected the bot token (401 Unauthorized) — " +
 					"the relay is fine; get a fresh token from @BotFather and set it with: " +
-					"sudo backpack → Telegram Bot → Configure")
+					"sudo fullpack → Telegram Bot → Configure")
 			}
 			return out, fmt.Errorf("telegram API returned status %d", resp.StatusCode)
 		}
@@ -88,7 +88,7 @@ func call(c Config, method string, form url.Values) (apiResult, error) {
 		if resp.StatusCode == http.StatusUnauthorized {
 			return out, fmt.Errorf("telegram rejected the bot token (401 %s) — "+
 				"the relay is fine; get a fresh token from @BotFather and set it with: "+
-				"sudo backpack → Telegram Bot → Configure", strings.TrimSpace(out.Description))
+				"sudo fullpack → Telegram Bot → Configure", strings.TrimSpace(out.Description))
 		}
 		return out, fmt.Errorf("telegram: %s", out.Description)
 	}
@@ -132,7 +132,7 @@ func describeStatus(resp *http.Response) error {
 			detail = "Unauthorized"
 		}
 		return fmt.Errorf("telegram rejected the bot token (401 %s) — the relay is fine; "+
-			"get a fresh token from @BotFather and set it with: sudo backpack → Telegram Bot → Configure", detail)
+			"get a fresh token from @BotFather and set it with: sudo fullpack → Telegram Bot → Configure", detail)
 	}
 	if detail != "" {
 		return fmt.Errorf("telegram API returned status %d: %s", resp.StatusCode, detail)

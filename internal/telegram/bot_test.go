@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/tunhist"
+	"github.com/firegoood/FullPck/internal/tunhist"
 )
 
 // A tunnel's handle must survive a restart, because the buttons in the chat do.

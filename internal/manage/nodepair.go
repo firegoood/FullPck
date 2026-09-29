@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage/core"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage/core"
 )
 
 // Which tunnels have their other end on a managed server.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/tunnel/mssclamp"
+	"github.com/firegoood/FullPck/internal/tunnel/mssclamp"
 )
 
 // The clamp is the fix for the one failure a layer-3 tunnel produces that every
@@ -34,7 +34,7 @@ func TestClampCoversRoutedAndLocalTraffic(t *testing.T) {
 	seen := map[string]bool{}
 	for _, r := range mssclamp.Rules("l3", "bp0", 1400, 0) {
 		seen[r.Cmd+" "+r.Chain] = true
-		if !strings.Contains(strings.Join(r.Args("-A"), " "), "backpack-l3-mss-bp0") {
+		if !strings.Contains(strings.Join(r.Args("-A"), " "), "fullpack-l3-mss-bp0") {
 			t.Errorf("a layer-3 rule is not tagged as one: %v", r.Args("-A"))
 		}
 	}

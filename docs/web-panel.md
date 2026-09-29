@@ -41,7 +41,7 @@ certificate your own way and give the panel the two files.
   panel at certbot's `live/` paths and let certbot renew as usual.
 - If the files later disappear or become unreadable, the panel does not lock
   you out: it serves its self-signed certificate instead and says why in its
-  log (`journalctl -u backpack-webui`).
+  log (`journalctl -u fullpack-webui`).
 
 For a **tunnel** (WSS / WSS Mux), the setup wizard's *Use existing
 certificate/key files* does the same, and writes `tls_cert` and `tls_key` into
@@ -116,4 +116,4 @@ that does the same job — is in
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

@@ -2,9 +2,9 @@
 
 ## Reporting a vulnerability
 
-Email **600o60o6@gmail.com** with `BACKPACK SECURITY` in the subject.
+Email **600o60o6@gmail.com** with `FULLPACK SECURITY` in the subject.
 
-Please do not open a public issue first. Backpack is used to get past national
+Please do not open a public issue first. FullPack is used to get past national
 filtering; a vulnerability published before there is a release to move to is a
 vulnerability handed to the people the tool exists to get past, and the people
 it costs are not the maintainers.
@@ -13,7 +13,7 @@ Tell us:
 
 - what you found, and what an attacker gets from it;
 - how to reproduce it — a config, a packet capture, a patch, whatever you have;
-- which version (`backpack version`), and which transport or carrier.
+- which version (`fullpack version`), and which transport or carrier.
 
 You will get an acknowledgement within **72 hours**. If you do not, assume the
 mail was lost and try again.
@@ -48,7 +48,7 @@ back up. Staying current is the supported configuration.
 
 ## What is out of scope
 
-- **Traffic analysis that identifies Backpack as Backpack.** The obfuscating
+- **Traffic analysis that identifies FullPack as FullPack.** The obfuscating
   carriers raise the cost of classification; none of them claims to be
   indistinguishable from the traffic it imitates, and an adversary with a full
   view of both ends of a flow can correlate it. This is a property of the
@@ -56,7 +56,7 @@ back up. Staying current is the supported configuration.
 - **Denial of service by flooding a public port.** A tunnel binds a port and
   anything can send to it. The handshake is cheap to refuse and the replay
   window is bounded, which is as far as this goes.
-- **Anything requiring root on a machine already running Backpack.** The engine
+- **Anything requiring root on a machine already running FullPack.** The engine
   runs as root by design — it writes systemd units, tunes sysctls and opens raw
   sockets.
 - **Social engineering, physical access, and vulnerabilities in dependencies
@@ -82,7 +82,7 @@ purpose:
 
 ## Cryptography
 
-Backpack uses the Noise protocol framework (NNpsk0) with ChaCha20-Poly1305,
+FullPack uses the Noise protocol framework (NNpsk0) with ChaCha20-Poly1305,
 explicit nonces, and an RFC 4303 replay window. It does not invent primitives.
 
 The implementation has not had a third-party review. Two people have read it

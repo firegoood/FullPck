@@ -60,7 +60,7 @@ var (
 // proof is the value each end returns to show it holds the token.
 func proof(token, label string, nonceEdge, nonceOrigin []byte) []byte {
 	mac := hmac.New(sha256.New, []byte(token))
-	mac.Write([]byte("backpack-direct-v1|"))
+	mac.Write([]byte("fullpack-direct-v1|"))
 	mac.Write([]byte(label))
 	mac.Write([]byte{'|'})
 	mac.Write(nonceEdge)

@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/optimize"
-	"github.com/backpack/backpack/internal/tunnel/l3"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/optimize"
+	"github.com/firegoood/FullPck/internal/tunnel/l3"
 )
 
 // Creating a direct tunnel from the web panel.
@@ -417,7 +417,7 @@ func (n NewDirectTunnel) spec() (l3Spec, error) {
 
 	spec := l3Spec{
 		Name: name, Side: side, Carrier: carrier,
-		// Always Backpack's own GRE inside the Noise session. There is no
+		// Always FullPack's own GRE inside the Noise session. There is no
 		// choice here and the panel does not offer one; see askL3Encap's
 		// removal in the CLI wizard for why.
 		Encap: "gre", GREKey: n.GREKey,

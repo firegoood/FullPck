@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/manage/backup"
+	"github.com/firegoood/FullPck/internal/manage/backup"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/optimize"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/optimize"
 )
 
 // Updating from a release the operator downloaded themselves.
@@ -21,7 +21,7 @@ import (
 // help and do not always work. What always works is a browser somewhere else,
 // a file, and scp.
 //
-// So: put backpack_linux_<arch>.tar.gz in /root, choose this, and everything
+// So: put fullpack_linux_<arch>.tar.gz in /root, choose this, and everything
 // after the download is exactly what the online update does — the same
 // verification when a checksum is there, the same snapshot before anything is
 // touched, the same health check afterwards, and the same automatic rollback
@@ -35,7 +35,7 @@ func localUpdateDirs() []string { return localUpdateDirsFn() }
 // localUpdateDirsFn is the list, behind a variable so a test can point the
 // search somewhere that is not this machine's /root.
 //
-// The working directory is not on it. It used to be, and `sudo backpack` keeps
+// The working directory is not on it. It used to be, and `sudo fullpack` keeps
 // the caller's working directory — so root opening the Update menu from /tmp
 // ran, as root, the binary inside any archive another account had left there.
 // The binary is run to read its version the moment the menu is drawn, before
@@ -76,7 +76,7 @@ type LocalUpdate struct {
 
 	// Version is what the binary inside reports, or "" when it could not be
 	// asked — an archive from before the version flag existed, or one that is
-	// not a Backpack release at all.
+	// not a FullPack release at all.
 	Version string
 
 	// Checksums is the SHA256SUMS file sitting beside it, when there is one.
@@ -122,7 +122,7 @@ func LocalUpdateSearchedIn() []string { return localUpdateDirs() }
 // the flag, or a file that is not a release at all — returns "", and the caller
 // says so rather than inventing a number.
 func versionInArchive(archive string) string {
-	tmp, err := os.CreateTemp("", "backpack-check-*")
+	tmp, err := os.CreateTemp("", "fullpack-check-*")
 	if err != nil {
 		return ""
 	}

@@ -6,7 +6,7 @@ ordinary HTTPS website. **WSS Mux** adds multiplexing and the PROXY protocol.
 Three things make it more than "WS with TLS":
 
 - **A real Chrome TLS fingerprint.** Go's default ClientHello is itself
-  identifiable; Backpack sends a current Chrome one, so the handshake blends into
+  identifiable; FullPack sends a current Chrome one, so the handshake blends into
   normal browser traffic.
 - **A session-bound credential.** The token is never sent. Each side derives
   keying material from the TLS session and the client proves it holds the token
@@ -39,7 +39,7 @@ after the forwarded ports.
 | **Let's Encrypt, automatic** | you have a domain pointing at this server, and you want the connection to look completely ordinary |
 | **Use existing certificate/key files** | you already have a cert on disk |
 
-A self-signed certificate **encrypts exactly as well** — the client is Backpack's
+A self-signed certificate **encrypts exactly as well** — the client is FullPack's
 own code and does not verify it. The reason to get a real one is how the
 connection *looks*: real HTTPS on port 443 is never self-signed, so a self-signed
 cert is a distinguishing mark. A CDN in front also requires a real one.
@@ -53,7 +53,7 @@ Choosing self-signed asks for an optional domain or IP to embed in the cert.
 - this server able to reach `acme-v02.api.letsencrypt.org`.
 
 The certificate is requested on the first connection, which takes a few seconds.
-If it does not appear: `journalctl -u backpack-<name> -n 50`.
+If it does not appear: `journalctl -u fullpack-<name> -n 50`.
 
 Change any of this later with **Manage → Edit → Certificate**.
 

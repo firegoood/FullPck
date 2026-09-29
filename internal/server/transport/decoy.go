@@ -15,13 +15,13 @@ import (
 //
 // Answering a probe with a plausible page is only half of the job. The other
 // half is that it must not be the *same* plausible page on every install, and
-// until now it was: every Backpack server on earth returned byte-identical
+// until now it was: every FullPack server on earth returned byte-identical
 // bytes — one trimmed welcome page, `Server: nginx`, and nothing else. No
 // Last-Modified, no ETag, no Accept-Ranges, the same Content-Length everywhere.
 //
 // That inverts what the decoy is for. A single server looked unremarkable, but
 // the fleet became enumerable: one internet-wide scan for that exact response
-// finds every Backpack server there is, no token and no probing required. A
+// finds every FullPack server there is, no token and no probing required. A
 // camouflage shared by everyone wearing it is a uniform.
 //
 // So the identity is derived from the tunnel token — which nginx build the
@@ -85,7 +85,7 @@ const (
 func newDecoyProfile(token string) decoyProfile {
 	// Domain-separated from every other thing the token keys, so that publishing
 	// a decoy's ETag can never leak anything about the credential itself.
-	h := sha256.Sum256([]byte("backpack-decoy\x00" + token))
+	h := sha256.Sum256([]byte("fullpack-decoy\x00" + token))
 
 	build := nginxBuilds[int(h[0])%len(nginxBuilds)]
 

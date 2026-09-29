@@ -3,7 +3,7 @@ package l3
 import (
 	"testing"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // The spoof carrier has two keys for one setting and used to read the wrong one.

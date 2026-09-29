@@ -7,15 +7,15 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // rpFilterSysctlFile persists the relaxation so it survives a reboot, alongside
 // the file Optimize writes rather than inside it: this is a spoof-only change an
 // operator opted into for one tunnel, not part of the general tuning, and a
 // separate file is one they can read and delete on its own.
-const rpFilterSysctlFile = "/etc/sysctl.d/99-backpack-spoof.conf"
+const rpFilterSysctlFile = "/etc/sysctl.d/99-fullpack-spoof.conf"
 
 // OfferRelaxRPFilter checks whether reverse-path filtering will drop this
 // machine's forged-source packets and, if it will, offers to relax it — the one
@@ -82,7 +82,7 @@ func OfferRelaxRPFilter(iface, peerReal string) {
 // then nothing changed.
 func relaxRPFilter(keys []string) error {
 	var b strings.Builder
-	b.WriteString("# Managed by backpack — reverse-path filtering for the spoof carrier\n")
+	b.WriteString("# Managed by fullpack — reverse-path filtering for the spoof carrier\n")
 	for _, k := range keys {
 		fmt.Fprintf(&b, "%s = 2\n", k)
 	}

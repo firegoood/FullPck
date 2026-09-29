@@ -4,16 +4,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/backpack/backpack/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 
-	"github.com/backpack/backpack/internal/client/transport"
-	"github.com/backpack/backpack/internal/debugserver"
-	"github.com/backpack/backpack/internal/tunnel/chain"
-	"github.com/backpack/backpack/internal/utils/handlers"
-	"github.com/backpack/backpack/internal/utils/network"
-	"github.com/backpack/backpack/internal/web"
+	"github.com/firegoood/FullPck/internal/client/transport"
+	"github.com/firegoood/FullPck/internal/debugserver"
+	"github.com/firegoood/FullPck/internal/tunnel/chain"
+	"github.com/firegoood/FullPck/internal/utils/handlers"
+	"github.com/firegoood/FullPck/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/web"
 
 	"github.com/sirupsen/logrus"
 )

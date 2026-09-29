@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/socks"
+	"github.com/firegoood/FullPck/internal/socks"
 )
 
 // A minimal HTTP proxy: CONNECT for HTTPS (and any TCP the client tunnels
@@ -38,7 +38,7 @@ type httpProxy struct{ auth socks.AuthFunc }
 
 func (p *httpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !p.authorized(r) {
-		w.Header().Set("Proxy-Authenticate", `Basic realm="backpack"`)
+		w.Header().Set("Proxy-Authenticate", `Basic realm="fullpack"`)
 		http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
 		return
 	}

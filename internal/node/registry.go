@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // StorePath holds enrolled Node identities and sealed credentials.

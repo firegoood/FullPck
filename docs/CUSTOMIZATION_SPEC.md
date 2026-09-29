@@ -1,6 +1,6 @@
-# مشخصات شخصی‌سازی BackPack
+# مشخصات شخصی‌سازی FullPack
 
-Last verified against Backpack v1.8.4.
+Last verified against FullPack v1.8.4.
 
 <div dir="rtl">
 
@@ -16,7 +16,7 @@ Last verified against Backpack v1.8.4.
 
 You are working on the CURRENT repository:
 
-https://github.com/AminMGMT/BackPack
+https://github.com/firegoood/FullPck
 
 This is a substantial production architecture refactor.
 
@@ -76,9 +76,9 @@ However, do not break ordinary tunnel configuration, manual tunnel setup, backup
 
 # 1. PRIMARY OBJECTIVE
 
-Replace BackPack's SSH-based Managed Servers/Fleet control plane completely with a lightweight REVERSE PERSISTENT NODE AGENT architecture.
+Replace FullPack's SSH-based Managed Servers/Fleet control plane completely with a lightweight REVERSE PERSISTENT NODE AGENT architecture.
 
-BackPack must no longer use SSH for Managed Server communication.
+FullPack must no longer use SSH for Managed Server communication.
 
 The target control connection direction is:
 
@@ -110,7 +110,7 @@ Managed Nodes must remain controllable in that scenario as long as their existin
 
 Iran server:
 
-    backpack --webui
+    fullpack --webui
           |
           | existing configurable WebUI listener
           | default is normally :7777
@@ -124,7 +124,7 @@ Iran server:
 
 and independently:
 
-    backpack --monitor
+    fullpack --monitor
           |
           +-- watchdog
           +-- Telegram bot
@@ -135,7 +135,7 @@ and independently:
 
 Kharej managed Node:
 
-    backpack --monitor
+    fullpack --monitor
           |
           +-- existing monitor jobs
           +-- Node Agent client
@@ -147,7 +147,7 @@ Kharej managed Node:
 
 Kharej does NOT need:
 
-    backpack --webui
+    fullpack --webui
 
 for managed-node operation.
 
@@ -199,7 +199,7 @@ Outbound traffic to remote port 443, for example:
 
     Kharej ephemeral-port -> api.telegram.org:443
 
-does NOT mean BackPack listens on local port 443 and is acceptable.
+does NOT mean FullPack listens on local port 443 and is acceptable.
 
 Tunnel/data ports are separate from this management-port restriction.
 
@@ -207,7 +207,7 @@ Tunnel/data ports are separate from this management-port restriction.
 
 # 4. CONTROL PLANE AND DATA PLANE MUST STAY INDEPENDENT
 
-Do NOT run Fleet management through a BackPack tunnel.
+Do NOT run Fleet management through a FullPack tunnel.
 
 The Agent control channel must not depend on the tunnel it is expected to inspect or repair.
 
@@ -221,7 +221,7 @@ separate from:
 
     DATA PLANE:
     Kharej -> Iran:<configured tunnel port>
-    existing BackPack reverse/direct tunnel transport
+    existing FullPack reverse/direct tunnel transport
 
 If a reverse tunnel crashes:
 
@@ -275,7 +275,7 @@ Do not combine all tunnel engines into one process to simplify Fleet management.
 
 This is a fresh-install redesign.
 
-Remove BackPack's Managed-Server dependency on:
+Remove FullPack's Managed-Server dependency on:
 
 - `SSHRunner`;
 - SSH connection pools;
@@ -292,7 +292,7 @@ Remove BackPack's Managed-Server dependency on:
 - SSH fields in Fleet APIs;
 - SSH-specific documentation.
 
-Remove `backpack node exec <base64>` if, after the redesign, it has no legitimate non-SSH use.
+Remove `fullpack node exec <base64>` if, after the redesign, it has no legitimate non-SSH use.
 
 Keep/reuse the actual typed Node operation execution logic internally.
 
@@ -304,7 +304,7 @@ Do NOT remove all of `golang.org/x/crypto` blindly if other unrelated code still
 
 Do NOT remove ordinary SSH references from documentation that simply explains normal Linux/server administration.
 
-Only remove SSH as BackPack's Fleet/Managed-Server transport.
+Only remove SSH as FullPack's Fleet/Managed-Server transport.
 
 ---
 
@@ -390,13 +390,13 @@ Do not silently add a generic command channel because it is convenient.
 
 Do NOT create:
 
-    backpack-agent.service
+    fullpack-agent.service
 
 Do NOT create another long-lived management daemon.
 
 Integrate the Node Agent client into the existing:
 
-    backpack-monitor.service
+    fullpack-monitor.service
 
 as another independently supervised monitor job.
 
@@ -639,7 +639,7 @@ Do not treat it as authenticated until the Noise/authentication exchange complet
 
 # 17. SECRET STORAGE
 
-Node Agent permanent credential on Kharej must be stored under an appropriate `/etc/backpack/...` path.
+Node Agent permanent credential on Kharej must be stored under an appropriate `/etc/fullpack/...` path.
 
 Requirements:
 
@@ -681,7 +681,7 @@ Preferred Controller flow:
 
 Preferred Kharej flow:
 
-    sudo backpack node join
+    sudo fullpack node join
 
 Then paste the enrollment material interactively.
 
@@ -689,7 +689,7 @@ Prefer no-echo input for sensitive enrollment material.
 
 Do NOT require this:
 
-    backpack node join --token SECRET
+    fullpack node join --token SECRET
 
 because secrets in command-line arguments may appear in shell history/process inspection.
 
@@ -704,7 +704,7 @@ Exact encoding is your implementation decision.
 After successful join:
 
 - write permanent Agent configuration;
-- ensure `backpack-monitor.service` is installed/enabled/running;
+- ensure `fullpack-monitor.service` is installed/enabled/running;
 - restart/reload monitor only if actually required;
 - Agent begins its outbound connection;
 - Node becomes `Online` only after successful normal permanent authentication and hello.
@@ -819,7 +819,7 @@ For each Node track useful metadata such as:
 - last seen;
 - disconnect/error reason;
 - Node hello/info;
-- Node BackPack version;
+- Node FullPack version;
 - Agent protocol version;
 - observed remote address as metadata only.
 
@@ -962,7 +962,7 @@ and appropriate metadata:
 - hostname;
 - OS;
 - architecture;
-- BackPack version;
+- FullPack version;
 - protocol version;
 - last seen;
 - last connected;
@@ -1255,7 +1255,7 @@ Add tests.
 
 # 40. TELEGRAM LOCAL IPC BETWEEN MONITOR AND WEBUI
 
-`backpack --monitor` and `backpack --webui` are intentionally separate processes.
+`fullpack --monitor` and `fullpack --webui` are intentionally separate processes.
 
 Preserve this separation.
 
@@ -1263,7 +1263,7 @@ If Agent sessions are owned by the WebUI/Controller process, provide narrow loca
 
 Prefer a Unix domain socket such as conceptually:
 
-    /run/backpack/control.sock
+    /run/fullpack/control.sock
 
 This is NOT a public TCP port.
 
@@ -1285,11 +1285,11 @@ The IPC should expose only the narrow behavior needed.
 
 It is acceptable that Managed Node control through the Agent is unavailable while:
 
-    backpack --webui
+    fullpack --webui
 
 is intentionally stopped.
 
-Do NOT move the Agent gateway/session registry into `backpack-monitor` merely to keep Fleet control active while the WebUI is stopped.
+Do NOT move the Agent gateway/session registry into `fullpack-monitor` merely to keep Fleet control active while the WebUI is stopped.
 
 Preserve existing process responsibilities.
 
@@ -1386,7 +1386,7 @@ Do not weaken the Agent architecture or add arbitrary command execution merely t
 
 If implemented, remote update must mean only:
 
-    run BackPack's existing verified update path
+    run FullPack's existing verified update path
 
 not:
 
@@ -1398,9 +1398,9 @@ not:
 
 It is acceptable that initial installation on Kharej remains a one-time manual installation using the project's normal installer/offline installation process.
 
-After BackPack is installed:
+After FullPack is installed:
 
-    backpack node join
+    fullpack node join
 
 enrolls it with the Controller.
 
@@ -1443,7 +1443,7 @@ Fresh install must support the roles cleanly.
 
 Iran Controller:
 
-- normal BackPack installation;
+- normal FullPack installation;
 - WebUI service;
 - monitor service;
 - configured WebUI port;
@@ -1451,14 +1451,14 @@ Iran Controller:
 
 Kharej Managed Node:
 
-- BackPack binary;
+- FullPack binary;
 - monitor service;
 - Agent config after join;
 - NO required WebUI service;
 - NO Agent systemd service;
 - NO inbound management firewall rule.
 
-`backpack node join` must ensure the monitor service needed for the Agent is actually usable.
+`fullpack node join` must ensure the monitor service needed for the Agent is actually usable.
 
 Uninstall must clean up Agent configuration appropriately.
 
@@ -1732,7 +1732,7 @@ Implement/test:
 - permanent distinct Node credential;
 - revoke;
 - secure persistence;
-- `backpack node join`.
+- `fullpack node join`.
 
 ## Phase E — Controller gateway
 
@@ -1965,7 +1965,7 @@ At minimum verify all of the following.
 
 Before finishing, explicitly test this exact scenario:
 
-Fresh Iran BackPack installation.
+Fresh Iran FullPack installation.
 
 No Managed Nodes enrolled.
 
@@ -2023,7 +2023,7 @@ The finished design must satisfy all of these:
     one-time, temporary, distinct from permanent credential
 
     Agent process:
-    existing backpack-monitor service
+    existing fullpack-monitor service
 
     Separate Agent service:
     NO

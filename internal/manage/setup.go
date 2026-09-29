@@ -5,10 +5,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // transportEntry is one selectable transport. An empty value marks an entry
@@ -169,7 +169,7 @@ func applyManualTuning(s *TunnelSpec) {
 // that wants a real certificate is finished in one pass instead of being built
 // and then reconfigured.
 func setupServerTLS(s *TunnelSpec) bool {
-	// Self-signed encrypts exactly as well — the client is Backpack's own code
+	// Self-signed encrypts exactly as well — the client is FullPack's own code
 	// and does not verify it. A real certificate matters for how the
 	// connection looks from outside, and it is what a CDN requires.
 	choice := tui.ChooseOpt("TLS Certificate", []tui.Option{

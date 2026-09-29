@@ -1,6 +1,6 @@
 # Transports
 
-Backpack carries every tunnel over one transport, chosen when you create the
+FullPack carries every tunnel over one transport, chosen when you create the
 tunnel and changeable later from **Edit → Change transport**. They all move the
 same traffic between the two engines — they differ only in what they put on the
 wire, and therefore in how fast, how reliable, and how hard to detect they are.
@@ -183,7 +183,7 @@ Two things make these more than "WS with TLS":
 
 - **Browser TLS fingerprint.** A WSS tunnel is meant to look like ordinary
   HTTPS, but Go's default TLS ClientHello has a fingerprint of its own that
-  filtering can pick out. Backpack sends a current **Chrome** fingerprint
+  filtering can pick out. FullPack sends a current **Chrome** fingerprint
   instead, so the handshake blends into normal browser traffic.
 - **Session-bound credential.** The certificate is not verified (the tunnel
   trusts its token, and the cert is often self-signed), which would leave a
@@ -246,4 +246,4 @@ UDP را می‌بندد ولی ICMP را نه) و *IP Spoofing* که مبدأ �
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

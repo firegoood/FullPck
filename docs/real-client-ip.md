@@ -4,7 +4,7 @@ The service behind the tunnel normally sees every connection as coming from the
 tunnel itself — so a VPN panel counts all users as one device, and per-user
 device limits stop working.
 
-Turn on **Edit → Real client IP (PROXY protocol)** and Backpack prefixes each
+Turn on **Edit → Real client IP (PROXY protocol)** and FullPack prefixes each
 forwarded connection with a PROXY protocol v2 header carrying the user's real IP
 and port, so the backend sees each user's own address.
 
@@ -46,4 +46,4 @@ VPN همهٔ کاربران را یک دستگاه می‌شمارد و محدو
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

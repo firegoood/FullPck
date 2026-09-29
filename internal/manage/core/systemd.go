@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // Systemctl runs a systemctl subcommand and returns combined output.
@@ -124,7 +124,7 @@ func EnsureUnits() int {
 	return n
 }
 
-// WriteUnit writes a systemd unit file for a tunnel that runs the backpack
+// WriteUnit writes a systemd unit file for a tunnel that runs the fullpack
 // binary in engine mode against its config.
 func WriteUnit(name string) error {
 	path := app.ServiceDir + "/" + app.ServiceName(name)
@@ -136,7 +136,7 @@ func WriteUnit(name string) error {
 // of it that will drift.
 func UnitFor(name string) string {
 	return fmt.Sprintf(`[Unit]
-Description=Backpack Tunnel (%s)
+Description=FullPack Tunnel (%s)
 After=network.target
 
 [Service]
@@ -158,7 +158,7 @@ func removeUnit(name string) {
 
 // FollowLog streams live journal logs for a service until the user presses
 // Ctrl+C. The child runs in its own process group so the interrupt only
-// stops the log viewer, not the backpack menu.
+// stops the log viewer, not the fullpack menu.
 func FollowLog(service string) error {
 	cmd := exec.Command("journalctl", "-u", service, "-n", "200", "-f", "--no-pager")
 	cmd.Stdout = os.Stdout

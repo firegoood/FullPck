@@ -1,4 +1,4 @@
-module github.com/backpack/backpack
+module github.com/firegoood/FullPck
 
 go 1.26.6
 

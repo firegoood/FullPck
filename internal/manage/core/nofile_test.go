@@ -24,7 +24,7 @@ import (
 //
 // These guard the three of them.
 
-// The limit is a property of the unit, so every unit backpack installs has to
+// The limit is a property of the unit, so every unit fullpack installs has to
 // ask for one.
 func TestEveryServiceUnitAsksForItsOpenFileLimit(t *testing.T) {
 	for _, c := range []struct{ file, what string }{
@@ -90,7 +90,7 @@ func TestTheUnitItComparesAgainstIsTheOneItWould(t *testing.T) {
 	if !strings.Contains(want, "LimitNOFILE=") {
 		t.Error("the tunnel unit no longer asks for an open-file limit")
 	}
-	if !strings.Contains(want, "Backpack Tunnel (nl-ws)") {
+	if !strings.Contains(want, "FullPack Tunnel (nl-ws)") {
 		t.Error("unitFor no longer produces the tunnel's own unit")
 	}
 

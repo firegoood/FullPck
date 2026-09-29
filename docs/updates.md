@@ -1,7 +1,7 @@
 # Updates & rollback
 
 The **Update** menu detects a newer GitHub release and installs the prebuilt
-`backpack_linux_<arch>.tar.gz`.
+`fullpack_linux_<arch>.tar.gz`.
 
 ## How it downloads
 
@@ -57,4 +57,4 @@ release-based.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

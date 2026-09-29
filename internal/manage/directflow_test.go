@@ -9,7 +9,7 @@ import (
 // Direct means one thing, and the wizard asks one question about it.
 //
 // It used to ask two: what kind of tunnel, then how to wrap the packets. Both
-// have a single sensible answer now — a full IP tunnel, wrapped in Backpack's
+// have a single sensible answer now — a full IP tunnel, wrapped in FullPack's
 // own GRE inside the Noise session — so both are gone. What is left is the
 // question that still has a real choice behind it: which carrier gets it
 // across a network that may be filtering.

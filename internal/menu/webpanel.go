@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/webui"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // panelHeader prints the web panel's live status, URL and login code — shown

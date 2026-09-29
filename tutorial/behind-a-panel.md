@@ -1,6 +1,6 @@
 # Behind a panel (X-UI / 3x-ui / Marzban)
 
-The most common Backpack deployment: a VPN panel on the kharej server, users
+The most common FullPack deployment: a VPN panel on the kharej server, users
 connecting to the Iran IP. This page covers the four things that are specific to
 that setup.
 
@@ -97,11 +97,11 @@ public forwarded port.
 # on kharej — the inbound is listening where you mapped it
 ss -tlnp | grep 2096
 
-# on Iran — Backpack holds the exposed port
+# on Iran — FullPack holds the exposed port
 ss -tlnp | grep :443
 ss -lnup  | grep :443        # only if UDP forwarding is on
 
-sudo backpack → Manage → Health Check
+sudo fullpack → Manage → Health Check
 ```
 
 Then add the **Iran IP** and the exposed port to the client config — users never

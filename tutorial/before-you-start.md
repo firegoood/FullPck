@@ -7,7 +7,7 @@ account for nearly every tunnel that comes up and then carries nothing.
 
 ## 1. The two roles
 
-Backpack is a **reverse** tunnel. The kharej machine dials the Iran machine, and
+FullPack is a **reverse** tunnel. The kharej machine dials the Iran machine, and
 traffic flows the other way. So the roles are not what people expect:
 
 ```
@@ -109,7 +109,7 @@ port anyway does nothing. Full detail: [Adding UDP to a tunnel](udp-forwarding.m
 On the **Iran** server:
 
 ```bash
-sudo backpack        →  1. Setup Iran  →  Reverse
+sudo fullpack        →  1. Setup Iran  →  Reverse
 ```
 transport → tunnel port → name → **copy the token** → forwarded ports → UDP? →
 preset (**Turbo**) → done.
@@ -117,7 +117,7 @@ preset (**Turbo**) → done.
 On the **kharej** server:
 
 ```bash
-sudo backpack        →  2. Setup Kharej  →  Reverse
+sudo fullpack        →  2. Setup Kharej  →  Reverse
 ```
 same transport → Iran IP + same tunnel port → name → **same token** → same preset
 → done.

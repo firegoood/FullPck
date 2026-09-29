@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // Health describes how a single tunnel is doing right now.

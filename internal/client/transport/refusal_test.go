@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils"
 )
 
 // Three different faults used to reach the operator as one symptom.

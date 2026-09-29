@@ -5,13 +5,13 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/backpack/backpack/internal/manage/core"
+	"github.com/firegoood/FullPck/internal/manage/core"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // Restoring is all-or-nothing.

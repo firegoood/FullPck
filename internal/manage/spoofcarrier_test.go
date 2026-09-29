@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // The forged-source carrier belongs to the direct tunnel now, and its settings

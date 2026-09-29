@@ -44,7 +44,7 @@ Carry UDP as well as TCP on the exposed ports [y/N]
 ### On a tunnel that already exists
 
 ```
-sudo backpack  →  3. Manage  →  Manage Tunnels  →  <tunnel>  →  Edit
+sudo fullpack  →  3. Manage  →  Manage Tunnels  →  <tunnel>  →  Edit
                 →  Forward UDP
 ```
 
@@ -58,7 +58,7 @@ exposed ports** → Save.
 
 ### By hand
 
-In `/etc/backpack/<name>.toml`, under `[server]`:
+In `/etc/fullpack/<name>.toml`, under `[server]`:
 
 ```toml
 accept_udp = true
@@ -89,16 +89,16 @@ nothing.** Both are required.
 On the Iran server, the forwarded port should now be bound on both protocols:
 
 ```bash
-ss -lnup | grep :443      # UDP  — should show backpack
+ss -lnup | grep :443      # UDP  — should show fullpack
 ss -lntp | grep :443      # TCP
 ```
 
 If the UDP line is missing, the setting is not on. If the UDP side of a port
-cannot be bound because something else already holds it, Backpack warns and
+cannot be bound because something else already holds it, FullPack warns and
 leaves the TCP side working rather than failing the whole tunnel — check the log:
 
 ```bash
-journalctl -u backpack-<name> -n 50
+journalctl -u fullpack-<name> -n 50
 ```
 
 ---
@@ -136,7 +136,7 @@ TCP گرسنه می‌مانند — همان حالتی که سایت نصفه 
 
 **روشن کردنش:** سر نصب، سؤال «Carry UDP as well as TCP…» را `y` بزن. روی تونل
 موجود: `Manage → Manage Tunnels → <تونل> → Edit → Forward UDP`. یا دستی در
-`/etc/backpack/<name>.toml` زیر `[server]` بنویس `accept_udp = true` و ری‌استارت
+`/etc/fullpack/<name>.toml` زیر `[server]` بنویس `accept_udp = true` و ری‌استارت
 کن. **فقط سمت سرور (ایران) این تنظیم را دارد.**
 
 **بعدش فایروال:** هم `ufw allow 443/tcp` هم `ufw allow 443/udp`. باز کردن پورت

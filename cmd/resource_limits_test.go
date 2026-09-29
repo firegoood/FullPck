@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 func TestResourceLimitsBoundDangerousValues(t *testing.T) {

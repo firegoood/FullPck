@@ -3,7 +3,7 @@ package manage
 import (
 	"time"
 
-	"github.com/backpack/backpack/internal/manage/core"
+	"github.com/firegoood/FullPck/internal/manage/core"
 )
 
 // Reading a service's journal is expensive, and it was done once per request.

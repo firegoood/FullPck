@@ -1,7 +1,7 @@
 package webui
 
 import (
-	"github.com/backpack/backpack/internal/control"
+	"github.com/firegoood/FullPck/internal/control"
 	"net/http"
 	"net/http/httptest"
 	"strings"

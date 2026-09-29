@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // The direct form is the panel's half of the forged-source carrier. Until this,

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // Restart on the client transports, on the branches the end-to-end suite

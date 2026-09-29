@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // Scaling the connection pool on throughput, not only on churn.

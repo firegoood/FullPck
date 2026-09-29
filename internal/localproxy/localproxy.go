@@ -16,9 +16,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/socks"
-	"github.com/backpack/backpack/internal/utils"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/socks"
+	"github.com/firegoood/FullPck/internal/utils"
 )
 
 // Kind is which proxy protocol to serve on the port.

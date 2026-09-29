@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/tunnel/mssclamp"
+	"github.com/firegoood/FullPck/internal/tunnel/mssclamp"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	wgtun "golang.zx2c4.com/wireguard/tun"

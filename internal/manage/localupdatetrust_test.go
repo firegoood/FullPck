@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// writeScriptArchive builds a release-shaped archive whose `backpack` is a
+// writeScriptArchive builds a release-shaped archive whose `fullpack` is a
 // shell script that leaves a marker behind whenever it is run.
 func writeScriptArchive(t *testing.T, path, marker string) {
 	t.Helper()
@@ -20,7 +20,7 @@ func writeScriptArchive(t *testing.T, path, marker string) {
 	gz := gzip.NewWriter(f)
 	tw := tar.NewWriter(gz)
 	body := []byte("#!/bin/sh\ntouch '" + marker + "'\necho v9.9.9\n")
-	if err := tw.WriteHeader(&tar.Header{Name: "backpack", Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: "fullpack", Mode: 0o755, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tw.Write(body); err != nil {
@@ -36,7 +36,7 @@ func writeScriptArchive(t *testing.T, path, marker string) {
 
 // The Update menu runs the binary inside a local archive to show its version,
 // as root, the moment the menu is drawn. So where it looks has to be somewhere
-// nobody else can write: `sudo backpack` keeps the caller's working directory,
+// nobody else can write: `sudo fullpack` keeps the caller's working directory,
 // and an archive planted in /tmp by an unprivileged account was executed as
 // root. install.sh has refused world-writable directories since BP-011; this
 // is the same rule for the other place a local archive is picked up.

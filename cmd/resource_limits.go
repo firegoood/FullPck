@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // These ceilings bound values which directly size channels, socket buffers,

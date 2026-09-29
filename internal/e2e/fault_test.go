@@ -17,7 +17,7 @@ import (
 // disabled forward error correction would pass every other test. It does one
 // thing, though — throw datagrams away — and three tests use it.
 //
-// Loss is not the failure these tunnels actually meet. The networks BackPack
+// Loss is not the failure these tunnels actually meet. The networks FullPack
 // runs on add delay, vary that delay packet by packet, and deliver out of
 // order; a shaper that buffers and releases in bursts produces all three at
 // once. Those are the conditions the transports claim to survive, and nothing

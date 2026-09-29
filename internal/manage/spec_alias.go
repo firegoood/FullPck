@@ -1,6 +1,6 @@
 package manage
 
-import "github.com/backpack/backpack/internal/manage/spec"
+import "github.com/firegoood/FullPck/internal/manage/spec"
 
 // The vocabulary this package is written in now lives in internal/manage/spec:
 // what a transport is, what an address and a port look like, and where a tunnel

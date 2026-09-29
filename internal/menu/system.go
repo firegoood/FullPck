@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/optimize"
-	"github.com/backpack/backpack/internal/schedule"
-	"github.com/backpack/backpack/internal/telegram"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/webui"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/optimize"
+	"github.com/firegoood/FullPck/internal/schedule"
+	"github.com/firegoood/FullPck/internal/telegram"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // autoRefreshMenu lives under Manage.
@@ -60,10 +60,10 @@ func optimizeMenu() {
 // uninstallMenu is main-menu item 9.
 func uninstallMenu() {
 	tui.Clear()
-	tui.Title("Uninstall Backpack")
+	tui.Title("Uninstall FullPack")
 	fmt.Println()
 	tui.Warn("This removes EVERYTHING: all tunnels, services, schedules, configs,")
-	tui.Warn("the backpack binary, AND the " + app.InstallDir + " folder (incl. backups).")
+	tui.Warn("the fullpack binary, AND the " + app.InstallDir + " folder (incl. backups).")
 	if !tui.Confirm("Are you absolutely sure", false) {
 		return
 	}
@@ -92,6 +92,6 @@ func uninstallMenu() {
 			tui.Info("Removed folder: " + repo)
 		}
 	}
-	tui.Success("Backpack has been completely uninstalled. Goodbye!")
+	tui.Success("FullPack has been completely uninstalled. Goodbye!")
 	os.Exit(0)
 }

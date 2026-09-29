@@ -140,7 +140,7 @@ func spec(kind, iface string, mss int) []string {
 		"-o", iface,
 		"-p", "tcp",
 		"--tcp-flags", "SYN,RST", "SYN",
-		"-m", "comment", "--comment", "backpack-" + kind + "-mss-" + iface,
+		"-m", "comment", "--comment", "fullpack-" + kind + "-mss-" + iface,
 		"-j", "TCPMSS",
 		"--set-mss", strconv.Itoa(mss),
 	}

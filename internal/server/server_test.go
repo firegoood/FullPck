@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/utils"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/utils"
 )
 
 // startTransport on this side is the same shape of code as on the client: a

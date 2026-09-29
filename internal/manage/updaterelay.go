@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/backpack/backpack/internal/socks"
+	"github.com/firegoood/FullPck/internal/socks"
 )
 
 // Fetching an update through a tunnel when there is no way out directly.
@@ -89,5 +89,5 @@ func RelayClientVia(name string, timeout time.Duration) (*http.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not prepare %s to relay: %w", name, err)
 	}
-	return socks.HTTPClient(fmt.Sprintf("127.0.0.1:%d", port), "backpack", spec.Token, timeout), nil
+	return socks.HTTPClient(fmt.Sprintf("127.0.0.1:%d", port), "fullpack", spec.Token, timeout), nil
 }

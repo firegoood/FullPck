@@ -4,7 +4,7 @@
 // The panel's sparkline answers "what is happening right now"; this answers
 // "what happened this week" — how much a tunnel carried per day, and what
 // fraction of the time it was actually up. The sampler runs inside
-// backpack-monitor, the process that is always on; the panel only reads.
+// fullpack-monitor, the process that is always on; the panel only reads.
 //
 // Two resolutions bound the file: five-minute samples for the last day, and
 // hourly buckets for the last thirty. Byte counts are stored cumulative, the
@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 const (

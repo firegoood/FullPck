@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/telegram"
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/telegram"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // telegramMenu is main-menu item 7.
@@ -165,7 +165,7 @@ func configureAlerts(cfg telegram.Config) {
 		a.MemPercent = tui.PromptInt("Memory threshold %", a.MemPercent)
 		a.DiskPercent = tui.PromptInt("Disk threshold %", a.DiskPercent)
 		a.TunnelDown = tui.Confirm("Alert when a tunnel goes down or comes back", a.TunnelDown)
-		a.NewRelease = tui.Confirm("Tell me when a new Backpack version is released", a.NewRelease)
+		a.NewRelease = tui.Confirm("Tell me when a new FullPack version is released", a.NewRelease)
 		a.CheckSeconds = tui.PromptInt("Check every (seconds)", a.CheckSeconds)
 		a.CooldownMinutes = tui.PromptInt("Repeat a standing alert every (minutes)", a.CooldownMinutes)
 	}
@@ -180,7 +180,7 @@ func configureAlerts(cfg telegram.Config) {
 	fmt.Println()
 	tui.Info(a.Summary())
 	fmt.Println()
-	tui.Warn("Watched by the backpack-monitor service, which runs on its own —")
+	tui.Warn("Watched by the fullpack-monitor service, which runs on its own —")
 	tui.Warn("alerts keep working even with the web panel stopped.")
 	tui.PressEnter()
 }

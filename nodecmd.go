@@ -6,20 +6,20 @@ import (
 	"os"
 	"strings"
 
-	"github.com/backpack/backpack/internal/manage/core"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/manage/core"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
-// `backpack node join` provisions an outbound Agent on a managed Node.
+// `fullpack node join` provisions an outbound Agent on a managed Node.
 
-const nodeUsage = `backpack node — the reverse Agent side of this server
+const nodeUsage = `fullpack node — the reverse Agent side of this server
 
-  backpack node join
+  fullpack node join
         Read a one-time BPENROLL1 code interactively, provision a distinct
-        permanent Agent credential, and save it under /etc/backpack.
+        permanent Agent credential, and save it under /etc/fullpack.
 
 The node dials the configured Controller over WebSocket from the existing
-backpack-monitor.service. It does not open an inbound management listener.
+fullpack-monitor.service. It does not open an inbound management listener.
 `
 
 func runNode(args []string) {

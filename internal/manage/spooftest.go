@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/spooftest"
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/spooftest"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // SpoofTest is the interactive spoof-capability tester: it discovers which
@@ -45,7 +45,7 @@ func SpoofTest() {
 }
 
 func spoofTestReceiver() {
-	token := tui.PromptDefault("Shared token (must match the sender)", "backpack")
+	token := tui.PromptDefault("Shared token (must match the sender)", "fullpack")
 	port := tui.PromptInt("Listen UDP port", 45000)
 	attempts := tui.PromptInt("Probes the sender emits per IP", 5)
 	windowSec := tui.PromptInt("Capture window (seconds)", 30)
@@ -99,7 +99,7 @@ func spoofTestSender() {
 		tui.PressEnter()
 		return
 	}
-	token := tui.PromptDefault("Shared token (must match the receiver)", "backpack")
+	token := tui.PromptDefault("Shared token (must match the receiver)", "fullpack")
 
 	var target net.IP
 	for {

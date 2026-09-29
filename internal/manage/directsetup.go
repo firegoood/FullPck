@@ -10,12 +10,12 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/optimize"
-	"github.com/backpack/backpack/internal/snispoof"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/tunnel/l3"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/optimize"
+	"github.com/firegoood/FullPck/internal/snispoof"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/tunnel/l3"
 )
 
 // The direct tunnel wizard.
@@ -140,7 +140,7 @@ func setupL3(side directSide) {
 	}
 
 	// There is nothing to ask about the encapsulation. Every direct tunnel is
-	// GRE inside the Noise session — the framing Backpack writes itself, not
+	// GRE inside the Noise session — the framing FullPack writes itself, not
 	// the kernel's protocol 47 — and offering a choice between that and IPIP
 	// was offering four bytes of saving in exchange for one more decision and
 	// one more thing the two ends can silently disagree about. The engine still
@@ -513,7 +513,7 @@ func askL3Advanced(cfg *l3Spec, side directSide, addresses bool) {
 	cfg.GREKey = askGREKey()
 
 	fmt.Println()
-	tui.Info("Backpack caps the segment size of TCP crossing the tunnel, which is")
+	tui.Info("FullPack caps the segment size of TCP crossing the tunnel, which is")
 	tui.Info("what stops large transfers stalling when the network drops the ICMP")
 	tui.Info("message that would otherwise have told both ends to send less.")
 	tui.Info("Leave this at 0 unless a path measurement gave you a number.")

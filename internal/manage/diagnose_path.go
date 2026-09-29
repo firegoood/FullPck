@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // The two questions a tunnel could not answer about itself.

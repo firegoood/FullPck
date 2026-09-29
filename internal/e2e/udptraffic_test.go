@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/client"
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/server"
+	"github.com/firegoood/FullPck/internal/client"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/server"
 )
 
 // The udp transport carried traffic and reported none of it.

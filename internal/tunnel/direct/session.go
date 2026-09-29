@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/utils/network"
 	"github.com/xtaci/smux"
 )
 

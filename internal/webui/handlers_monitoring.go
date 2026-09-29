@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
-	"github.com/backpack/backpack/internal/control"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
-	"github.com/backpack/backpack/internal/tunhist"
+	"github.com/firegoood/FullPck/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/control"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
+	"github.com/firegoood/FullPck/internal/tunhist"
 )
 
 // The read-only monitoring endpoints: health checks, alert history and the
@@ -51,7 +51,7 @@ func healthLevel(l manage.CheckLevel) string {
 
 // handleAlerts returns what the monitor's alert watcher has recorded: the
 // conditions active right now and the recent messages. The panel only reads;
-// the watcher in backpack-monitor writes.
+// the watcher in fullpack-monitor writes.
 func (s *server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, alerthist.Load())
 }
@@ -328,6 +328,6 @@ func findTunnel(name string) (manage.Tunnel, bool) {
 // put that remedy in front of the operator instead of a sentence describing it.
 // The sentence stays — it is what somebody reading a log or a curl sees.
 const (
-	fixHeader     = "X-Backpack-Fix"
+	fixHeader     = "X-FullPack-Fix"
 	fixLinkTunnel = "link-tunnel"
 )

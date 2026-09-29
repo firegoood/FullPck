@@ -9,15 +9,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/geo"
-	"github.com/backpack/backpack/internal/localproxy"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/node"
-	"github.com/backpack/backpack/internal/sysstat"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/geo"
+	"github.com/firegoood/FullPck/internal/localproxy"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/node"
+	"github.com/firegoood/FullPck/internal/sysstat"
+	"github.com/firegoood/FullPck/internal/utils/network"
 	psnet "github.com/shirou/gopsutil/v4/net"
 )
 
@@ -89,7 +89,7 @@ type SystemStats struct {
 	TunnelsTotal   int `json:"tunnelsTotal"`
 	TunnelsRunning int `json:"tunnelsRunning"`
 
-	// MonitorRunning reports the backpack-monitor service — the watchdog, the
+	// MonitorRunning reports the fullpack-monitor service — the watchdog, the
 	// Telegram bot and the alerts live there, not in this panel. When it is
 	// down, dropped tunnels are not restarted and no alert fires, and nothing
 	// else visibly breaks — which is exactly why the panel must say so.

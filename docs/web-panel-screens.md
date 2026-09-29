@@ -3,7 +3,7 @@
 [Web panel](web-panel.md) explains what the panel is and how to turn it on.
 This page is the map: every screen it has, how you get there, what it shows, and
 which CLI menu entry does the same job. It exists because the panel is the part
-of Backpack hardest to describe in prose — there is no command to quote and no
+of FullPack hardest to describe in prose — there is no command to quote and no
 file to show.
 
 <p align="center"><img src="../img/panel-map.svg" alt="The panel's navigation: three sections in a dock — Overview, Servers, Tunnels — with dialogs opening over whichever section you were on." width="100%"></p>
@@ -52,11 +52,11 @@ them is a page that gets glanced at and trusted.
 
 The managed fleet: other machines this panel can build and run tunnels on.
 
-Adding one generates a one-time code. Run `sudo backpack node join` on the
+Adding one generates a one-time code. Run `sudo fullpack node join` on the
 foreign server and enter that code. Its Agent connects outward to the panel's
 existing WebUI endpoint. See [managed servers](managed-servers.md).
 
-*CLI: `sudo backpack node join` on the foreign server.*
+*CLI: `sudo fullpack node join` on the foreign server.*
 
 ### Tunnels — `#/tunnels`
 
@@ -92,7 +92,7 @@ These belong to the machine rather than to one tunnel.
 | Health check | `#/health` | The machine-level checks — the same list the CLI runs, with the same fixes offered. Reached from the warning bar as well as directly. | Manage → Health Check |
 | Maintenance | `#/maintenance` | Update, restore points and backup: the machine-level chores. | 4 Backup & Restore, 8 Update |
 | Support | `#/support` | Static. Addresses copy on click. | — |
-| Enjoying Backpack? | `#/star` | Static. | — |
+| Enjoying FullPack? | `#/star` | Static. | — |
 
 ## Keeping this page honest
 
@@ -143,4 +143,4 @@ hash همه‌جا درست reload می‌شود. هر صفحه‌ای در ای
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

@@ -385,7 +385,7 @@ function paintTrend(el, t) {
 
 const EMPTY = `<div class="emptybox">
   <b>No tunnels yet</b>
-  <span>Add one with the button above, or from the CLI menu (<code>sudo backpack</code>).</span>
+  <span>Add one with the button above, or from the CLI menu (<code>sudo fullpack</code>).</span>
 </div>`;
 
 const ACTION_DONE = {
@@ -590,8 +590,8 @@ export function dashboard(ctx) {
         title: `Delete <q>${esc(name)}</q>?`,
         body: 'Its config and its service are removed. This cannot be undone.',
         lines: [
-          { text: `/etc/backpack/${name}.json` },
-          { text: `backpack-${name}.service` },
+          { text: `/etc/fullpack/${name}.json` },
+          { text: `fullpack-${name}.service` },
         ],
         go: 'Delete', danger: true,
       });

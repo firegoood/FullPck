@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // The watchdog has to ask the engine, not the kernel.

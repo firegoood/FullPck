@@ -35,16 +35,16 @@ import (
 // So: both ends built from real binaries, one of them the previous release, in
 // both directions.
 //
-// Skipped unless BACKPACK_PREV_BINARY points at a build of the previous
+// Skipped unless FULLPACK_PREV_BINARY points at a build of the previous
 // release. The CI job that sets it builds that from the last tag; there is
 // nothing to check out or fetch here, so an ordinary `go test ./...` on a
 // laptop skips this rather than failing on a missing artefact.
 
 const (
-	prevBinaryEnv = "BACKPACK_PREV_BINARY"
+	prevBinaryEnv = "FULLPACK_PREV_BINARY"
 	// currentBinaryEnv lets the CI job hand over a binary it has already built
 	// rather than having this build one. Empty means build it here.
-	currentBinaryEnv = "BACKPACK_CURRENT_BINARY"
+	currentBinaryEnv = "FULLPACK_CURRENT_BINARY"
 )
 
 func TestThePreviousReleaseStillTalksToThisOne(t *testing.T) {
@@ -169,7 +169,7 @@ func currentBinary(t *testing.T) string {
 	if b := os.Getenv(currentBinaryEnv); b != "" {
 		return b
 	}
-	out := filepath.Join(t.TempDir(), "backpack-current")
+	out := filepath.Join(t.TempDir(), "fullpack-current")
 	cmd := exec.Command("go", "build", "-o", out, "../..")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

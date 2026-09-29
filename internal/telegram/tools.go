@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // The screens that are not about one tunnel: the panel, backups, updates,

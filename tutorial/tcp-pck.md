@@ -1,6 +1,6 @@
 # Setting up a TCP + PCK tunnel
 
-A TCP transport that **does not use the kernel's TCP stack**. Backpack builds the
+A TCP transport that **does not use the kernel's TCP stack**. FullPack builds the
 segments itself and reads the replies straight off the network device — upstream
 of connection tracking and every netfilter chain — so the machinery that would
 normally reset, throttle or drop a long-lived TCP flow has nothing to act on.
@@ -80,7 +80,7 @@ need; empty keeps the automatic answer.
 
 The kernel is not listening on the tunnel's port, so it would answer every
 arriving segment with a RST — and to any stateful device in between, that RST is
-the connection ending. Backpack installs two narrow rules on start and removes
+the connection ending. FullPack installs two narrow rules on start and removes
 them on stop:
 
 ```
@@ -89,17 +89,17 @@ raw PREROUTING -p tcp --dport <port> -j NOTRACK
 raw OUTPUT     -p tcp --sport <port> -j NOTRACK
 ```
 
-Tagged `backpack-pck-<port>`, so one left behind by a crash is easy to find:
+Tagged `fullpack-pck-<port>`, so one left behind by a crash is easy to find:
 
 ```bash
-iptables-save | grep backpack-pck
+iptables-save | grep fullpack-pck
 ```
 
 **Without `iptables` the tunnel runs and is unreliable** — it works, then drops
 under load or after a pause. The log says so at startup, so read it:
 
 ```bash
-journalctl -u backpack-<name> -n 50
+journalctl -u fullpack-<name> -n 50
 ```
 
 Your **cloud provider's security group** still applies to the inbound direction,
@@ -140,7 +140,7 @@ connection tracking و همهٔ زنجیره‌های netfilter. برای وقت
 هر طرف فقط دربارهٔ پکت‌های خودش تصمیم می‌گیرد، پس لازم نیست دو طرف یکی باشند.
 سؤال override رابط شبکه را `N` بگذار — همه‌چیز از جدول مسیریابی خوانده می‌شود.
 
-هنگام استارت دو قانون iptables با تگ `backpack-pck-<port>` اضافه می‌کند و موقع
+هنگام استارت دو قانون iptables با تگ `fullpack-pck-<port>` اضافه می‌کند و موقع
 استاپ برمی‌دارد. **اگر iptables نصب نباشد تونل بالا می‌آید ولی ناپایدار است.**
 پورت TCP تونل را در security group ابری هم باز کن.
 

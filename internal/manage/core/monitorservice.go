@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // The monitor service.
@@ -22,7 +22,7 @@ import (
 
 // monitorUnit is the systemd unit for the monitor service.
 const monitorUnit = `[Unit]
-Description=Backpack Monitor (watchdog, Telegram bot, alerts and node Agent)
+Description=FullPack Monitor (watchdog, Telegram bot, alerts and node Agent)
 After=network.target
 # A crash loop has to end somewhere visible.
 #

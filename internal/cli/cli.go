@@ -1,7 +1,7 @@
 // Package cli is the non-interactive face of the same operations the menu
 // offers.
 //
-// Everything BackPack does from a terminal has until now gone through
+// Everything FullPack does from a terminal has until now gone through
 // internal/menu: 1,400 lines that read stdin and write stdout directly. That
 // shape has two costs and they are the same cost seen from two sides. Nothing
 // can drive it, so nothing tests it — it is the largest package in the tree
@@ -30,14 +30,14 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/tunhist"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/tunhist"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // Result is everything a command produced: what to print, what to print on
@@ -68,14 +68,14 @@ const (
 	CodeFailed    = 1
 )
 
-const usage = `backpack — non-interactive commands
+const usage = `fullpack — non-interactive commands
 
-  backpack tunnel list [--json]         every tunnel and its state
-  backpack tunnel status <name> [--json]  one tunnel: state, peer, and what it has carried
-  backpack check -c <file>              validate a config without starting it
-  backpack version [--json]
+  fullpack tunnel list [--json]         every tunnel and its state
+  fullpack tunnel status <name> [--json]  one tunnel: state, peer, and what it has carried
+  fullpack check -c <file>              validate a config without starting it
+  fullpack version [--json]
 
-Run backpack with no arguments for the interactive menu.
+Run fullpack with no arguments for the interactive menu.
 Exit codes: 0 ok, 1 failed, 2 usage, 3 not found, 4 unhealthy.
 `
 
@@ -305,7 +305,7 @@ func tunnelStatus(name string, asJSON bool) Result {
 		}
 		r = ok(b.String())
 	}
-	// The exit code carries the answer as well as the output, so `backpack
+	// The exit code carries the answer as well as the output, so `fullpack
 	// tunnel status x >/dev/null || alert` is a whole monitoring integration.
 	if v.State != "online" {
 		r.Code = CodeUnhealthy
@@ -334,13 +334,13 @@ func runCheck(args []string) Result {
 			continue
 		}
 		if path == "" {
-			path = rest[i] // `backpack check file.toml` as well as `-c file.toml`
+			path = rest[i] // `fullpack check file.toml` as well as `-c file.toml`
 			continue
 		}
 		return fail(CodeUsage, "check takes one config file\n")
 	}
 	if path == "" {
-		return fail(CodeUsage, "check needs a config file: backpack check -c /etc/backpack/x.toml\n")
+		return fail(CodeUsage, "check needs a config file: fullpack check -c /etc/fullpack/x.toml\n")
 	}
 
 	problems := manage.ValidateConfigFile(path)

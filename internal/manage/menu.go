@@ -5,9 +5,9 @@ import (
 	"net"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // stateLabel returns a themed running/stopped label for a service.
@@ -835,7 +835,7 @@ func editCertificate(name string, s TunnelSpec) {
 	tui.Info("Current: " + certSummary(s))
 	fmt.Println()
 	tui.Warn("A self-signed certificate encrypts exactly as well — the client is")
-	tui.Warn("Backpack's own code and does not verify it. The reason to use a real")
+	tui.Warn("FullPack's own code and does not verify it. The reason to use a real")
 	tui.Warn("one is how the connection looks from outside: real HTTPS on port 443")
 	tui.Warn("is never self-signed, so a self-signed certificate is a distinguishing")
 	tui.Warn("mark. A real one removes it, and a CDN in front of the tunnel needs it.")

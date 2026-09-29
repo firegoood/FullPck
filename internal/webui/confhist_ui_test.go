@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // The stored configurations must never leave the machine.

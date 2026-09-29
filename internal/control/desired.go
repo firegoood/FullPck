@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // What a managed server is supposed to be running, and what it is running.

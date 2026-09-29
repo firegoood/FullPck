@@ -3,7 +3,7 @@ package manage
 import (
 	"fmt"
 
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // The two ways into setup.
@@ -100,7 +100,7 @@ func setupDirectFor(side directSide) {
 	fmt.Println()
 
 	// Straight to how it travels. There is no kind to choose any more: a direct
-	// tunnel is a full IP tunnel wrapped in Backpack's own GRE, and the only
+	// tunnel is a full IP tunnel wrapped in FullPack's own GRE, and the only
 	// open question is which carrier gets it across.
 	setupL3(side)
 }

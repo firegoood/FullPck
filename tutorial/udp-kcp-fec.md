@@ -21,7 +21,7 @@ and cannot help there. Test first.
 ## Check the route before you commit
 
 ```
-sudo backpack  →  3. Manage  →  Link Test
+sudo fullpack  →  3. Manage  →  Link Test
 ```
 
 It measures latency, jitter and loss on the real path, recommends a transport,
@@ -100,7 +100,7 @@ and still recovered. **Both ends must match** on the shard counts.
 ## Watching whether it earns its overhead
 
 ```
-sudo backpack  →  3. Manage  →  Tunnel Metrics
+sudo fullpack  →  3. Manage  →  Tunnel Metrics
 ```
 
 On KCP this shows retransmits, lost and duplicated segments, and **how many

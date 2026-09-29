@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/client"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/client"
 
-	"github.com/backpack/backpack/internal/server"
-	"github.com/backpack/backpack/internal/utils"
-	"github.com/backpack/backpack/internal/utils/handlers"
+	"github.com/firegoood/FullPck/internal/server"
+	"github.com/firegoood/FullPck/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils/handlers"
 
 	"github.com/BurntSushi/toml"
 )

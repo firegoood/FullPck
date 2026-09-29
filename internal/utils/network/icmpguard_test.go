@@ -46,7 +46,7 @@ func TestICMPEchoRuleTargetsTheCarriersIdentifier(t *testing.T) {
 
 	// A comment tags it as ours and per-port, so a rule left behind by a crash is
 	// findable and removable by hand — the same shape the RST guard uses.
-	if !strings.Contains(rule, "backpack-spoof-icmp-13000") {
+	if !strings.Contains(rule, "fullpack-spoof-icmp-13000") {
 		t.Errorf("the rule is not tagged for identification:\n%s", rule)
 	}
 }

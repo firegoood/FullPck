@@ -97,7 +97,7 @@ jobs:
           check() {
             pkg="$1"; floor="$2"; why="$3"
             got="$(go tool cover -func=coverage.out \
-                    | grep "^github.com/backpack/backpack/$pkg/" \
+                    | grep "^github.com/firegoood/FullPck/$pkg/" \
                     | awk '{gsub(/%/,"",$3); s+=$3; n++} END {if (n) printf "%.1f", s/n; else print "0"}')"
             echo "  $pkg: ${got}% (floor ${floor}%) — $why"
             awk -v g="$got" -v f="$floor" -v p="$pkg" 'BEGIN {
@@ -206,7 +206,7 @@ jobs:
         # wobble with scheduling and the heap saws between collections, so a
         # threshold on any single reading would fail on runner noise.
         env:
-          BACKPACK_SOAK_SECONDS: "120"
+          FULLPACK_SOAK_SECONDS: "120"
         run: go test ./internal/e2e/ -run TestASustainedRunDoesNotLeak -count=1 -v -timeout 10m
 
   compat:
@@ -243,13 +243,13 @@ jobs:
           fi
           echo "previous release: $tag"
           git worktree add --detach /tmp/prev "$tag"
-          (cd /tmp/prev && go build -o /tmp/backpack-prev .)
-          echo "binary=/tmp/backpack-prev" >> "$GITHUB_OUTPUT"
+          (cd /tmp/prev && go build -o /tmp/fullpack-prev .)
+          echo "binary=/tmp/fullpack-prev" >> "$GITHUB_OUTPUT"
 
       - name: Old and new ends of one tunnel, both directions
         if: steps.prev.outputs.binary != ''
         env:
-          BACKPACK_PREV_BINARY: ${{ steps.prev.outputs.binary }}
+          FULLPACK_PREV_BINARY: ${{ steps.prev.outputs.binary }}
         run: go test ./internal/e2e/ -run TestThePreviousReleaseStillTalksToThisOne -count=1 -v
 
   build:
@@ -292,7 +292,7 @@ jobs:
         with:
           name: release-assets
           path: |
-            release/backpack_linux_amd64.tar.gz
-            release/backpack_linux_arm64.tar.gz
+            release/fullpack_linux_amd64.tar.gz
+            release/fullpack_linux_arm64.tar.gz
             release/SHA256SUMS
           retention-days: 14

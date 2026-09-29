@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/sysstat"
+	"github.com/firegoood/FullPck/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/sysstat"
 )
 
 // Alerting.
@@ -333,8 +333,8 @@ func releaseMessages(lang string) []string {
 	}
 	manage.MarkUpdateNotified(tag)
 	return []string{
-		fmt.Sprintf(tr(lang, "⬆️ Backpack %s has been released (you are on %s)."), tag, app.Version) +
-			"\n\n" + tr(lang, "Update from the CLI: sudo backpack → Update.") +
+		fmt.Sprintf(tr(lang, "⬆️ FullPack %s has been released (you are on %s)."), tag, app.Version) +
+			"\n\n" + tr(lang, "Update from the CLI: sudo fullpack → Update.") +
 			"\n" + tr(lang, "It saves a restore point first and rolls back by itself if the tunnel does not come back up."),
 	}
 }

@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 	"github.com/gorilla/websocket"
 )
 
@@ -322,7 +322,7 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	ws.SetReadLimit(16 << 10)
 	_ = ws.SetReadDeadline(time.Now().Add(agentHandshakeTimeout))
 	_ = ws.SetWriteDeadline(time.Now().Add(agentHandshakeTimeout))
-	hs, err := handshakeConfigWithPrologue(true, HashCredential(e.Token), "backpack-node-enrollment-v1")
+	hs, err := handshakeConfigWithPrologue(true, HashCredential(e.Token), "fullpack-node-enrollment-v1")
 	if err != nil {
 		return AgentConfig{}, err
 	}
@@ -413,7 +413,7 @@ func HandleEnrollmentHTTP(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 	ws.SetReadLimit(16 << 10)
 	_ = ws.SetReadDeadline(time.Now().Add(agentHandshakeTimeout))
-	hs, err := handshakeConfigWithPrologue(false, stored.TokenHash, "backpack-node-enrollment-v1")
+	hs, err := handshakeConfigWithPrologue(false, stored.TokenHash, "fullpack-node-enrollment-v1")
 	if err != nil {
 		return
 	}

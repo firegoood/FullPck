@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/webui"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // Driving the screens.
@@ -229,7 +229,7 @@ func TestAnUpdateReopensTheMenuOnTheNewBinary(t *testing.T) {
 	}
 
 	execSelf = func() error { return errors.New("permission denied") }
-	if out := drive(t, "\n", reopen); !strings.Contains(out, "run sudo backpack again") {
+	if out := drive(t, "\n", reopen); !strings.Contains(out, "run sudo fullpack again") {
 		t.Fatalf("a failed reopen does not say what to do:\n%s", out)
 	}
 
@@ -237,7 +237,7 @@ func TestAnUpdateReopensTheMenuOnTheNewBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, after := range []string{`tui.Success("Done.")`, `tui.Success("Backpack updated successfully.")`,
+	for _, after := range []string{`tui.Success("Done.")`, `tui.Success("FullPack updated successfully.")`,
 		`tui.Success("Rolled back to "`} {
 		body := string(src)
 		i := strings.Index(body, after)

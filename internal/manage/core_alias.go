@@ -1,8 +1,8 @@
 package manage
 
 import (
-	"github.com/backpack/backpack/internal/manage/backup"
-	"github.com/backpack/backpack/internal/manage/core"
+	"github.com/firegoood/FullPck/internal/manage/backup"
+	"github.com/firegoood/FullPck/internal/manage/core"
 )
 
 // The lowest layer of this package now lives in internal/manage/core: the

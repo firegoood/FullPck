@@ -4,11 +4,11 @@
 
 ## خلاصهٔ فارسی
 
-BackPack می‌تواند گزارش وضعیت، هشدار و کنترل‌های مجاز را از طریق Telegram ارائه کند. برای تنظیم، در CLI گزینهٔ **Telegram Bot → Configure / Update bot** یا تنظیمات پنل را باز کنید. توکن ربات را از `@BotFather` و شناسهٔ عددی کاربر را از `@userinfobot` بگیرید.
+FullPack می‌تواند گزارش وضعیت، هشدار و کنترل‌های مجاز را از طریق Telegram ارائه کند. برای تنظیم، در CLI گزینهٔ **Telegram Bot → Configure / Update bot** یا تنظیمات پنل را باز کنید. توکن ربات را از `@BotFather` و شناسهٔ عددی کاربر را از `@userinfobot` بگیرید.
 
 ## اتصال از ایران
 
-حالت **Automatic** ابتدا یک Agent خارجی متصل را انتخاب می‌کند. مانیتور کنترلر بایت‌های TLS را از Unix socket محلی `/run/backpack/control.sock` به Agent می‌فرستد و Agent فقط به `api.telegram.org:443` اتصال **خروجی** می‌گیرد. توکن ربات، long polling و منطق پیام‌ها روی کنترلر باقی می‌ماند؛ Agent پروکسی عمومی نیست. در صورت خطای Agent اول، Agentهای متصل دیگر امتحان می‌شوند.
+حالت **Automatic** ابتدا یک Agent خارجی متصل را انتخاب می‌کند. مانیتور کنترلر بایت‌های TLS را از Unix socket محلی `/run/fullpack/control.sock` به Agent می‌فرستد و Agent فقط به `api.telegram.org:443` اتصال **خروجی** می‌گیرد. توکن ربات، long polling و منطق پیام‌ها روی کنترلر باقی می‌ماند؛ Agent پروکسی عمومی نیست. در صورت خطای Agent اول، Agentهای متصل دیگر امتحان می‌شوند.
 
 اگر Agent مناسب در دسترس نباشد، مسیر تونل موجود fallback است. این مسیر یک پورت بلند تصادفی روی `127.0.0.1` را به API تلگرام forward می‌کند. می‌توانید تونل خاصی را pin کنید یا، اگر خود سرور به Telegram دسترسی دارد، حالت Direct را انتخاب کنید. توقف WebUI جلسه‌های Agent را قطع می‌کند، ولی fallback تونل همچنان در دسترس می‌ماند.
 
@@ -24,4 +24,4 @@ BackPack می‌تواند گزارش وضعیت، هشدار و کنترل‌ه
 
 </div>
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

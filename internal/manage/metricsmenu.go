@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/sysstat"
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/sysstat"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // TunnelMetrics shows what each tunnel has actually carried.

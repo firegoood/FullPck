@@ -66,7 +66,7 @@ If your provider filters or throttles UDP, this transport cannot help — and
 neither can KCP or QUIC. Test before committing:
 
 ```
-sudo backpack  →  3. Manage  →  Link Test
+sudo fullpack  →  3. Manage  →  Link Test
 ```
 
 It measures latency, jitter and loss on the real route and recommends a

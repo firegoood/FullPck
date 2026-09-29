@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 func iranL3(name, peer string, ports ...string) l3Tunnel {

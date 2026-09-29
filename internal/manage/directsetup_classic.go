@@ -5,10 +5,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/snispoof"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/tunnel/l3"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/snispoof"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/tunnel/l3"
 )
 
 // The classic direct wizard, kept for IP spoofing and SNI spoofing.

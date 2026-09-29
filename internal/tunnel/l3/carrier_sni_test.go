@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/snispoof"
+	"github.com/firegoood/FullPck/internal/snispoof"
 )
 
 // a carrier that records what was written and replays what it is given.

@@ -4,7 +4,7 @@ package app
 // then its checksum list.
 //
 // It covered the checksum list alone, and the list names archives, not a
-// version — backpack_linux_amd64.tar.gz is the same name in every release. So a
+// version — fullpack_linux_amd64.tar.gz is the same name in every release. So a
 // mirror, or a proxy on the path, could serve an older release's archive,
 // checksums and signature under a newer tag, every one of them genuine, and an
 // updater would verify it and install it: a downgrade to whatever the older
@@ -15,8 +15,8 @@ package app
 // No release was ever published with the older form: the key and this format
 // arrive in the same version.
 func ReleaseSignedMessage(tag string, sums []byte) []byte {
-	msg := make([]byte, 0, len("backpack release \n")+len(tag)+len(sums))
-	msg = append(msg, "backpack release "...)
+	msg := make([]byte, 0, len("fullpack release \n")+len(tag)+len(sums))
+	msg = append(msg, "fullpack release "...)
 	msg = append(msg, tag...)
 	msg = append(msg, '\n')
 	return append(msg, sums...)

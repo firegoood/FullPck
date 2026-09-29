@@ -19,7 +19,7 @@ import (
 // quicALPN is the application protocol both ends advertise on the TLS handshake.
 // It has to match, or the handshake fails before a single tunnel byte flows —
 // which doubles as a cheap first filter against anything that is not us.
-const quicALPN = "backpack-quic"
+const quicALPN = "fullpack-quic"
 
 // QUICInitialPacketSize is the UDP payload size QUIC starts from, before Path
 // MTU Discovery has measured the route.

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // The fleet endpoints.
@@ -331,7 +331,7 @@ func TestTheFarSideUsesEnrollmentWithoutRemoteExec(t *testing.T) {
 	}
 	src := string(cli)
 	if !strings.Contains(src, `case "join":`) {
-		t.Fatal("`backpack node join` is missing")
+		t.Fatal("`fullpack node join` is missing")
 	}
 	for _, gone := range []string{`case "exec":`, `case "setup":`, `case "run":`, `case "remove":`} {
 		if strings.Contains(src, gone) {
@@ -344,7 +344,7 @@ func TestTheFarSideUsesEnrollmentWithoutRemoteExec(t *testing.T) {
 		t.Fatalf("reading install.sh: %v", err)
 	}
 	if strings.Contains(string(sh), "node setup") {
-		t.Error("install.sh still ends in `backpack node setup`, which no longer exists")
+		t.Error("install.sh still ends in `fullpack node setup`, which no longer exists")
 	}
 	// The installer supports noninteractive deployment before enrollment.
 	if !strings.Contains(string(sh), "if [ -t 0 ]") {

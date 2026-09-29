@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/backpack/backpack/internal/optimize"
+	"github.com/firegoood/FullPck/internal/optimize"
 )
 
 // ApplyTCPTuning applies the socket and TCP settings a tunnel wants, at start.

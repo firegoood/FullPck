@@ -3,7 +3,7 @@
 > **IP Spoofing is a direct-tunnel carrier now, not a reverse transport.**
 > `transport = "spoof"` is refused at startup, and the wizard no longer offers
 > it under Setup → Experimental. Build it as a **direct tunnel** instead —
-> `sudo backpack` → Setup Iran / Setup Kharej → **Direct**, then choose **Spoof**
+> `sudo fullpack` → Setup Iran / Setup Kharej → **Direct**, then choose **Spoof**
 > as the carrier — and the same forged packets carry the same forwarded ports.
 >
 > The reason is not tidiness. A reverse tunnel is a control channel plus a pool
@@ -47,7 +47,7 @@ nothing — which looks exactly like every other fault there is.
 
 ## Part 1 — build it unforged
 
-On both machines: `sudo backpack` → Setup Iran / Setup Kharej → **Direct**, and
+On both machines: `sudo fullpack` → Setup Iran / Setup Kharej → **Direct**, and
 choose **Spoof** when it asks how the packets should travel.
 
 After the usual questions the wizard runs a **4-step** spoof screen.
@@ -134,7 +134,7 @@ pairing is the part that goes wrong.
 ## Part 2 — find a forged source that survives the path
 
 ```
-sudo backpack  →  3. Manage  →  IP Spoofing Tester
+sudo fullpack  →  3. Manage  →  IP Spoofing Tester
 ```
 
 It is a two-node test. **Start the receiver first.**
@@ -191,7 +191,7 @@ about the reverse.
 ## Part 3 — set the source that passed
 
 ```
-sudo backpack  →  3. Manage  →  Manage Tunnels  →  <tunnel>  →  Edit  →  IP Spoofing
+sudo fullpack  →  3. Manage  →  Manage Tunnels  →  <tunnel>  →  Edit  →  IP Spoofing
 ```
 
 Choose **Forged source IP(s)** and enter an address the tester says arrives — or

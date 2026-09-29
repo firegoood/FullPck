@@ -4,7 +4,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // Logs returns the last n journal lines for a tunnel's service.

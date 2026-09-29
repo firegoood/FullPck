@@ -1,7 +1,7 @@
 # Shipping logs off the server
 
-Backpack logs to stdout, systemd puts that in journald, and on one server
-`journalctl -u backpack-<name>` is the whole story. With five servers it is five
+FullPack logs to stdout, systemd puts that in journald, and on one server
+`journalctl -u fullpack-<name>` is the whole story. With five servers it is five
 journals, and the question "which tunnel dropped at 03:10 last night" needs five
 answers stitched together.
 
@@ -59,23 +59,23 @@ tunnel, and layer-3.
 
 ## Shipping it
 
-Backpack does not ship logs itself, and
+FullPack does not ship logs itself, and
 [design-decisions](design-decisions.md) says why: journald plus an existing
 collector already does it, for anyone who wants it, without a line of code here.
 What this product owes is logs worth collecting. Two recipes, for the two most
-common collectors — both read journald, so neither needs Backpack to write a
+common collectors — both read journald, so neither needs FullPack to write a
 file.
 
 **Promtail** (into Loki):
 
 ```yaml
 scrape_configs:
-  - job_name: backpack
+  - job_name: fullpack
     journal:
-      labels: { job: backpack }
+      labels: { job: fullpack }
     relabel_configs:
       - source_labels: ['__journal__systemd_unit']
-        regex: 'backpack-.*'
+        regex: 'fullpack-.*'
         action: keep
       - source_labels: ['__journal__hostname']
         target_label: 'host'
@@ -88,34 +88,34 @@ scrape_configs:
 **Vector**:
 
 ```toml
-[sources.backpack]
+[sources.fullpack]
 type = "journald"
-include_units = ["backpack-fr-relay", "backpack-de-relay"]
+include_units = ["fullpack-fr-relay", "fullpack-de-relay"]
 
 [transforms.parsed]
 type = "remap"
-inputs = ["backpack"]
+inputs = ["fullpack"]
 source = '. |= object!(parse_json!(.message))'
 ```
 
 With either, the queries that were five journals become one:
 
 ```
-{job="backpack", level="error"}                  every error in the fleet
-{job="backpack", tunnel="fr-relay"} |= "restart" one tunnel's restarts
-{job="backpack", transport="quic", level="warn"} one carrier, everywhere
+{job="fullpack", level="error"}                  every error in the fleet
+{job="fullpack", tunnel="fr-relay"} |= "restart" one tunnel's restarts
+{job="fullpack", transport="quic", level="warn"} one carrier, everywhere
 ```
 
 ## What not to expect
 
-- **Backpack does not retry or buffer.** It writes to stdout; journald and the
+- **FullPack does not retry or buffer.** It writes to stdout; journald and the
   collector own everything after that. A collector that is down loses nothing
   as long as the journal still holds the lines — size it with
   `SystemMaxUse` in `journald.conf`.
 - **The message text is not an interface.** It is written for a person and it
   changes. Alert on `level`, `tunnel` and `transport`; if you need a specific
   event, say so and it can be given a field of its own.
-- **There is no trace context.** Backpack is one hop carrying opaque bytes, so
+- **There is no trace context.** FullPack is one hop carrying opaque bytes, so
   there is no span structure to record. See
   [design-decisions](design-decisions.md).
 
@@ -125,8 +125,8 @@ With either, the queries that were five journals become one:
 
 ## خلاصهٔ فارسی
 
-Backpack روی stdout لاگ می‌نویسد، systemd آن را در journald می‌گذارد، و روی یک
-سرور `journalctl -u backpack-<name>` همهٔ داستان است. با پنج سرور می‌شود پنج
+FullPack روی stdout لاگ می‌نویسد، systemd آن را در journald می‌گذارد، و روی یک
+سرور `journalctl -u fullpack-<name>` همهٔ داستان است. با پنج سرور می‌شود پنج
 journal، و سؤال «کدام تونل دیشب ساعت ۳:۱۰ افتاد» پنج جواب می‌خواهد که باید به هم
 دوخته شوند.
 
@@ -148,13 +148,13 @@ snapshot متریک استفاده می‌کنند)، `role` (روی تونل م
 همان آپدیت می‌شکند بدون اینکه جایی خطایی بدهد. برای همین اینجا مستند شده و یک
 تست هم آن را قفل کرده. **هر سه موتور** `log_format` را رعایت می‌کنند.
 
-**فرستادنش:** Backpack خودش لاگ نمی‌فرستد و
+**فرستادنش:** FullPack خودش لاگ نمی‌فرستد و
 [design-decisions](design-decisions.md) می‌گوید چرا: journald به‌علاوهٔ یک
 collector موجود همین کار را می‌کند، بدون یک خط کد در این مخزن. چیزی که این محصول
 بدهکار است، لاگی است که *ارزش* جمع‌کردن داشته باشد. دو نسخه برای promtail و
 vector در بالا آمده؛ هر دو journald را می‌خوانند.
 
-**چیزی که انتظارش را نداشته باش:** Backpack بافر یا retry نمی‌کند — بعد از stdout
+**چیزی که انتظارش را نداشته باش:** FullPack بافر یا retry نمی‌کند — بعد از stdout
 همه‌چیز دست journald و collector است. **متن پیام interface نیست**؛ برای آدم نوشته
 شده و عوض می‌شود، پس هشدارت را روی `level` و `tunnel` و `transport` بگذار.
 
@@ -165,4 +165,4 @@ vector در بالا آمده؛ هر دو journald را می‌خوانند.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

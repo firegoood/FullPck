@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // The transport fallback chain, end to end.

@@ -2,7 +2,7 @@ package cli
 
 import (
 	"encoding/json"
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +33,7 @@ func TestHelpIsNotAnError(t *testing.T) {
 		if r.Code != CodeOK {
 			t.Errorf("Run(%q) exited %d; asking for help is not a failure", a, r.Code)
 		}
-		if !strings.Contains(r.Out, "backpack tunnel list") {
+		if !strings.Contains(r.Out, "fullpack tunnel list") {
 			t.Errorf("Run(%q) did not list the commands", a)
 		}
 	}
@@ -46,7 +46,7 @@ func TestVersionCarriesTheSourceInBothForms(t *testing.T) {
 	if plain.Code != CodeOK {
 		t.Fatalf("version exited %d", plain.Code)
 	}
-	if !strings.Contains(plain.Out, "github.com/AminMGMT/BackPack") {
+	if !strings.Contains(plain.Out, "github.com/firegoood/FullPck") {
 		t.Error("the plain version output does not name the source")
 	}
 	if strings.Contains(plain.Out, "Based on") {

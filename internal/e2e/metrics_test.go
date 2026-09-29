@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // TestMetricsRecordFECRecovery is the proof that the metrics screen tells the

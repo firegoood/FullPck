@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/tunnel/portmap"
+	"github.com/firegoood/FullPck/internal/tunnel/portmap"
 )
 
 // Which end this is. The names are geographic because that is what stays
@@ -55,7 +55,7 @@ const (
 	// has no certificate at all until the limit resets. It is the same
 	// directory the reverse transports use, so a host running both does not
 	// hold two accounts.
-	defaultACMECacheDir = "/etc/backpack/acme"
+	defaultACMECacheDir = "/etc/fullpack/acme"
 )
 
 // Config is one resolved direct tunnel.

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/socks"
+	"github.com/firegoood/FullPck/internal/socks"
 )
 
 // startEcho is a TCP service that echoes what it receives — the destination

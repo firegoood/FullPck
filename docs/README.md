@@ -1,6 +1,6 @@
-# Backpack docs
+# FullPack docs
 
-Reference pages: what each part of Backpack **is**, and every setting it has.
+Reference pages: what each part of FullPack **is**, and every setting it has.
 
 - [Architecture](architecture.md) — what the project is made of and where each part lives
 - Looking for a **step-by-step setup**? → [`tutorial/`](../tutorial/README.md)
@@ -26,9 +26,9 @@ Reference pages: what each part of Backpack **is**, and every setting it has.
 - [When a server is filtered, blocked, or dirty](filtered-or-dirty-ip.md)
 
 ### Per-tunnel settings
-- [Configuration reference](config-reference.md) — every key Backpack reads, generated from the declarations.
+- [Configuration reference](config-reference.md) — every key FullPack reads, generated from the declarations.
 - [Performance notes](performance-notes.md) — where the time goes, and the measurements that closed a question.
-- [Design decisions](design-decisions.md) — what Backpack deliberately does not do,
+- [Design decisions](design-decisions.md) — what FullPack deliberately does not do,
   and the reason for each refusal.
 - [Releasing](releasing.md) — the checklist, and what happens if the signing key is lost.
 - [Troubleshooting](troubleshooting.md) — what to check when a tunnel is up and carrying nothing, in order.
@@ -90,4 +90,4 @@ Reference pages: what each part of Backpack **is**, and every setting it has.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

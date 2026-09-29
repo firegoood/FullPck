@@ -3,7 +3,7 @@ package webui
 import (
 	"testing"
 
-	"github.com/backpack/backpack/internal/localproxy"
+	"github.com/firegoood/FullPck/internal/localproxy"
 )
 
 // The built-in proxy is off by default, and a panel field for something nobody

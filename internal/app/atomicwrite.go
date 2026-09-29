@@ -8,7 +8,7 @@ import (
 // WriteFileAtomic writes data to path by writing a temporary file in the same
 // directory and renaming it into place.
 //
-// Backpack runs as several processes — the CLI, the web panel, the monitor and
+// FullPack runs as several processes — the CLI, the web panel, the monitor and
 // one per tunnel — and they share these config files: the CLI writes them, the
 // others read them on a timer. A plain os.WriteFile truncates the file before
 // it writes, so a reader landing in that window sees an empty or partial file.

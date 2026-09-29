@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -1047,7 +1047,7 @@ func (t *Tunnel) handleInit(h header, body []byte, from net.Addr) {
 			// answer" for ever and this side said nothing at all. At most once
 			// a minute, so a scanner cannot fill the log.
 			t.log.Warnf("l3: a handshake from %s did not authenticate (%d so far): "+
-				"the token on the two servers is not the same, or it is not a Backpack "+
+				"the token on the two servers is not the same, or it is not a FullPack "+
 				"tunnel — check the token with Edit → Show the token on both", from, n)
 		} else {
 			t.log.Debugf("l3: refusing a handshake from %s: %v", from, err)

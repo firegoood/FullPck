@@ -16,7 +16,7 @@ import (
 //
 // Two ways to get a certificate:
 //
-//   - A file pair on disk, which is the self-signed certificate Backpack
+//   - A file pair on disk, which is the self-signed certificate FullPack
 //     generates. This works anywhere, including on a bare IP with no domain.
 //   - Let's Encrypt, when the tunnel has a real domain name pointing at it.
 //

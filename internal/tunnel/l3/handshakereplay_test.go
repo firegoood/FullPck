@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/metrics"
+	"github.com/firegoood/FullPck/internal/metrics"
 )
 
 // A second, unconfirmed handshake must not move the peer a first one

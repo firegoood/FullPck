@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // The rp_filter check is the one Health Check line that catches a spoof tunnel

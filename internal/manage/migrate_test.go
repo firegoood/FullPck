@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/app"
+	"github.com/firegoood/FullPck/internal/app"
 )
 
 // The migration pass exists because a fix that changes only what a new install

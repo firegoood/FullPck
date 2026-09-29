@@ -61,7 +61,7 @@ var (
 // What is NOT derived is which port within the range a given carrier takes: see
 // newPckConn for why they must differ.
 func pckClientPortBase(token string) uint16 {
-	sum := sha256.Sum256([]byte("backpack-pck-v1:" + token))
+	sum := sha256.Sum256([]byte("fullpack-pck-v1:" + token))
 	// Into the ephemeral range, which is where a connecting host's port comes
 	// from and so where one is expected to be. The span is subtracted so the top
 	// of the range cannot run past the end of it.
@@ -111,7 +111,7 @@ func portSpec(lo, hi uint16) string {
 // a rule left behind by a crash is identifiable and removable by hand.
 func pckRules(lo, hi uint16) [][]string {
 	p := portSpec(lo, hi)
-	tag := []string{"-m", "comment", "--comment", fmt.Sprintf("backpack-pck-%s", p)}
+	tag := []string{"-m", "comment", "--comment", fmt.Sprintf("fullpack-pck-%s", p)}
 
 	rule := func(table string, body ...string) []string {
 		return append([]string{table}, append(body, tag...)...)

@@ -1,4 +1,4 @@
-/* "Enjoying Backpack?" and "Support Backpack".
+/* "Enjoying FullPack?" and "Support FullPack".
  * Static screens; the addresses copy on click. */
 
 import { $$ } from '../lib/dom.js';
@@ -28,8 +28,7 @@ function links(root, close) {
   const open = url => window.open(url, '_blank', 'noopener');
   root.querySelectorAll('button').forEach(b => {
     const t = b.textContent.trim().toLowerCase();
-    if (t.includes('github')) b.addEventListener('click', () => open('https://github.com/AminMGMT/BackPack'));
-    else if (t.includes('telegram')) b.addEventListener('click', () => open('https://t.me/BlackProtocols'));
+    if (t.includes('github')) b.addEventListener('click', () => open('https://github.com/firegoood/FullPck'));
     else if (t === 'later') b.addEventListener('click', close);
     else if (t === 'do not ask again') b.addEventListener('click', () => {
       try { localStorage.setItem('bp_star', 'never'); } catch (e) {}

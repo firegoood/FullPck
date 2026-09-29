@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/client"
-	"github.com/backpack/backpack/internal/server"
-	"github.com/backpack/backpack/internal/testport"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/client"
+	"github.com/firegoood/FullPck/internal/server"
+	"github.com/firegoood/FullPck/internal/testport"
 )
 
 // tunnelReadyTimeout is how long a tunnel gets to come up before a test fails.

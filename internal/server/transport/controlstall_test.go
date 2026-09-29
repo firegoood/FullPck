@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils"
 )
 
 // A control channel that cannot be written to has to be given up on.

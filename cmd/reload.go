@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 )
 
 // Picking up a changed configuration without being told to.

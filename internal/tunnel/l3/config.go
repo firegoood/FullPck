@@ -5,10 +5,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/tunnel/mssclamp"
-	"github.com/backpack/backpack/internal/tunnel/portmap"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/tunnel/mssclamp"
+	"github.com/firegoood/FullPck/internal/tunnel/portmap"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // Which end dials. A layer-3 tunnel is symmetric once it is up — both ends

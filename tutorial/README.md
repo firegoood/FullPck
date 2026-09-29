@@ -1,4 +1,4 @@
-# Backpack tutorials
+# FullPack tutorials
 
 Step-by-step setup walkthroughs, one per transport. Each page is a complete
 session — every question the wizard asks, in the order it asks it, with the

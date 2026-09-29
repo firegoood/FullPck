@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/web"
+	"github.com/firegoood/FullPck/internal/web"
 	"github.com/gorilla/websocket"
 )
 

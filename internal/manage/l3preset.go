@@ -3,7 +3,7 @@ package manage
 import (
 	"fmt"
 
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // Presets for a full IP tunnel.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // Managed pairing derives the far end; with no managed Node the wizard must

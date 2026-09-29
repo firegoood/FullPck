@@ -3,7 +3,7 @@ package control
 import (
 	"sync"
 
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // Fleet owns the connections to the managed servers.

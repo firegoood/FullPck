@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // handleChannel reads (GET) or switches (POST) the release channel the
@@ -44,9 +44,9 @@ func (s *server) handleChannel(w http.ResponseWriter, r *http.Request) {
 // every installed app at the root, where the panel no longer answers.
 var manifestJSON = []byte(`{
   "id": "./",
-  "name": "Backpack Panel",
-  "short_name": "Backpack",
-  "description": "Live tunnel and server monitoring for Backpack.",
+  "name": "FullPack Panel",
+  "short_name": "FullPack",
+  "description": "Live tunnel and server monitoring for FullPack.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -80,16 +80,14 @@ var (
 //go:embed assets/sw.js
 var serviceWorkerJS []byte
 
-// iconSVG is the header's backpack mark on the panel's dark ground, as a file.
+// iconSVG is the header's fullpack mark on the panel's dark ground, as a file.
 var iconSVG = []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0" stop-color="#262626"/><stop offset="1" stop-color="#070707"/>
   </linearGradient></defs>
   <rect width="128" height="128" rx="30" fill="url(#g)"/>
   <g fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M46 38v-4a18 18 0 0 1 36 0v4"/>
-    <path d="M32 46h64a9 9 0 0 1 9 9v36a13 13 0 0 1-13 13H36a13 13 0 0 1-13-13V55a9 9 0 0 1 9-9z"/>
-    <path d="M51 72h26"/>
+    <path d="M42 94V35h46M42 63h36"/>
   </g>
 </svg>`)
 

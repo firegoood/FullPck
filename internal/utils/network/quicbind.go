@@ -31,7 +31,7 @@ import (
 
 // QUICBindingLabel is the TLS exporter label. Versioned, so a change to what is
 // hashed is a change to the label and never a silent mismatch.
-const QUICBindingLabel = "EXPORTER-backpack-quic-binding-v1"
+const QUICBindingLabel = "EXPORTER-fullpack-quic-binding-v1"
 
 const quicBindingLength = 32
 

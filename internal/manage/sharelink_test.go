@@ -50,7 +50,7 @@ func TestShareLinkIsRecognisableAndCompact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(s, "backpack://1.") {
+	if !strings.HasPrefix(s, "fullpack://1.") {
 		t.Errorf("the link does not announce its scheme and version: %q", s[:min(20, len(s))])
 	}
 	// A fully loaded spoof tunnel is the biggest this gets. If it grows past a
@@ -66,7 +66,7 @@ func TestShareLinkIsRecognisableAndCompact(t *testing.T) {
 // decoding into a partial tunnel.
 func TestATruncatedLinkIsRefused(t *testing.T) {
 	s, _ := sampleLink().Encode()
-	for _, cut := range []int{len(s) - 1, len(s) - 5, len(s) / 2, len("backpack://1.") + 4} {
+	for _, cut := range []int{len(s) - 1, len(s) - 5, len(s) / 2, len("fullpack://1.") + 4} {
 		if _, err := DecodeShareLink(s[:cut]); err == nil {
 			t.Errorf("a link cut to %d characters was accepted", cut)
 		}
@@ -78,9 +78,9 @@ func TestBadLinksSayWhatIsWrong(t *testing.T) {
 	for _, tc := range []struct{ name, in, want string }{
 		{"empty", "", "paste the setup link"},
 		{"not a link", "hello there", "does not look like"},
-		{"no version separator", "backpack://abcdef", "incomplete"},
-		{"a version this build does not know", "backpack://9.abcdef", "version 9"},
-		{"damaged payload", "backpack://1.!!!!not-base64!!!!", "damaged"},
+		{"no version separator", "fullpack://abcdef", "incomplete"},
+		{"a version this build does not know", "fullpack://9.abcdef", "version 9"},
+		{"damaged payload", "fullpack://1.!!!!not-base64!!!!", "damaged"},
 	} {
 		_, err := DecodeShareLink(tc.in)
 		if err == nil {

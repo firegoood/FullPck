@@ -67,14 +67,14 @@ func TestSystemTextIsTrimmed(t *testing.T) {
 
 func TestSupportTextFormat(t *testing.T) {
 	got := supportText(LangEN)
-	for _, want := range []string{
-		"GitHub : ", "Channel : ",
-		"🔺 Tron [ TRX ] :",
-		"💠 USDT [ BEP20 ] :",
-		"💎 Gram [ TON ] :",
-	} {
+	for _, want := range []string{"GitHub : https://github.com/firegoood/FullPck"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("support text is missing %q:\n%s", want, got)
+		}
+	}
+	for _, old := range []string{"BlackProtocols", "AminMGMT", "TTzuUAtsEsrLgNpFVLNTyLVJVRRFNWESYc"} {
+		if strings.Contains(got, old) {
+			t.Errorf("support text still shows an old project contact %q", old)
 		}
 	}
 }

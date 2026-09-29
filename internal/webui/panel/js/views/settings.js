@@ -578,7 +578,7 @@ export function settingsView(ctx) {
       }));
 
       byText(/^changelog$/i).forEach(b => b.addEventListener('click', () =>
-        window.open('https://github.com/AminMGMT/BackPack/releases', '_blank', 'noopener')));
+        window.open('https://github.com/firegoood/FullPck/releases', '_blank', 'noopener')));
 
       byText(/^download$/i).forEach(b => b.addEventListener('click', () => {
         location.href = api.backupExportURL();
@@ -865,7 +865,7 @@ export function settingsView(ctx) {
          the weekly backup is on and nothing else — so it was a date and a size
          invented by the preview and shown as fact. It now says the one thing
          that is actually known. */
-      /* The bot's status line named a bot — "Connected as @my_backpack_bot" —
+      /* The bot's status line named a bot — "Connected as @my_fullpack_bot" —
          that belongs to whoever drew the screen. What is known is whether a
          token and an admin are set, and the masked hint for the token. */
       const tgState = root.querySelector('[data-p="telegram"] .state2');

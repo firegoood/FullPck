@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/tunnel/direct"
-	"github.com/backpack/backpack/internal/tunnel/l3"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/tunnel/direct"
+	"github.com/firegoood/FullPck/internal/tunnel/l3"
 )
 
 // l3EncapForTest builds the encapsulation the engine would, from what the

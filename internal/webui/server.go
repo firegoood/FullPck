@@ -17,11 +17,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/control"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/control"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 //go:embed assets/login.html
@@ -30,7 +30,7 @@ var loginHTML []byte
 //go:embed assets/twofactor.html
 var twoFactorHTML []byte
 
-const sessionCookie = "backpack_session"
+const sessionCookie = "fullpack_session"
 
 // sessionTTL is how long a signed-in browser stays signed in. It was written
 // out as `12 * time.Hour` in the store and as `12 * 3600` in the cookie; one
@@ -216,7 +216,7 @@ func (s *server) updatePassword(pw string) error {
 	return Save(c)
 }
 
-// Serve starts the web panel and blocks. Invoked by `backpack --webui`.
+// Serve starts the web panel and blocks. Invoked by `fullpack --webui`.
 func Serve() error {
 	cfg, err := EnsurePassword()
 	if err != nil {
@@ -226,7 +226,7 @@ func Serve() error {
 	defer node.DefaultHub.Close()
 
 	// The SOCKS5 relay, the watchdog, the Telegram bot and the alerts all
-	// deliberately run elsewhere — in the backpack-monitor service. See
+	// deliberately run elsewhere — in the fullpack-monitor service. See
 	// internal/monitor for why.
 
 	// The panel shows live stats, tunnel state and logs, and — through the

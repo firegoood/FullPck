@@ -3,7 +3,7 @@
 > **IP Spoofing is a direct-tunnel carrier now, not a reverse transport.**
 > `transport = "spoof"` is refused at startup, and the wizard no longer offers
 > it under Setup → Experimental. Build it as a **direct tunnel** instead —
-> `sudo backpack` → Setup Iran / Setup Kharej → **Direct**, then choose **Spoof**
+> `sudo fullpack` → Setup Iran / Setup Kharej → **Direct**, then choose **Spoof**
 > as the carrier — and the same forged packets carry the same forwarded ports.
 >
 > The reason is not tidiness. A reverse tunnel is a control channel plus a pool
@@ -76,7 +76,7 @@ so spreading it would add nothing. Both are documented in
 ## Every setting
 
 Reached from **Manage → Edit → IP Spoofing** (or the panel's spoof drawer). The
-config key is given for each, for `/etc/backpack/<name>.toml`.
+config key is given for each, for `/etc/fullpack/<name>.toml`.
 
 ### Packet profile — `spoof_profile`
 
@@ -245,7 +245,7 @@ It is a **two-node test, and the receiver must be started first**:
 
 | Prompt | Default | Notes |
 |---|---|---|
-| Shared token | `backpack` | must match the sender; unrelated to the tunnel token |
+| Shared token | `fullpack` | must match the sender; unrelated to the tunnel token |
 | Listen UDP port | `45000` | open it in this machine's firewall |
 | Probes the sender emits per IP | `5` | must match the sender |
 | Capture window (seconds) | `30` | long enough for the sender to finish |
@@ -353,4 +353,4 @@ If you set it, nothing changes: it was never doing anything.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

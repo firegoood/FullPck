@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // Relay diagnosis.
@@ -182,7 +182,7 @@ func checkBotAPI(c Config) RelayStep {
 			Detail: "the relay works, but Telegram rejected the bot token (401 Unauthorized)" +
 				describeAPIError(res),
 			Fix: "the token is wrong, revoked, or from a deleted bot. Get a fresh one\n" +
-				"      from @BotFather and set it: sudo backpack → Telegram Bot → Configure",
+				"      from @BotFather and set it: sudo fullpack → Telegram Bot → Configure",
 		}
 
 	case resp.StatusCode != http.StatusOK:
@@ -196,7 +196,7 @@ func checkBotAPI(c Config) RelayStep {
 		return RelayStep{
 			Name:   "Telegram",
 			Detail: "Telegram answered through the relay but refused the request" + describeAPIError(res),
-			Fix:    "check the bot token: sudo backpack → Telegram Bot → Configure",
+			Fix:    "check the bot token: sudo fullpack → Telegram Bot → Configure",
 		}
 	}
 
@@ -314,11 +314,11 @@ func responderFix(what string) string {
 	switch {
 	case strings.Contains(what, "SOCKS5"):
 		return "this tunnel still forwards its relay port to the old proxy.\n" +
-			"      Fix it with: sudo backpack → Telegram Bot → Configure"
+			"      Fix it with: sudo fullpack → Telegram Bot → Configure"
 	case strings.Contains(what, "HTTP server"), strings.Contains(what, "SSH server"):
 		return "that port is already taken on THIS server by another service, so the\n" +
 			"      tunnel never got it. Reconfigure the bot to pick a different port:\n" +
-			"      sudo backpack → Telegram Bot → Configure"
+			"      sudo fullpack → Telegram Bot → Configure"
 	case strings.Contains(what, "nothing"):
 		return "the far end accepted and closed without replying — its side of the\n" +
 			"      tunnel is up but it could not reach api.telegram.org"

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/localproxy"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/localproxy"
 )
 
 // The built-in-proxy service.
@@ -16,7 +16,7 @@ import (
 // running behind the tunnel. The unit is only present while the feature is on.
 
 const proxyUnit = `[Unit]
-Description=Backpack built-in proxy (SOCKS5/HTTP)
+Description=FullPack built-in proxy (SOCKS5/HTTP)
 After=network.target
 
 [Service]

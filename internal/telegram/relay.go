@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // Choosing which tunnel carries the bot's traffic.
@@ -236,19 +236,19 @@ func explainSendFailure(c Config, err error) error {
 	case strings.Contains(msg, "connection refused"):
 		return fmt.Errorf("%w\n\nNothing is listening on 127.0.0.1:%d on THIS server.\n"+
 			"Tunnel %q is supposed to be forwarding that port to Telegram but is not.\n\n"+
-			"Run:  sudo backpack → Telegram Bot → Diagnose relay\n"+
-			"or check:  journalctl -u backpack-%s -n 30", err, port, name, name)
+			"Run:  sudo fullpack → Telegram Bot → Diagnose relay\n"+
+			"or check:  journalctl -u fullpack-%s -n 30", err, port, name, name)
 
 	case strings.Contains(msg, "does not look like a TLS handshake"):
 		return fmt.Errorf("%w\n\nSomething answered, but not Telegram. Tunnel %q is still forwarding\n"+
 			"its relay port to the old proxy instead of straight to the API.\n\n"+
-			"Fix it with:  sudo backpack → Telegram Bot → Configure", err, name)
+			"Fix it with:  sudo fullpack → Telegram Bot → Configure", err, name)
 
 	case strings.Contains(msg, "EOF"), strings.Contains(msg, "reset by peer"):
 		return fmt.Errorf("%w\n\nThe tunnel carried the connection but the far end could not\n"+
 			"reach api.telegram.org. The OTHER server is what dials out — check its\n"+
 			"internet access and that its side of %q is connected.\n\n"+
-			"Run:  sudo backpack → Telegram Bot → Diagnose relay", err, name)
+			"Run:  sudo fullpack → Telegram Bot → Diagnose relay", err, name)
 
 	case strings.Contains(msg, "certificate"), strings.Contains(msg, "x509"):
 		return fmt.Errorf("%w\n\nThe TLS handshake with Telegram failed through tunnel %q.\n"+
@@ -256,6 +256,6 @@ func explainSendFailure(c Config, err error) error {
 
 	default:
 		return fmt.Errorf("%w\n\n(relaying through %q on local port %d)\n"+
-			"Run:  sudo backpack → Telegram Bot → Diagnose relay", err, name, port)
+			"Run:  sudo fullpack → Telegram Bot → Diagnose relay", err, name, port)
 	}
 }

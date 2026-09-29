@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/server"
-	"github.com/backpack/backpack/internal/utils"
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/server"
+	"github.com/firegoood/FullPck/internal/utils"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // The kcp re-adopt path had the fix but no coverage, while udp and quic both

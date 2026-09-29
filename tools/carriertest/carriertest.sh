@@ -8,7 +8,7 @@
 # makes "untested because it is awkward" the wrong place to leave them.
 #
 # This builds the real thing instead. Two network namespaces joined by a veth
-# pair, one BackPack l3 tunnel between them over the carrier being tested, then
+# pair, one FullPack l3 tunnel between them over the carrier being tested, then
 # a ping to prove the tunnel is up and two megabytes through nc to prove it
 # carries data byte for byte.
 #

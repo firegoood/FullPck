@@ -2,12 +2,12 @@
 
 > **The wizard no longer builds this one.** Since v1.7.3, **Setup Iran → Direct**
 > creates a [full IP tunnel](l3-direct-tunnel.md) — one carrier question, always
-> Backpack's own GRE — because that shape covers the same job and measures its
+> FullPack's own GRE — because that shape covers the same job and measures its
 > own MTU. The `[direct]` engine below is unchanged and still runs: an existing
 > tunnel keeps working, the panel and the menu still manage, edit and restart
 > it, and a hand-written config still starts. Only the wizard entry is gone.
 
-The same forwarded ports Backpack has always served, with the tunnel dialled
+The same forwarded ports FullPack has always served, with the tunnel dialled
 the other way round.
 
 In the **reverse** tunnel the Iran server listens and kharej dials in. That is
@@ -35,7 +35,7 @@ service. Only who reaches out first has changed.
 
 ## Setting one up
 
-**From the menu — the easy way.** Run `sudo backpack` and choose **Setup Iran** or
+**From the menu — the easy way.** Run `sudo fullpack` and choose **Setup Iran** or
 **Setup Kharej** — whichever machine you are on. It asks which direction you
 want, then what kind of tunnel and how it should travel, and writes the config
 and starts the service for you. Run it on the kharej server first, copy the
@@ -76,7 +76,7 @@ asks for it, so what is forwarded is a change to the Iran config alone.
 
 | Key | Default | What it does |
 |---|---|---|
-| `role` | *required* | `iran` or `kharej`. Its absence is what tells Backpack there is no direct tunnel here |
+| `role` | *required* | `iran` or `kharej`. Its absence is what tells FullPack there is no direct tunnel here |
 | `addr` | *required* | Kharej's `host:port` on Iran; the bind address on kharej |
 | `token` | *required* | The shared secret. Never sent on the wire |
 | `transport` | `tcp` | `tcp`, `stealth`, `ws` or `wss` |
@@ -256,4 +256,4 @@ nonce و یک پروتکل سیگنال بین دو سر نیاز دارد. **ه
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

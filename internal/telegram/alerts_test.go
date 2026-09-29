@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
-	"github.com/backpack/backpack/internal/sysstat"
+	"github.com/firegoood/FullPck/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/sysstat"
 )
 
 // The value of an alert system is entirely in when it stays quiet. These tests
@@ -229,7 +229,7 @@ func TestSummaryReportsOffState(t *testing.T) {
 func TestCommandParsing(t *testing.T) {
 	cases := map[string]string{
 		"/status":             "status",
-		"/status@backpackbot": "status",
+		"/status@fullpackbot": "status",
 		"/System":             "system",
 		"/metrics extra arg":  "metrics",
 		"  /help  ":           "help",

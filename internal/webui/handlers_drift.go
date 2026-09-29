@@ -3,8 +3,8 @@ package webui
 import (
 	"net/http"
 
-	"github.com/backpack/backpack/internal/control"
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/control"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // What the fleet is supposed to be running, against what it is.

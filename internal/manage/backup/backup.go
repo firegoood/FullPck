@@ -5,21 +5,21 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"github.com/backpack/backpack/internal/manage/core"
+	"github.com/firegoood/FullPck/internal/manage/core"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/schedule"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/schedule"
 )
 
 // backupMetaName is a synthetic entry stored inside the archive (not written to
 // disk on restore) that captures settings living outside ConfigDir — currently
 // the auto-refresh interval, which is kept in the crontab.
-const backupMetaName = ".backpack-backup.json"
+const backupMetaName = ".fullpack-backup.json"
 
 // fleetKeyName is the one file in the config directory that is never archived.
 // See where it is skipped, below, and internal/node/seal.go for what it is.
@@ -141,7 +141,7 @@ func writeBackupEntries(tw *tar.Writer, root string) error {
 		// rather than archived. A symlink here produced an entry with no
 		// target recorded and no content behind it — neither the link nor the
 		// file it pointed at — so the archive looked complete and restored to
-		// something that was not. This directory is written by Backpack and
+		// something that was not. This directory is written by FullPack and
 		// holds configs, certificates and JSON; a symlink in it is a surprise,
 		// and the time to hear about a surprise in a backup is while it is
 		// being taken.
@@ -194,7 +194,7 @@ const partialAge = time.Hour
 func pruneBackups(dir string) {
 	sweepPartials(dir)
 
-	matches, _ := filepath.Glob(filepath.Join(dir, "backpack-backup-*.tar.gz"))
+	matches, _ := filepath.Glob(filepath.Join(dir, "fullpack-backup-*.tar.gz"))
 	if len(matches) <= backupRetention {
 		return
 	}
@@ -211,7 +211,7 @@ func pruneBackups(dir string) {
 // for as long as the host lives. They are named so they cannot be mistaken for
 // a backup and are not counted against the retention limit.
 func sweepPartials(dir string) {
-	matches, _ := filepath.Glob(filepath.Join(dir, ".backpack-backup-*.partial"))
+	matches, _ := filepath.Glob(filepath.Join(dir, ".fullpack-backup-*.partial"))
 	for _, path := range matches {
 		info, err := os.Stat(path)
 		if err != nil || time.Since(info.ModTime()) < partialAge {
@@ -226,7 +226,7 @@ func sweepPartials(dir string) {
 // are pruned.
 // It is written to a temporary file in the same directory and renamed into
 // place once it is complete and on disk, so a name matching
-// backpack-backup-*.tar.gz is always a whole archive. Writing straight to the
+// fullpack-backup-*.tar.gz is always a whole archive. Writing straight to the
 // final name meant an interrupted backup — a full disk, a reboot, a killed
 // process — left a truncated file sitting under a name that says otherwise,
 // which pruning then counts as one of the ten kept and a restore accepts as
@@ -244,7 +244,7 @@ func publishBackup(dir string, write func(io.Writer) error) (string, error) {
 		return "", err
 	}
 
-	tmp, err := os.CreateTemp(dir, ".backpack-backup-*.partial")
+	tmp, err := os.CreateTemp(dir, ".fullpack-backup-*.partial")
 	if err != nil {
 		return "", err
 	}
@@ -299,9 +299,9 @@ func publishBackup(dir string, write func(io.Writer) error) (string, error) {
 func freeBackupPath(dir string) (string, error) {
 	stamp := time.Now().Format("20060102-150405")
 	for n := 0; n < 100; n++ {
-		name := fmt.Sprintf("backpack-backup-%s.tar.gz", stamp)
+		name := fmt.Sprintf("fullpack-backup-%s.tar.gz", stamp)
 		if n > 0 {
-			name = fmt.Sprintf("backpack-backup-%s-%d.tar.gz", stamp, n)
+			name = fmt.Sprintf("fullpack-backup-%s-%d.tar.gz", stamp, n)
 		}
 		path := filepath.Join(dir, name)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -343,7 +343,7 @@ func Restore(r io.Reader) (RestoreResult, error) {
 	// Beside the config directory, so the commit is a rename rather than a copy
 	// across filesystems — and so a restore cannot half-succeed for want of
 	// space somewhere else.
-	stage, err := os.MkdirTemp(filepath.Dir(app.ConfigDir), ".backpack-restore-*")
+	stage, err := os.MkdirTemp(filepath.Dir(app.ConfigDir), ".fullpack-restore-*")
 	if err != nil {
 		return res, err
 	}

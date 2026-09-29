@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // The transport fallback chain, from the operator's side.

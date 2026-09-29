@@ -148,7 +148,7 @@ func TestWizardOrderMatchesReverse(t *testing.T) {
 			fn: "func setupL3",
 			steps: []string{
 				// The carrier is the transport slot, and it is now the first
-				// thing asked: a direct tunnel is always Backpack's own GRE
+				// thing asked: a direct tunnel is always FullPack's own GRE
 				// inside the Noise session, so there is no encapsulation left
 				// to choose between.
 				"askL3Carrier()",

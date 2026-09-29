@@ -5,8 +5,8 @@ package menu
 import (
 	"fmt"
 
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // manageMenu is main-menu item 3.

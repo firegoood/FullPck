@@ -1,4 +1,4 @@
-// Package menu implements the interactive backpack CLI shown when the binary
+// Package menu implements the interactive fullpack CLI shown when the binary
 // is run without a config file.
 package menu
 
@@ -8,11 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/schedule"
-	"github.com/backpack/backpack/internal/tui"
-	"github.com/backpack/backpack/internal/webui"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/schedule"
+	"github.com/firegoood/FullPck/internal/tui"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // ipStore caches the server's public IPv4 so menus never block on a lookup.
@@ -171,7 +171,7 @@ func refreshLabel() string {
 
 func requireRoot() {
 	if os.Geteuid() != 0 {
-		tui.Error("Backpack must be run as root (use: sudo backpack).")
+		tui.Error("FullPack must be run as root (use: sudo fullpack).")
 		os.Exit(1)
 	}
 }

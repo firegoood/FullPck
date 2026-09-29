@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
 )
 
 // Config is the persisted web-panel configuration.
@@ -342,7 +342,7 @@ func EnsureRunning() (Config, error) {
 		return c, err
 	}
 	unit := fmt.Sprintf(`[Unit]
-Description=Backpack Web Panel
+Description=FullPack Web Panel
 After=network.target
 
 [Service]

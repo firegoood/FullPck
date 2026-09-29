@@ -1,4 +1,4 @@
-// Package app holds shared constants and paths used across the backpack
+// Package app holds shared constants and paths used across the fullpack
 // management layer (menu, manage, telegram, schedule, optimize).
 package app
 
@@ -9,40 +9,40 @@ import (
 )
 
 const (
-	// Version of the backpack engine.
+	// Version of the fullpack engine.
 	Version = "v1.8.4"
 
 	// RepoOwner/RepoName identify the GitHub repository used by the installer
 	// and the release-based updater.
-	RepoOwner = "AminMGMT"
-	RepoName  = "BackPack"
+	RepoOwner = "firegoood"
+	RepoName  = "FullPck"
 
 	// SourceURL is where the source lives, printed with the version.
 	SourceURL = "https://github.com/" + RepoOwner + "/" + RepoName
 
 	// InstallDir is where the release bundle lives on the VPS.
-	InstallDir = "/root/BackPack"
+	InstallDir = "/root/FullPack"
 
 	// BackupDir is the default folder for configuration backups.
 	BackupDir = InstallDir + "/backups"
 
 	// ConfigDir is where per-tunnel TOML configs and runtime state live.
-	ConfigDir = "/etc/backpack"
+	ConfigDir = "/etc/fullpack"
 
 	// ServiceDir is the systemd unit directory.
 	ServiceDir = "/etc/systemd/system"
 
 	// ServicePrefix is prepended to every tunnel systemd unit.
-	ServicePrefix = "backpack-"
+	ServicePrefix = "fullpack-"
 
-	// BinPath is where the backpack binary is installed.
-	BinPath = "/usr/local/bin/backpack"
+	// BinPath is where the fullpack binary is installed.
+	BinPath = "/usr/local/bin/fullpack"
 
 	// TelegramConfig stores the telegram bot settings (JSON).
 	TelegramConfig = ConfigDir + "/telegram.json"
 
 	// AutoRefreshMarker is the cron comment tag for the global auto-refresh job.
-	AutoRefreshMarker = "backpack-auto-refresh"
+	AutoRefreshMarker = "fullpack-auto-refresh"
 
 	// WebUIConfig stores the web panel settings (JSON).
 	WebUIConfig = ConfigDir + "/webui.json"
@@ -56,7 +56,7 @@ const (
 	NodeEnrollmentConfig = ConfigDir + "/node-enrollment.json"
 
 	// WebUIService is the systemd unit that runs the web panel.
-	WebUIService = "backpack-webui.service"
+	WebUIService = "fullpack-webui.service"
 
 	// WebUIPort is the default port the web panel listens on.
 	WebUIPort = 7777
@@ -64,11 +64,11 @@ const (
 	// MonitorService is the systemd unit that watches the tunnels and runs the
 	// Telegram bot and alerts. It is deliberately separate from the web panel:
 	// monitoring must not stop just because the panel is stopped.
-	MonitorService = "backpack-monitor.service"
+	MonitorService = "fullpack-monitor.service"
 
 	// ProxyService is the systemd unit for the optional built-in SOCKS5/HTTP
 	// proxy, so a node can be its own backend instead of running a separate one.
-	ProxyService = "backpack-proxy.service"
+	ProxyService = "fullpack-proxy.service"
 
 	// SocksInternalPort is the localhost port the built-in SOCKS5 proxy listens
 	// on. It is reachable from a peer only when exposed over a tunnel.
@@ -147,7 +147,7 @@ func SocksPortForToken(token string) int {
 	if token == "" {
 		return SocksInternalPort
 	}
-	sum := sha256.Sum256([]byte("backpack-socks-v1:" + token))
+	sum := sha256.Sum256([]byte("fullpack-socks-v1:" + token))
 	// A 20000-wide window above the usual service range and below the
 	// ephemeral range, so it neither collides with a well-known port nor gets
 	// handed out to an outgoing connection.
@@ -177,4 +177,4 @@ func AssetArch() string {
 }
 
 // AssetName is the release archive this build would update itself from.
-func AssetName() string { return "backpack_linux_" + AssetArch() + ".tar.gz" }
+func AssetName() string { return "fullpack_linux_" + AssetArch() + ".tar.gz" }

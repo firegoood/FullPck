@@ -11,17 +11,17 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/backpack/backpack/internal/app"
-	"github.com/backpack/backpack/internal/manage"
-	"github.com/backpack/backpack/internal/telegram"
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/app"
+	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/telegram"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // updateMenu offers a safe update and the restore points it creates.
 func updateMenu() {
 	for {
 		tui.Clear()
-		tui.Title("Update Backpack")
+		tui.Title("Update FullPack")
 		tui.Warn("Current version: " + app.Version)
 		tui.Warn("Release channel : " + manage.ChannelLabel())
 		fmt.Println()
@@ -187,7 +187,7 @@ func runUpdate() {
 	tui.Warn(summary)
 	fmt.Println()
 	tui.Info("A restore point is saved first. If anything fails to come back up,")
-	tui.Info("Backpack puts the previous version back automatically.")
+	tui.Info("FullPack puts the previous version back automatically.")
 	fmt.Println()
 	if !tui.Confirm("Download and install the update now", true) {
 		return
@@ -208,7 +208,7 @@ func runUpdate() {
 		tui.PressEnter()
 		return
 	}
-	tui.Success("Backpack updated successfully.")
+	tui.Success("FullPack updated successfully.")
 	tui.PressEnter()
 	reopen()
 }
@@ -316,13 +316,13 @@ func restorePointMenu() {
 //
 // An update or a rollback swaps the file on disk, and this process is still
 // the build it was started as: the menu came back showing the old version and
-// the old screens until the operator quit and ran sudo backpack again. Every
+// the old screens until the operator quit and ran sudo fullpack again. Every
 // tunnel has already been restarted on the new binary by then; this puts the
 // menu on it too.
 func reopen() {
 	tui.Info("Opening the new version...")
 	if err := execSelf(); err != nil {
-		tui.Warn("Could not reopen by itself (" + err.Error() + ") — exit and run sudo backpack again.")
+		tui.Warn("Could not reopen by itself (" + err.Error() + ") — exit and run sudo fullpack again.")
 		tui.PressEnter()
 	}
 }

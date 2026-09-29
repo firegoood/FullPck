@@ -1,6 +1,6 @@
 # Choosing a transport (Link Test)
 
-Not sure which transport suits your route? Let Backpack measure it.
+Not sure which transport suits your route? Let FullPack measure it.
 
 ## Run the test
 
@@ -63,4 +63,4 @@ Change a tunnel's transport any time from **Edit → Change transport**.
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

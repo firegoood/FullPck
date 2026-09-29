@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/backpack/backpack/internal/telegram"
-	"github.com/backpack/backpack/internal/webui"
+	"github.com/firegoood/FullPck/internal/telegram"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // The lines the main menu is made of.

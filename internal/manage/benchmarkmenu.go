@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // LinkTest measures the link to the far server and recommends a transport for

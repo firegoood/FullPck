@@ -3,7 +3,7 @@
  * One of the panel's two sections, beside the tunnels, so it is a page in #view
  * rather than a dialog over one.
  *
- * A generated enrollment code is pasted into `backpack node join` on the far
+ * A generated enrollment code is pasted into `fullpack node join` on the far
  * machine. Its Agent then connects outward to this panel.
  */
 
@@ -107,7 +107,7 @@ const SHELL = `
         <span class="asv-ic">${MAPICON_SVG}</span>
         <div>
           <b>Add a server</b>
-          <span>Generate a one-time enrollment code, then run <code>backpack node join</code>
+          <span>Generate a one-time enrollment code, then run <code>fullpack node join</code>
                 on the foreign Node.</span>
         </div>
       </div>
@@ -211,7 +211,7 @@ export function serversView(ctx) {
     const dash = v => (v && v !== '-' ? v : '—');
 
     /* One line of identity under the name: the address, where it is, which
-       Backpack it runs, how long it has been up. They were four separate
+       FullPack it runs, how long it has been up. They were four separate
        blocks — an oversized address, a two-cell facts grid, a decorative map
        behind all of it — on a card tall enough that a fleet of four did not
        fit on a screen. They are facts of one or two words each; a row of them
@@ -538,7 +538,7 @@ export function serversView(ctx) {
       const state = await api.nodeAdd(fields);
        form.hidden = true; form.reset();
        if (state.status === 'enrollment_created') {
-         note.textContent = `Run backpack node join on the foreign Node, then paste this one-time code: ${state.enrollmentCode}`;
+         note.textContent = `Run fullpack node join on the foreign Node, then paste this one-time code: ${state.enrollmentCode}`;
          try { await navigator.clipboard?.writeText(state.enrollmentCode); } catch (_) {}
          alert(`Enrollment code (copied when permitted):\n\n${state.enrollmentCode}`);
          toast('Enrollment code created.');

@@ -37,26 +37,36 @@ type AgentRunner struct{ hub *Hub }
 var _ Runner = (*AgentRunner)(nil)
 
 func NewAgentRunner(hub *Hub) *AgentRunner {
-	if hub == nil { hub = DefaultHub }
+	if hub == nil {
+		hub = DefaultHub
+	}
 	return &AgentRunner{hub: hub}
 }
 
 func (r *AgentRunner) Call(name, op string, body, out any) error {
 	n, ok := Find(name)
-	if !ok { return fmt.Errorf("no server called %q", name) }
-	if n.Revoked { return ErrAgentRevoked }
+	if !ok {
+		return fmt.Errorf("no server called %q", name)
+	}
+	if n.Revoked {
+		return ErrAgentRevoked
+	}
 	if n.ID == "" {
 		return ErrOffline{Name: name, Why: "the Node has not enrolled with the reverse Agent", Err: ErrAgentOffline}
 	}
 	var hello Info
 	target := out
-	if op == OpHello && target == nil { target = &hello }
+	if op == OpHello && target == nil {
+		target = &hello
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	if err := r.hub.Call(ctx, n.ID, op, body, target); err != nil {
 		return ErrOffline{Name: name, Why: err.Error(), Err: err}
 	}
-	if op == OpHello && out == nil { _ = NoteInfo(name, hello) }
+	if op == OpHello && out == nil {
+		_ = NoteInfo(name, hello)
+	}
 	return nil
 }
 
@@ -67,9 +77,15 @@ func (r *AgentRunner) IsOnline(name string) bool {
 
 func (r *AgentRunner) Reachable(name string) (bool, string) {
 	n, ok := Find(name)
-	if !ok { return false, "Node is not enrolled" }
-	if n.Revoked { return false, ErrAgentRevoked.Error() }
-	if n.ID == "" || !r.hub.IsOnline(n.ID) { return false, ErrAgentOffline.Error() }
+	if !ok {
+		return false, "Node is not enrolled"
+	}
+	if n.Revoked {
+		return false, ErrAgentRevoked.Error()
+	}
+	if n.ID == "" || !r.hub.IsOnline(n.ID) {
+		return false, ErrAgentOffline.Error()
+	}
 	return true, ""
 }
 

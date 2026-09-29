@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // HealthCheck runs every diagnostic and prints a grouped report with a ✓/!/✗
@@ -67,12 +67,12 @@ func checkMark(l CheckLevel) string {
 	}
 }
 
-// FileLocations prints every path Backpack uses with a ✓/✗ so the user can see
+// FileLocations prints every path FullPack uses with a ✓/✗ so the user can see
 // what is installed and where everything lives.
 func FileLocations() {
 	tui.Clear()
 	tui.Title("File Locations")
-	tui.Warn("Everything Backpack owns on this server.")
+	tui.Warn("Everything FullPack owns on this server.")
 	fmt.Println()
 
 	locs := Locations()

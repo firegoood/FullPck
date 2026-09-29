@@ -19,7 +19,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // The QUIC carrier.
@@ -118,7 +118,7 @@ func quicConfig() *quic.Config {
 // the token can reset a connection, which is far less than the token already
 // lets them do.
 func quicResetKey(token string) *quic.StatelessResetKey {
-	sum := sha256.Sum256([]byte("backpack l3 quic stateless reset v1\x00" + token))
+	sum := sha256.Sum256([]byte("fullpack l3 quic stateless reset v1\x00" + token))
 	k := quic.StatelessResetKey(sum)
 	return &k
 }

@@ -6,8 +6,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/backpack/backpack/internal/metrics"
-	"github.com/backpack/backpack/internal/web"
+	"github.com/firegoood/FullPck/internal/metrics"
+	"github.com/firegoood/FullPck/internal/web"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/client"
-	"github.com/backpack/backpack/internal/server"
+	"github.com/firegoood/FullPck/internal/client"
+	"github.com/firegoood/FullPck/internal/server"
 )
 
 // A forwarded port with two backends must carry traffic end to end: the

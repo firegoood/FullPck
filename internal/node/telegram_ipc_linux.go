@@ -15,7 +15,7 @@ import (
 
 // TelegramSocketPath is a root-only Unix socket shared by the WebUI controller
 // and the separate monitor process. Tests may point it at a temporary path.
-var TelegramSocketPath = "/run/backpack/control.sock"
+var TelegramSocketPath = "/run/fullpack/control.sock"
 
 // StartTelegramIPC owns only a local Unix socket. Remote Agent sessions remain
 // on the existing WebUI listener; this adds no public management port.

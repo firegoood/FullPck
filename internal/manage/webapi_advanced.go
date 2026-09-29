@@ -5,9 +5,9 @@ import (
 	"net"
 	"strings"
 
-	"github.com/backpack/backpack/config"
+	"github.com/firegoood/FullPck/config"
 
-	"github.com/backpack/backpack/internal/utils/network"
+	"github.com/firegoood/FullPck/internal/utils/network"
 )
 
 // The advanced halves of the panel's setup and edit forms: the IP-spoofing

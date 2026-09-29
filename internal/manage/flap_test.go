@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/alerthist"
+	"github.com/firegoood/FullPck/internal/alerthist"
 )
 
 // A tunnel that fails repeatedly has to be reported as failing repeatedly.

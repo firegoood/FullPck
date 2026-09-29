@@ -67,7 +67,7 @@ func rstRule(port uint16) []string {
 		"-p", "tcp",
 		"--sport", p,
 		"--tcp-flags", "RST", "RST",
-		"-m", "comment", "--comment", fmt.Sprintf("backpack-spoof-%s", p),
+		"-m", "comment", "--comment", fmt.Sprintf("fullpack-spoof-%s", p),
 		"-j", "DROP",
 	}
 }

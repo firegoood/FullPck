@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/backpack/backpack/internal/tui"
+	"github.com/firegoood/FullPck/internal/tui"
 )
 
 // The link the Iran summary shows, before anything is written, builds the
@@ -36,7 +36,7 @@ func TestTheReverseLinkBuildsTheMatchingKharej(t *testing.T) {
 			}
 			if needsTLS(tr) {
 				s.SimpleAuth = true
-				s.TLSCert, s.TLSKey = "/etc/backpack/c.pem", "/etc/backpack/k.pem"
+				s.TLSCert, s.TLSKey = "/etc/fullpack/c.pem", "/etc/fullpack/k.pem"
 			}
 
 			raw := pendingReverseLink(s, "203.0.113.9")
@@ -240,7 +240,7 @@ func TestSetupFromALinkKeepsThePairedReverseSettings(t *testing.T) {
 			}
 			if needsTLS(tr) {
 				srv.SimpleAuth = true
-				srv.TLSCert, srv.TLSKey = "/etc/backpack/c.pem", "/etc/backpack/k.pem"
+				srv.TLSCert, srv.TLSKey = "/etc/fullpack/c.pem", "/etc/fullpack/k.pem"
 			}
 			if tr == "kcp" {
 				srv.KCPDataShards, srv.KCPParityShards = 0, 0

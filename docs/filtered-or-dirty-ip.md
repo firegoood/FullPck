@@ -47,7 +47,7 @@ automatically, and can reach it through a CDN edge instead of the origin:
 - **A dirty exit is not a tunnel problem.** If the kharej IP is blacklisted by the
   services you reach through it, the tunnel still establishes; the fix is a
   cleaner exit IP, not a different transport.
-- Backpack does **not** relay through a third hop, so a fully IP-blocked endpoint
+- FullPack does **not** relay through a third hop, so a fully IP-blocked endpoint
   with no CDN option needs a clean address.
 
 ---
@@ -86,4 +86,4 @@ automatically, and can reach it through a CDN edge instead of the origin:
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

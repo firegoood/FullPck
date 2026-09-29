@@ -1,6 +1,6 @@
 # Architecture
 
-What BackPack is made of, and which part answers which question. The topic
+What FullPack is made of, and which part answers which question. The topic
 guides beside this one explain how to do things; this one explains where things
 are.
 
@@ -12,18 +12,18 @@ are.
 
 | Invocation | What runs |
 |---|---|
-| `backpack` | the interactive management menu — `internal/menu` |
-| `backpack -c <file>` | **engine mode**: one tunnel, from one config |
-| `backpack --webui` | the web panel — `internal/webui` |
-| `backpack --monitor` | watchdog, Telegram bot, alerts, history — `internal/monitor` |
-| `backpack --proxy` | the built-in SOCKS5/HTTP proxy — `internal/localproxy` |
-| `backpack --restart-all` / `--telegram-report` | one-shot jobs, run from cron |
-| `backpack node join` | one-time interactive enrollment of a managed Node Agent |
+| `fullpack` | the interactive management menu — `internal/menu` |
+| `fullpack -c <file>` | **engine mode**: one tunnel, from one config |
+| `fullpack --webui` | the web panel — `internal/webui` |
+| `fullpack --monitor` | watchdog, Telegram bot, alerts, history — `internal/monitor` |
+| `fullpack --proxy` | the built-in SOCKS5/HTTP proxy — `internal/localproxy` |
+| `fullpack --restart-all` / `--telegram-report` | one-shot jobs, run from cron |
+| `fullpack node join` | one-time interactive enrollment of a managed Node Agent |
 
 Everything except engine mode is management. Engine mode is the product.
 
 **One process per tunnel.** Each tunnel is its own systemd unit running
-`backpack -c /etc/backpack/<name>.toml`. This is the single most valuable
+`fullpack -c /etc/fullpack/<name>.toml`. This is the single most valuable
 reliability property in the system and it is free: a panic, a leak or a bad
 config affects exactly one tunnel, and systemd restarts exactly that one. Any
 proposal to run several tunnels in one process is trading it away.
@@ -81,7 +81,7 @@ This is the piece worth knowing before changing anything.
 ```
   engine process                    every other process
   ──────────────                    ───────────────────
-  internal/metrics  ──writes──►  /etc/backpack/<name>.metrics.json
+  internal/metrics  ──writes──►  /etc/fullpack/<name>.metrics.json
                                         │
                                         ├──►  the panel
                                         ├──►  the Telegram bot
@@ -178,14 +178,14 @@ they are worth reading before changing the code they sit on.
 
 ## خلاصهٔ فارسی
 
-این صفحه می‌گوید Backpack از چه ساخته شده و کدام بخش به کدام سؤال جواب می‌دهد.
+این صفحه می‌گوید FullPack از چه ساخته شده و کدام بخش به کدام سؤال جواب می‌دهد.
 بقیهٔ راهنماها می‌گویند «چطور کاری را بکنی»؛ این یکی می‌گوید «چیزها کجایند».
 
-**یک باینری، هفت حالت.** `main.go` قبل از هر چیز دیگری تصمیم می‌گیرد: `backpack`
-منوی مدیریت است؛ `backpack -c <file>` **حالت موتور** است یعنی یک تونل از یک
+**یک باینری، هفت حالت.** `main.go` قبل از هر چیز دیگری تصمیم می‌گیرد: `fullpack`
+منوی مدیریت است؛ `fullpack -c <file>` **حالت موتور** است یعنی یک تونل از یک
 کانفیگ؛ `--webui` پنل وب؛ `--monitor` نگهبان و ربات تلگرام و هشدارها و تاریخچه؛
 `--proxy` پراکسی داخلی SOCKS5/HTTP؛ `--restart-all` و `--telegram-report` کارهای
-یک‌باره‌ای که از cron اجرا می‌شوند؛ و `backpack node join` برای ثبت‌نام تعاملی
+یک‌باره‌ای که از cron اجرا می‌شوند؛ و `fullpack node join` برای ثبت‌نام تعاملی
 Agent سرور مدیریت‌شده است. Agent از سرور خارجی به WebUI کنترلر وصل می‌شود و
 در سرویس monitor موجود اجرا می‌شود. این مسیر پورت مدیریتی جداگانه یا listener
 محلی 443 ایجاد نمی‌کند. **هر چیزی جز حالت موتور،
@@ -224,4 +224,4 @@ heap) — و هر پروسهٔ دیگری همان فایل را می‌خوان
 
 ---
 
-*Last verified against Backpack v1.8.4.*
+*Last verified against FullPack v1.8.4.*

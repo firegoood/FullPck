@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/backpack/backpack/internal/node"
+	"github.com/firegoood/FullPck/internal/node"
 )
 
 // The comparison is the whole feature, so it is tested without a fleet: every

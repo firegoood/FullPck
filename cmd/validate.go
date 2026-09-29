@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/backpack/backpack/config"
-	"github.com/backpack/backpack/internal/tunnel/l3"
+	"github.com/firegoood/FullPck/config"
+	"github.com/firegoood/FullPck/internal/tunnel/l3"
 )
 
 // checkEngine reports whether the engine this configuration selects can be
