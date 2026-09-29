@@ -111,7 +111,7 @@ func ServiceName(name string) string {
 // A var rather than a const so a test can pin a key of its own — the same
 // reason node.StorePath and optimize.sysctlFile are vars. Nothing at runtime
 // writes it.
-var ReleasePublicKey = "uDVeC9NUFceAuhg53ZWbBNTVSaMC8tEvtwWmcDZmV9Q="
+var ReleasePublicKey = "zAFI6/ugQ/1tPW4gmHMg+YR8QKh8Iu45LGTDPgGNRpI="
 
 // TunnelConfigMode is the permission a tunnel's TOML config is written with.
 //
