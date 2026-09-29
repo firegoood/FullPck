@@ -168,11 +168,7 @@ func offeredCarrier(name string) bool {
 // create. The form now shows the same warning/needs-root metadata and leaves
 // the route test to the operator, just like the CLI.
 func PanelDirectCarriers() []map[string]string {
-	out := make([]map[string]string, 0, len(DirectCarriers()))
-	for _, c := range DirectCarriers() {
-		out = append(out, c)
-	}
-	return out
+	return DirectCarriers()
 }
 
 // DirectPresets is what the panel offers for tuning, in the same order as the

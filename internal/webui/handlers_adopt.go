@@ -168,35 +168,3 @@ func (s *server) handleTunnelAdopt(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
-
-// suggestPairsOn is the same matching, run for every unpaired tunnel when a
-// server joins the fleet.
-//
-// It suggests and never links. The match is strong — two ends that meet at an
-// address — but "strong" is not "the operator's decision", and a pairing made
-// without one is a decision about where their next edit goes.
-func (s *server) suggestPairsOn(run node.Runner, server string) []map[string]any {
-	if run == nil {
-		return nil
-	}
-	states, err := farEndsOn(run, server)
-	if err != nil {
-		return nil
-	}
-	var out []map[string]any
-	for _, t := range manage.List() {
-		if _, paired := manage.NodeFor(t.Name); paired {
-			continue
-		}
-		for _, c := range candidatesFor(t, states) {
-			if !c.Certain {
-				continue // only demonstrated matches are worth interrupting for
-			}
-			out = append(out, map[string]any{
-				"name": t.Name, "node": server, "peerName": c.Name, "why": c.Why,
-			})
-			break
-		}
-	}
-	return out
-}
