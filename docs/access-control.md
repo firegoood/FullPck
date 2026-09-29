@@ -142,4 +142,4 @@ curl -H "Authorization: Bearer <token>" https://panel:8443/metrics
 
 ---
 
-*Last verified against FullPack v1.8.4.*
+*Last verified against FullPack v1.8.5.*

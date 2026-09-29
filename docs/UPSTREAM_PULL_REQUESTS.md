@@ -21,4 +21,4 @@
 
 این تطبیق listener مدیریتی جدید یا bind محلی Telegram روی پورت ۴۴۳ ایجاد نمی‌کند. قبل از انتشار یا انتقال به مخزن شخصی، تست‌های Linux amd64 و بررسی تنظیمات نصب باید دوباره اجرا شوند.
 
-*Last verified against FullPack v1.8.4.*
+*Last verified against FullPack v1.8.5.*

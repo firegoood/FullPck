@@ -396,4 +396,4 @@ journalctl -u fullpack-webui -n 100
 
 ---
 
-*Last verified against FullPack v1.8.4.*
+*Last verified against FullPack v1.8.5.*

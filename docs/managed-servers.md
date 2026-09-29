@@ -39,4 +39,4 @@ Revoke اعتبارنامهٔ Node را در کنترلر غیرفعال و جل
 
 </div>
 
-*Last verified against FullPack v1.8.4.*
+*Last verified against FullPack v1.8.5.*

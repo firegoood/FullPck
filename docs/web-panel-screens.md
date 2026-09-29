@@ -143,4 +143,4 @@ hash همه‌جا درست reload می‌شود. هر صفحه‌ای در ای
 
 ---
 
-*Last verified against FullPack v1.8.4.*
+*Last verified against FullPack v1.8.5.*

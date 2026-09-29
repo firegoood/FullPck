@@ -224,4 +224,4 @@ heap) — و هر پروسهٔ دیگری همان فایل را می‌خوان
 
 ---
 
-*Last verified against FullPack v1.8.4.*
+*Last verified against FullPack v1.8.5.*
