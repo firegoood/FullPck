@@ -4,8 +4,8 @@ package node
 //
 // Enrollment credentials are deliberately a different class of secret from
 // the permanent Agent credential. The controller stores only a hash and an
-// expiry; after a successful join the token is consumed and can never open a
-// normal Agent session.
+// expiry plus a bounded provisioning timestamp; after a successful join the
+// token is consumed and can never open a normal Agent session.
 
 import (
 	"context"
@@ -37,6 +37,9 @@ const (
 	EnrollmentVersion = "BPENROLL1"
 	EnrollmentPath    = "/_bp/node/enroll"
 	defaultEnrollTTL  = 15 * time.Minute
+	// Match the Node's pending intent lifetime: bootstrap recovery is bounded,
+	// while the permanent Agent credential has no enrollment expiry.
+	provisionedRecoveryWindow = 24 * time.Hour
 )
 
 type enrollmentCode struct {
@@ -54,6 +57,7 @@ type enrollmentRecord struct {
 	ControllerURL string `json:"controller_url"`
 	TokenHash     string `json:"token_hash"`
 	Expires       int64  `json:"expires"`
+	ProvisionedAt int64  `json:"provisioned_at,omitempty"`
 	Used          bool   `json:"used,omitempty"`
 }
 
@@ -68,6 +72,10 @@ type pendingEnrollment struct {
 }
 
 var enrollmentMu sync.Mutex
+
+// Only enrollment lifecycle decisions use this clock; WebSocket deadlines
+// continue to use wall time. Tests can cross both expiry boundaries instantly.
+var enrollmentNow = time.Now
 
 // EnrollmentStorePath can be overridden by package tests.
 var EnrollmentStorePath = app.NodeEnrollmentConfig
@@ -112,8 +120,9 @@ func CreateEnrollmentPinned(name, controllerURL, tlsPin string, ttl time.Duratio
 	if err != nil {
 		return "", err
 	}
+	now := enrollmentNow()
 	rec := enrollmentRecord{NodeID: nodeID, Name: name, ControllerURL: controllerURL,
-		TokenHash: HashCredential(token), Expires: time.Now().Add(ttl).Unix()}
+		TokenHash: HashCredential(token), Expires: now.Add(ttl).Unix()}
 	enrollmentMu.Lock()
 	defer enrollmentMu.Unlock()
 	items, err := loadEnrollments()
@@ -121,10 +130,13 @@ func CreateEnrollmentPinned(name, controllerURL, tlsPin string, ttl time.Duratio
 		return "", err
 	}
 	// Expired bootstrap material is not useful and should not accumulate in
-	// the controller store. An outstanding code reserves the chosen name.
+	// the controller store. This lazy cleanup never removes the Managed Node.
+	// An outstanding code reserves the chosen name.
 	active := items[:0]
 	for _, item := range items {
-		if item.Used || (item.Expires <= time.Now().Unix() && !enrollmentProvisioned(item.NodeID)) {
+		provisioned := enrollmentProvisioned(item.NodeID)
+		if item.Used || (provisioned && !recoveryValid(item, now)) ||
+			(!provisioned && item.Expires <= now.Unix()) {
 			continue
 		}
 		if strings.EqualFold(item.Name, name) {
@@ -140,6 +152,11 @@ func CreateEnrollmentPinned(name, controllerURL, tlsPin string, ttl time.Duratio
 	raw, _ := json.Marshal(enrollmentCode{Version: EnrollmentVersion, NodeID: nodeID,
 		Name: name, ControllerURL: controllerURL, Token: token, TLSPinSHA256: tlsPin})
 	return EnrollmentVersion + ":" + base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func recoveryValid(record enrollmentRecord, now time.Time) bool {
+	return record.ProvisionedAt > 0 &&
+		now.Before(time.Unix(record.ProvisionedAt, 0).Add(provisionedRecoveryWindow))
 }
 
 func randomToken(n int) (string, error) {
@@ -277,6 +294,7 @@ func completeEnrollmentRecord(nodeID, tokenHash, credential string) (AgentConfig
 		subtle.ConstantTimeCompare([]byte(found.TokenHash), []byte(tokenHash)) != 1 {
 		return AgentConfig{}, errors.New("enrollment code is invalid, expired or already used")
 	}
+	now := enrollmentNow()
 	// The registry's atomic write is the Provisioned commit. If it already
 	// contains this identity, a lost response (or a crash after the commit)
 	// returns the same result. A different credential is never allowed to rotate
@@ -286,13 +304,25 @@ func completeEnrollmentRecord(nodeID, tokenHash, credential string) (AgentConfig
 			subtle.ConstantTimeCompare([]byte(existing.Credential), []byte(credential)) != 1 {
 			return AgentConfig{}, errors.New("enrollment already provisioned with a different credential")
 		}
+		if !recoveryValid(*found, now) {
+			return AgentConfig{}, errors.New("enrollment recovery window has expired")
+		}
 		return AgentConfig{NodeID: found.NodeID, Name: found.Name, ControllerURL: found.ControllerURL, Credential: credential}, nil
 	}
-	if found.Expires <= time.Now().Unix() {
+	if found.Expires <= now.Unix() {
 		return AgentConfig{}, errors.New("enrollment code has expired")
 	}
-	// An unsuccessful registry write leaves the token pending. The only writer
-	// seals credentials and atomically replaces nodes.json.
+	// Persist the recovery deadline before committing the Managed Node. If the
+	// registry write succeeds but its response is lost, every later process
+	// still sees the same bounded window. A failed registry write leaves the
+	// initial code usable only until its original expiry.
+	if found.ProvisionedAt == 0 {
+		found.ProvisionedAt = now.Unix()
+		if err := saveEnrollments(items); err != nil {
+			return AgentConfig{}, err
+		}
+	}
+	// The registry writer seals credentials and atomically replaces nodes.json.
 	if _, err := AddManaged(found.Name, found.ControllerURL, found.NodeID, credential); err != nil {
 		return AgentConfig{}, err
 	}
@@ -413,7 +443,7 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 			return AgentConfig{}, genErr
 		}
 		pending = pendingEnrollment{CodeHash: HashCredential(code), NodeID: e.NodeID,
-			Credential: credential, Created: time.Now().Unix()}
+			Credential: credential, Created: enrollmentNow().Unix()}
 		b, _ := json.Marshal(pending)
 		if err := writePrivateFile(pendingPath, b); err != nil {
 			return AgentConfig{}, fmt.Errorf("saving retryable enrollment intent: %w", err)
@@ -426,7 +456,7 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 			return AgentConfig{}, fmt.Errorf("reading pending enrollment intent: %w", statErr)
 		}
 	}
-	if pending.Created <= 0 || time.Now().After(time.Unix(pending.Created, 0).Add(24*time.Hour)) {
+	if pending.Created <= 0 || !enrollmentNow().Before(time.Unix(pending.Created, 0).Add(provisionedRecoveryWindow)) {
 		_ = os.Remove(pendingPath)
 		return AgentConfig{}, errors.New("pending enrollment has expired; request a new code")
 	}
@@ -627,7 +657,10 @@ func HandleEnrollmentHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "completed enrollment", http.StatusConflict)
 		return
 	}
-	if stored.Expires <= time.Now().Unix() && !enrollmentProvisioned(id) {
+	now := enrollmentNow()
+	provisioned := enrollmentProvisioned(id)
+	if (provisioned && !recoveryValid(stored, now)) ||
+		(!provisioned && stored.Expires <= now.Unix()) {
 		http.Error(w, "expired enrollment", http.StatusGone)
 		return
 	}

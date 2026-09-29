@@ -40,8 +40,11 @@ single-machine install never sees them.
 If `fullpack node join` fails after the Controller has saved a Node, rerun it
 with the same enrollment code on the same foreign machine. Its private pending
 intent keeps the same permanent credential for the retry. A completed join
-removes that intent. Ordinary backups omit the intent; recovery on a different
-machine requires a fresh enrollment.
+removes that intent. Once the Controller has provisioned the Node, exact
+bootstrap recovery is available for at most 24 hours; ordinary Agent login
+with the permanent credential remains valid after that window. Ordinary
+backups omit the intent; recovery on a different machine requires a fresh
+enrollment.
 
 
 ## Restore

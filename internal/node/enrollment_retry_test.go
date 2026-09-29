@@ -17,8 +17,8 @@ import (
 func isolateEnrollment(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	oldStore, oldEnroll, oldAgent, oldSave, oldWrite := StorePath, EnrollmentStorePath, AgentConfigPath,
-		saveAgentConfigForJoin, writeEnrollmentFile
+	oldStore, oldEnroll, oldAgent, oldSave, oldWrite, oldNow := StorePath, EnrollmentStorePath, AgentConfigPath,
+		saveAgentConfigForJoin, writeEnrollmentFile, enrollmentNow
 	StorePath = filepath.Join(dir, "nodes.json")
 	EnrollmentStorePath = filepath.Join(dir, "enrollments.json")
 	AgentConfigPath = filepath.Join(dir, "agent.json")
@@ -26,8 +26,176 @@ func isolateEnrollment(t *testing.T) string {
 		StorePath, EnrollmentStorePath, AgentConfigPath = oldStore, oldEnroll, oldAgent
 		saveAgentConfigForJoin = oldSave
 		writeEnrollmentFile = oldWrite
+		enrollmentNow = oldNow
 	})
 	return dir
+}
+
+func TestInitialEnrollmentExpiry(t *testing.T) {
+	isolateEnrollment(t)
+	now := time.Now().Truncate(time.Second)
+	enrollmentNow = func() time.Time { return now }
+	before, err := CreateEnrollment("before", "http://controller.example:9876", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _ := parseEnrollment(before)
+	credential, _ := GenerateCredential()
+	now = now.Add(59 * time.Second)
+	if _, err := completeEnrollmentRecord(first.NodeID, HashCredential(first.Token), credential); err != nil {
+		t.Fatalf("unused code expired too early: %v", err)
+	}
+	after, err := CreateEnrollment("after", "http://controller.example:9876", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, _ := parseEnrollment(after)
+	now = now.Add(time.Minute)
+	if _, err := completeEnrollmentRecord(second.NodeID, HashCredential(second.Token), credential); err == nil {
+		t.Fatal("unused code outlived its initial expiry")
+	}
+}
+
+func TestProvisionedRecoveryWindowPersistsAndDoesNotRevokeAgent(t *testing.T) {
+	isolateEnrollment(t)
+	now := time.Now().Truncate(time.Second)
+	enrollmentNow = func() time.Time { return now }
+	code, err := CreateEnrollment("kharej", "http://controller.example:9876", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := parseEnrollment(code)
+	credential, _ := GenerateCredential()
+	first, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Read the persisted record again, as a new Controller process would.
+	stored, err := os.ReadFile(EnrollmentStorePath)
+	if err != nil || strings.Contains(string(stored), credential) {
+		t.Fatal("Controller enrollment store exposed the permanent credential")
+	}
+	var items []enrollmentRecord
+	if err := json.Unmarshal(stored, &items); err != nil || len(items) != 1 || items[0].ProvisionedAt != now.Unix() {
+		t.Fatalf("provisioning timestamp did not survive persisted reload: %+v, %v", items, err)
+	}
+	other, _ := GenerateCredential()
+	now = now.Add(2 * time.Minute) // Initial validity ended; recovery has not.
+	second, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential)
+	if err != nil || second != first || len(List()) != 1 || findCredential(e.NodeID) != credential {
+		t.Fatalf("exact lost-response retry did not converge: %+v, %v", second, err)
+	}
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), other); err == nil {
+		t.Fatal("different permanent credential was accepted inside recovery window")
+	}
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential("wrong"), credential); err == nil {
+		t.Fatal("wrong bootstrap secret was accepted")
+	}
+	now = time.Unix(items[0].ProvisionedAt, 0).Add(provisionedRecoveryWindow)
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential); err == nil {
+		t.Fatal("bootstrap recovery remained open at its deadline")
+	}
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), other); err == nil {
+		t.Fatal("different permanent credential was accepted after recovery expiry")
+	}
+	if len(List()) != 1 || findCredential(e.NodeID) != credential {
+		t.Fatal("bootstrap recovery expiry deleted or rotated the Managed Node")
+	}
+	w := httptest.NewRecorder()
+	HandleEnrollmentHTTP(w, httptest.NewRequest(http.MethodGet,
+		EnrollmentPath+"?id="+url.QueryEscape(e.NodeID), nil))
+	if w.Code != http.StatusGone {
+		t.Fatalf("expired provisioned enrollment returned HTTP %d", w.Code)
+	}
+	if _, err := CreateEnrollment("other", "http://controller.example:9876", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	items, err = loadEnrollments()
+	if err != nil || len(items) != 1 || items[0].NodeID == e.NodeID ||
+		len(List()) != 1 || findCredential(e.NodeID) != credential {
+		t.Fatalf("lazy enrollment cleanup changed the permanent Node: %+v, %v", items, err)
+	}
+}
+
+func TestProvisioningTimestampWriteFailureDoesNotCommitNode(t *testing.T) {
+	isolateEnrollment(t)
+	code, err := CreateEnrollment("kharej", "http://controller.example:9876", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := parseEnrollment(code)
+	credential, _ := GenerateCredential()
+	writeEnrollmentFile = func(string, []byte) error { return errors.New("injected enrollment store failure") }
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential); err == nil {
+		t.Fatal("Managed Node committed without a durable recovery deadline")
+	}
+	if len(List()) != 0 {
+		t.Fatal("Managed Node was saved despite enrollment timestamp failure")
+	}
+	writeEnrollmentFile = writePrivateFile
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential); err != nil {
+		t.Fatalf("retry after timestamp storage recovery failed: %v", err)
+	}
+}
+
+func TestPermanentAgentCompletesEnrollmentAfterRecoveryExpiry(t *testing.T) {
+	isolateEnrollment(t)
+	now := time.Now().Truncate(time.Second)
+	enrollmentNow = func() time.Time { return now }
+	code, err := CreateEnrollment("kharej", "http://controller.example:9876", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := parseEnrollment(code)
+	credential, _ := GenerateCredential()
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(provisionedRecoveryWindow + time.Second)
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential); err == nil {
+		t.Fatal("expired bootstrap recovery was accepted")
+	}
+	hub := NewHub()
+	t.Cleanup(hub.Close)
+	srv := httptest.NewServer(http.HandlerFunc(hub.ServeHTTP))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		RunAgent(ctx, AgentConfig{NodeID: e.NodeID, Name: e.Name,
+			ControllerURL: srv.URL, Credential: credential})
+		close(done)
+	}()
+	t.Cleanup(func() { cancel(); <-done; srv.Close() })
+	deadline := time.Now().Add(5 * time.Second)
+	for !hub.IsOnline(e.NodeID) && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !hub.IsOnline(e.NodeID) {
+		t.Fatal("permanent Agent credential failed after bootstrap recovery expiry")
+	}
+	var info Info
+	if err := hub.Call(context.Background(), e.NodeID, OpHello, nil, &info); err != nil {
+		t.Fatalf("Agent was online but not manageable: %v", err)
+	}
+	deadline = time.Now().Add(5 * time.Second)
+	var items []enrollmentRecord
+	var loadErr error
+	for time.Now().Before(deadline) {
+		items, loadErr = loadEnrollments()
+		if loadErr == nil && len(items) == 1 && items[0].Used {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if loadErr != nil || len(items) != 1 || !items[0].Used {
+		t.Fatalf("normal Agent authentication did not finalize enrollment: %+v, %v", items, loadErr)
+	}
+	if _, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential); err == nil {
+		t.Fatal("completed enrollment accepted bootstrap retry")
+	}
+	if len(List()) != 1 || findCredential(e.NodeID) != credential {
+		t.Fatal("normal authentication changed the permanent Managed Node")
+	}
 }
 
 func TestEnrollmentCommitFailureDoesNotConsumeCode(t *testing.T) {

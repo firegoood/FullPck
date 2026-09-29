@@ -348,3 +348,10 @@ func TestFreshPanelDefaultsToPort7777(t *testing.T) {
 		t.Fatalf("fresh WebUI port = %d, want 7777", got)
 	}
 }
+
+func TestConfiguredPanelPortIsPreserved(t *testing.T) {
+	useConfigFile(t, Config{Port: 8443})
+	if got := Load().Port; got != 8443 {
+		t.Fatalf("configured WebUI port = %d, want 8443", got)
+	}
+}
