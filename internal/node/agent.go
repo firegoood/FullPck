@@ -621,6 +621,14 @@ type AgentConfig struct {
 // /etc/fullpack path.
 var AgentConfigPath = app.NodeAgentConfig
 
+// HasAgentConfig reports whether this installation has been enrolled as a
+// managed foreign node. Presence is enough here: even a damaged or partial
+// file must not make the CLI silently expose a WebUI listener on that node.
+func HasAgentConfig() bool {
+	_, err := os.Stat(AgentConfigPath)
+	return err == nil
+}
+
 func LoadAgentConfig() (AgentConfig, error) {
 	var c AgentConfig
 	b, err := os.ReadFile(AgentConfigPath)

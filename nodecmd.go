@@ -8,6 +8,7 @@ import (
 
 	"github.com/firegoood/FullPck/internal/manage/core"
 	"github.com/firegoood/FullPck/internal/node"
+	"github.com/firegoood/FullPck/internal/webui"
 )
 
 // `fullpack node join` provisions an outbound Agent on a managed Node.
@@ -52,6 +53,13 @@ func nodeJoin(args []string) {
 	cfg, err := node.JoinWithEnrollment(strings.TrimSpace(line), &http.Client{})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	// Enrollment marks this machine as a managed foreign node. Remove any
+	// panel that may have been started during the initial interactive install
+	// before keeping the monitor/Agent service alive.
+	if err := webui.Disable(); err != nil {
+		fmt.Fprintln(os.Stderr, "Node saved but WebUI could not be disabled:", err)
 		os.Exit(1)
 	}
 	// The join is the only place that needs to ensure the existing monitor

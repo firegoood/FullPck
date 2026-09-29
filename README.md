@@ -20,6 +20,8 @@ sudo fullpack
 
 For a reverse tunnel, choose **Setup Iran → Reverse** on the Iran server. Copy the generated Setup Link. On the other server, choose **Setup Kharej → Reverse** and paste the link. Check the result under **Manage → Status**.
 
+For a managed foreign server, keep the WebUI on Iran only: add the node from the Iran panel, then run `sudo fullpack node join` on the foreign server. The foreign server uses `fullpack-monitor` and has no local WebUI.
+
 Based on BackPack by Amin Mohammadi (AminMGMT)
 
 https://github.com/AminMGMT/BackPack

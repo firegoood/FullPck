@@ -2,6 +2,7 @@ package menu
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -9,6 +10,30 @@ import (
 	"github.com/firegoood/FullPck/internal/telegram"
 	"github.com/firegoood/FullPck/internal/webui"
 )
+
+func TestManagedNodeMenuDisablesTheWebPanel(t *testing.T) {
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	printMenuForRole(true)
+	_ = w.Close()
+	os.Stdout = old
+	out, err := io.ReadAll(r)
+	_ = r.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if !strings.Contains(s, "disabled on a managed foreign node") {
+		t.Fatalf("managed-node menu did not disable WebUI: %q", s)
+	}
+	if strings.Contains(s, "monitoring web UI — link, login code, port") {
+		t.Fatalf("managed-node menu still advertises the WebUI: %q", s)
+	}
+}
 
 // The lines the main menu is made of.
 //

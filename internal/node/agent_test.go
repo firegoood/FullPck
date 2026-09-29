@@ -6,10 +6,28 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestHasAgentConfigTreatsPresenceAsManagedNodeMarker(t *testing.T) {
+	dir := t.TempDir()
+	old := AgentConfigPath
+	AgentConfigPath = filepath.Join(dir, "node-agent.json")
+	t.Cleanup(func() { AgentConfigPath = old })
+
+	if HasAgentConfig() {
+		t.Fatal("a missing Agent config marked the installation as managed")
+	}
+	if err := os.WriteFile(AgentConfigPath, []byte("incomplete"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !HasAgentConfig() {
+		t.Fatal("a present Agent config did not mark the installation as managed")
+	}
+}
 
 func TestEnrollmentPinsSelfSignedControllerTLS(t *testing.T) {
 	dir := t.TempDir()

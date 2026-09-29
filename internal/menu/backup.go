@@ -167,13 +167,18 @@ func restoreBackup() {
 		return
 	}
 
-	// Bring the web panel back up (it may have a restored password now).
-	if _, err := webui.EnsureRunning(); err != nil {
-		tui.Warn("Web panel could not start: " + err.Error())
+	// Bring the web panel back up (it may have a restored password now), except
+	// on a managed foreign node where the Controller owns the only WebUI.
+	if !node.HasAgentConfig() {
+		if _, err := webui.EnsureRunning(); err != nil {
+			tui.Warn("Web panel could not start: " + err.Error())
+		} else if res.WebUIConfig {
+			// The restored config may carry a different port/password — restart the
+			// already-running panel so it actually serves with them.
+			_ = manage.RestartService(app.WebUIService)
+		}
 	} else if res.WebUIConfig {
-		// The restored config may carry a different port/password — restart the
-		// already-running panel so it actually serves with them.
-		_ = manage.RestartService(app.WebUIService)
+		tui.Info("Web-panel settings were restored but the panel stays disabled on this managed foreign node.")
 	}
 
 	tui.Success(fmt.Sprintf("Restored %d file(s).", res.Files))

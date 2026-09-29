@@ -16,6 +16,7 @@ import (
 	"github.com/firegoood/FullPck/internal/manage"
 	"github.com/firegoood/FullPck/internal/menu"
 	"github.com/firegoood/FullPck/internal/monitor"
+	"github.com/firegoood/FullPck/internal/node"
 	"github.com/firegoood/FullPck/internal/telegram"
 	"github.com/firegoood/FullPck/internal/utils"
 	"github.com/firegoood/FullPck/internal/webui"
@@ -83,6 +84,10 @@ func main() {
 		}
 		return
 	case *webPanel:
+		if node.HasAgentConfig() {
+			fmt.Fprintln(os.Stderr, "WebUI is disabled on a managed foreign node; use the Iran Controller panel.")
+			os.Exit(2)
+		}
 		if err := webui.Serve(); err != nil {
 			logger.Fatalf("web panel failed: %v", err)
 		}

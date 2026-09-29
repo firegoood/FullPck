@@ -10,6 +10,7 @@ import (
 
 	"github.com/firegoood/FullPck/internal/app"
 	"github.com/firegoood/FullPck/internal/manage"
+	"github.com/firegoood/FullPck/internal/node"
 	"github.com/firegoood/FullPck/internal/schedule"
 	"github.com/firegoood/FullPck/internal/tui"
 	"github.com/firegoood/FullPck/internal/webui"
@@ -21,12 +22,24 @@ var ipStore atomic.Value // holds string
 // Run starts the interactive menu loop.
 func Run() {
 	requireRoot()
+	managedNode := node.HasAgentConfig()
 
 	// Bring the monitoring web panel up in the background and start resolving
 	// the public IP (shown inside the Web Panel section).
-	if _, err := webui.EnsureRunning(); err != nil {
-		tui.Warn("Web panel could not start: " + err.Error())
-		tui.PressEnter()
+	if !managedNode {
+		if _, err := webui.EnsureRunning(); err != nil {
+			tui.Warn("Web panel could not start: " + err.Error())
+			tui.PressEnter()
+		}
+	}
+	if managedNode {
+		// A managed foreign node is controlled through the Iran Controller's
+		// existing WebUI listener. Its local CLI remains useful for tunnels and
+		// maintenance, but it must not expose a second panel.
+		if err := webui.Disable(); err != nil {
+			tui.Warn("Web panel could not be disabled on this managed foreign node: " + err.Error())
+			tui.PressEnter()
+		}
 	}
 
 	// The same for the tunnels' own units: a tunnel created by an older version
@@ -55,7 +68,7 @@ func Run() {
 		tui.Logo(app.Version)
 		printUpdateBanner()
 		tui.Rule()
-		printMenu()
+		printMenuForRole(managedNode)
 
 		choice, ok := tui.PromptOrEnd("Select an option: ")
 		if !ok {
@@ -76,6 +89,11 @@ func Run() {
 		case "4":
 			backupMenu()
 		case "5":
+			if managedNode {
+				tui.Warn("Web Panel is available only on the Iran Controller.")
+				tui.PressEnter()
+				continue
+			}
 			webPanelMenu()
 		case "6":
 			optimizeMenu()
@@ -107,14 +125,24 @@ func printUpdateBanner() {
 		tui.Bold+tui.Red, tag, tui.Reset, tui.Gray, tui.Reset)
 }
 
-// printMenu renders the main menu: red numbers, white titles, gray descriptions.
+// printMenu renders the controller menu: red numbers, white titles, gray
+// descriptions. Keep the no-argument form for callers and tests that render
+// the normal Iran-side menu.
 func printMenu() {
+	printMenuForRole(false)
+}
+
+func printMenuForRole(managedNode bool) {
 	fmt.Println()
 	menuItem(1, "Setup Iran", "the server your users connect to — it exposes the ports")
 	menuItem(2, "Setup Kharej", "the server abroad — it holds the real service")
 	menuItem(3, "Manage", "tunnels, ports, transport, status, health check")
 	menuItem(4, "Backup & Restore", "save or restore the full configuration")
-	menuItem(5, "Web Panel", "monitoring web UI — link, login code, port")
+	if managedNode {
+		menuItem(5, "Web Panel", "disabled on a managed foreign node")
+	} else {
+		menuItem(5, "Web Panel", "monitoring web UI — link, login code, port")
+	}
 	menuItem(6, "Optimize", "kernel & network tuning — BBR, buffers, limits")
 	menuItem(7, "Telegram Bot", "status reports, relayed through a tunnel")
 	updateDesc := "safe update with automatic rollback"
