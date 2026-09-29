@@ -679,13 +679,13 @@ See:
 
 The Web Panel can register remote servers as managed nodes.
 
-Once registered, BackPack can use the panel to build and manage both ends of a tunnel without requiring you to repeat the entire SSH setup manually.
+After one-time `backpack node join` enrollment, the foreign Agent connects outward to the Controller's existing WebUI endpoint. The panel can manage both tunnel ends without a separate management listener or local port 443 reservation.
 
 Managed servers can be:
 
 * registered
-* edited
-* tested
+* enrolled and revoked
+* checked for connection and drift
 * used to create tunnels
 * started
 * stopped
@@ -700,7 +700,7 @@ See [Managed servers](docs/managed-servers.md).
 
 BackPack can send status and alert messages through Telegram.
 
-The built-in Telegram integration can relay its connection through a tunnel peer, allowing Telegram monitoring from environments where direct Telegram access is unavailable.
+The built-in Telegram integration first uses a connected foreign Agent, then an existing tunnel peer as fallback. It never listens on local port 443; the Agent connects outbound to `api.telegram.org:443`.
 
 It supports:
 

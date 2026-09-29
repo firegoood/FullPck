@@ -151,6 +151,7 @@ func (s *QuicTransport) Start() {
 func (s *QuicTransport) start(g *quicGen) {
 	// Whatever is still queued when this generation ends gives its slot back.
 	go drainOnEnd(g.ctx, g.localChannel, s.limits)
+	go drainTunnelOnEnd(g.ctx, g.tunnelChannel, func(c net.Conn) { c.Close() })
 
 	if s.config.WebPort > 0 {
 		go g.usageMonitor.Monitor()
@@ -474,6 +475,8 @@ func (s *QuicTransport) acceptStream(g *quicGen, conn *quic.Conn, stream *quic.S
 			return
 		}
 		select {
+		case <-generationDone(g.ctx):
+			wrapped.Close()
 		case g.tunnelChannel <- wrapped:
 		default:
 			s.logger.Warnf("tunnel channel is full, discarding data stream from %s", conn.RemoteAddr())
@@ -668,14 +671,14 @@ func (s *QuicTransport) acceptLocalConn(g *quicGen, listener net.Listener, remot
 				continue
 			}
 			conn = s.limits.wrap(g.ctx, conn)
+			incoming := newLocalTCPConn(conn, remoteAddr, s.limits)
 
 			select {
-			case g.localChannel <- LocalTCPConn{conn: conn, remoteAddr: remoteAddr, timeCreated: time.Now().UnixMilli()}:
+			case g.localChannel <- incoming:
 				s.logger.Debugf("forwarded port: accepted a client from %s", tcpConn.RemoteAddr().String())
 			default: // channel is full, discard the connection
 				s.logger.Warnf("forwarded port: the queue is full, dropping a client from %s", tcpConn.RemoteAddr().String())
-				s.limits.release()
-				conn.Close()
+				incoming.closeAndRelease(s.limits)
 			}
 		}
 	}
@@ -716,7 +719,7 @@ func (s *QuicTransport) handleLoop(g *quicGen) {
 					go func() {
 						// Free the connection slot once the transfer ends, or
 						// the limit would fill up permanently.
-						defer s.limits.release()
+						defer local.closeAndRelease(s.limits)
 						handlers.TCPConnectionHandler(g.ctx,
 							s.config.ProxyProtocol && !isUDPFlow(local.conn),
 							local.conn, metrics.CountedConn(st), s.logger,

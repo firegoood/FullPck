@@ -381,15 +381,16 @@ func udpAdmitter(ctx context.Context, local chan LocalTCPConn, reqNewConn chan s
 		if !limits.acquire() {
 			return false
 		}
+		incoming := newLocalTCPConn(limits.wrap(ctx, conn), target, limits)
 		select {
-		case local <- LocalTCPConn{conn: limits.wrap(ctx, conn), remoteAddr: target, timeCreated: time.Now().UnixMilli()}:
+		case local <- incoming:
 			select {
 			case reqNewConn <- struct{}{}:
 			default:
 			}
 			return true
 		default:
-			limits.release()
+			incoming.closeAndRelease(limits)
 			return false
 		}
 	}

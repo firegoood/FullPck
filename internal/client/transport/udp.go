@@ -71,12 +71,12 @@ func NewUDPClient(parentCtx context.Context, config *UdpConfig, logger *logrus.L
 
 func (c *UdpTransport) Start() {
 	if c.config.WebPort > 0 {
-		go c.state.Usage().Monitor()
+		c.state.Go(c.state.Usage().Monitor)
 	}
 
 	c.status.set("Disconnected (UDP)")
 
-	go c.channelDialer()
+	c.state.Go(c.channelDialer)
 }
 
 func (c *UdpTransport) Restart() {
@@ -92,14 +92,7 @@ func (c *UdpTransport) Restart() {
 	level := c.logger.GetLevel()
 	c.logger.SetLevel(logrus.FatalLevel)
 
-	if c.state.Cancel() != nil {
-		c.state.Cancel()()
-	}
-
-	// close control channel connection
-	c.state.CloseConn()
-
-	time.Sleep(2 * time.Second)
+	c.state.StopAndWait()
 
 	// The whole tunnel may have been shut down while this restart was waiting —
 	// on a reload, or on the process going down. Rebuilding the run from a
@@ -135,7 +128,7 @@ func (c *UdpTransport) Restart() {
 	// set the log level again
 	c.logger.SetLevel(level)
 
-	go c.Start()
+	c.Start()
 
 }
 
@@ -199,13 +192,15 @@ func (c *UdpTransport) channelDialer() {
 			if message == c.config.Token {
 				// See metrics.Snapshot.Connected.
 				metrics.ReportPeer(tunnelTCPConn.RemoteAddr().String())
-				c.state.SetConn(tunnelTCPConn)
+				if !c.state.SetConn(tunnelTCPConn) {
+					return
+				}
 				c.logger.Info("control channel established successfully")
 
 				c.status.set("Connected (UDP)")
 
-				go c.poolMaintainer()
-				go c.channelHandler()
+				c.state.Go(c.poolMaintainer)
+				c.state.Go(c.channelHandler)
 
 				return
 
@@ -258,7 +253,7 @@ func (c *UdpTransport) channelHandler() {
 	ctx := c.state.Ctx()
 
 	// Goroutine to handle the blocking ReceiveBinaryString
-	go func() {
+	c.state.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -292,10 +287,14 @@ func (c *UdpTransport) channelHandler() {
 				if msg == utils.SG_HB {
 					beats.beat(time.Now())
 				}
-				msgChan <- msg
+				select {
+				case msgChan <- msg:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-	}()
+	})
 
 	// Main loop to listen for context cancellation or received messages
 	for {
@@ -314,7 +313,7 @@ func (c *UdpTransport) channelHandler() {
 
 				default:
 					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					go c.tunnelDialer()
+					c.state.Go(c.tunnelDialer)
 				}
 
 			case utils.SG_HB:
@@ -376,6 +375,11 @@ func (c *UdpTransport) tunnelDialer() {
 		c.logger.Error("failed to connect to server:", err)
 		return
 	}
+	untrack, ok := c.state.Track(tunConn)
+	if !ok {
+		return
+	}
+	defer untrack()
 
 	c.applyBuffers(tunConn)
 
@@ -394,6 +398,9 @@ func (c *UdpTransport) tunnelDialer() {
 	case <-done:
 	case <-c.state.Ctx().Done():
 	}
+	// Closing the tunnel wakes the reader, then the dialer waits for its relay.
+	tunConn.Close()
+	<-done
 }
 
 func (c *UdpTransport) handleTunnelConn(tunConn *net.UDPConn) {
@@ -475,6 +482,7 @@ func (c *UdpTransport) localDialer(remoteAddr string, port int, tunConn *net.UDP
 	}()
 
 	c.udpCopy(tunConn, remoteConn, port, false)
+	remoteConn.Close()
 
 	<-done
 

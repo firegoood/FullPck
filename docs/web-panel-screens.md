@@ -52,12 +52,11 @@ them is a page that gets glanced at and trusted.
 
 The managed fleet: other machines this panel can build and run tunnels on.
 
-Adding one is a form. The panel logs into the server over SSH — which is
-already running and already how that machine is administered — so there is no
-command to carry to the other end and nothing to wait for. See
-[managed servers](managed-servers.md).
+Adding one generates a one-time code. Run `sudo backpack node join` on the
+foreign server and enter that code. Its Agent connects outward to the panel's
+existing WebUI endpoint. See [managed servers](managed-servers.md).
 
-*CLI: nothing. There is no Backpack state on a managed server to configure.*
+*CLI: `sudo backpack node join` on the foreign server.*
 
 ### Tunnels — `#/tunnels`
 
@@ -78,7 +77,7 @@ were on. `fr-relay` below is an example name.
 | Metrics | `#/t/fr-relay/metrics` | Everything known about one tunnel: traffic, the peer, limits, the bot relay, the certificate, failover, the connection pool, and on a KCP link what the error correction is repairing. Sections with nothing behind them are removed rather than shown empty. | Manage → Tunnel Metrics |
 | History | `#/t/fr-relay/history` | The long view: speed over the last day, per-day totals for the week, both uptime figures, and the configuration changes inside the window. | Manage → Tunnel Metrics |
 | Link test | `#/t/fr-relay/link` | Twelve TCP connects to the tunnel port, then the transport the measurement argues for. Same branch logic as the CLI's recommendation, in the same order. | Manage → Link Test |
-| Edit | `#/t/fr-relay/edit` | Every setting the tunnel has. The values come from the same call the CLI's edit screen makes, so a tunnel edited here is byte for byte a tunnel edited in the terminal. | Manage → Manage Tunnels → Edit |
+| Edit | `#/t/fr-relay/edit` | Every setting the tunnel has. Reverse transports are matched to their real family; legacy `[direct]` stream tunnels and `[l3]` carriers (including `spoof` and `sni`) use their own shape so the preview cannot show WebSocket defaults. | Manage → Manage Tunnels → Edit |
 | Undo | `#/t/fr-relay/undo` | The configuration history for this tunnel, and a restore back to any earlier version of it. | Manage → Manage Tunnels → Config history |
 
 ## Installation screens
@@ -87,7 +86,7 @@ These belong to the machine rather than to one tunnel.
 
 | Screen | Address | What it is | CLI |
 | --- | --- | --- | --- |
-| Add tunnel | `#/add` | Pick the side, then the transport family, then the transport, then the settings that side actually has. The families and presets are served rather than written into the page, so a transport added to the CLI appears here on its own. | 1 Setup Iran, 2 Setup Kharej |
+| Add tunnel | `#/add` | Pick the side, then the transport family, then the transport, then the settings that side actually has. The families, presets and all direct carriers (including route-tested `spoof` and `sni`) are served rather than written into the page, so the WebUI follows the CLI list. | 1 Setup Iran, 2 Setup Kharej |
 | Settings | `#/settings` | Panel access, security, the Telegram bot, and the release channel. | 5 Web Panel, 7 Telegram Bot, 8 Update → Release channel |
 | Alerts | `#/alerts` | The alert history: what fired, when, and about which tunnel. | The alert history |
 | Health check | `#/health` | The machine-level checks — the same list the CLI runs, with the same fixes offered. Reached from the warning bar as well as directly. | Manage → Health Check |

@@ -104,7 +104,7 @@ func TestOnlyIranSuggestsAToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	body := string(src)
+	body := strings.ReplaceAll(string(src), "\r\n", "\n")
 
 	fn := body[strings.Index(body, "func askSharedToken"):]
 	fn = fn[:strings.Index(fn, "\n}\n")]
@@ -238,7 +238,7 @@ func TestSpoofingCarriersKeepTheClassicWizard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	c := string(classic)
+	c := strings.ReplaceAll(string(classic), "\r\n", "\n")
 	tok := c[strings.Index(c, "func askSharedTokenClassic"):]
 	kharej, iran, _ := strings.Cut(tok, "\n\t\treturn token, true\n\t}\n")
 	if !strings.Contains(kharej, "if side == sideKharej") || !strings.Contains(kharej, "randomToken(64)") {

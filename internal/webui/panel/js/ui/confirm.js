@@ -34,7 +34,7 @@ export function confirmBox({ title, body, lines = [], go = 'Confirm', danger = f
        * "/" and NUL is legal in one, and nothing between that directory and
        * this element filtered them. A server in the fleet could put markup in a
        * filename and have it run here, in the operator's session, on the origin
-       * that holds every other server's root password.
+       * that controls the managed Nodes and their tunnel settings.
        *
        * title takes markup on purpose — the callers wrap the variable and pass
        * the tags — so it is escaped one level down, around the value, not here.

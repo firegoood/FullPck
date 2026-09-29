@@ -55,6 +55,7 @@ type WsMuxTransport struct {
 	controlChannel wsControl
 	usageMonitor   *web.Usage
 	restartMutex   sync.Mutex
+	streamMu       sync.Mutex
 	streamCounter  int32
 	sessionCounter int32
 	limits         *limiter
@@ -150,6 +151,7 @@ func (s *WsMuxTransport) Start() {
 func (s *WsMuxTransport) start(g *wsMuxGen) {
 	// Whatever is still queued when this generation ends gives its slot back.
 	go drainOnEnd(g.ctx, g.localChannel, s.limits)
+	go drainTunnelOnEnd(g.ctx, g.tunnelChannel, func(session *smux.Session) { session.Close() })
 
 	// for  webui
 	if s.config.WebPort > 0 {
@@ -247,7 +249,9 @@ func (s *WsMuxTransport) Restart() {
 	s.status.set("")
 	// Stored atomically, like every other access: the goroutines of the run
 	// being replaced may still be counting while this resets them.
+	s.streamMu.Lock()
 	atomic.StoreInt32(&s.streamCounter, 0)
+	s.streamMu.Unlock()
 	atomic.StoreInt32(&s.sessionCounter, 0)
 
 	// set the log level again
@@ -353,8 +357,6 @@ func (s *WsMuxTransport) tunnelListener(g *wsMuxGen) {
 
 	addr := s.config.BindAddr
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:   16 * 1024,
-		WriteBufferSize:  16 * 1024,
 		HandshakeTimeout: 45 * time.Second,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
@@ -430,6 +432,8 @@ func (s *WsMuxTransport) tunnelListener(g *wsMuxGen) {
 					return
 				}
 				select {
+				case <-generationDone(g.ctx):
+					session.Close()
 				case g.tunnelChannel <- session: // ok
 				default:
 					s.logger.Warnf("forwarded port: the queue is full, dropping a client from %s", conn.RemoteAddr().String())
@@ -642,13 +646,28 @@ func (s *WsMuxTransport) acceptLocalConn(g *wsMuxGen, listener net.Listener, rem
 				continue
 			}
 			conn = s.limits.wrap(g.ctx, conn)
+			s.streamMu.Lock()
+			if g.ctx != nil && g.ctx.Err() != nil {
+				s.streamMu.Unlock()
+				s.limits.release()
+				conn.Close()
+				continue
+			}
+			atomic.AddInt32(&s.streamCounter, 1)
+			s.streamMu.Unlock()
+			incoming := newCountedLocalTCPConn(conn, remoteAddr, s.limits, func() {
+				s.streamMu.Lock()
+				if g.ctx == nil || g.ctx.Err() == nil {
+					atomic.AddInt32(&s.streamCounter, -1)
+				}
+				s.streamMu.Unlock()
+			})
 
 			select {
-			case g.localChannel <- LocalTCPConn{conn: conn, remoteAddr: remoteAddr, timeCreated: time.Now().UnixMilli()}:
+			case g.localChannel <- incoming:
 				s.logger.Debugf("forwarded port: accepted a client from %s", tcpConn.RemoteAddr().String())
 
 				// +1 for stream counter
-				atomic.AddInt32(&s.streamCounter, 1)
 
 				if atomic.LoadInt32(&s.streamCounter) >= atomic.LoadInt32(&s.sessionCounter)*int32(s.config.MuxCon) {
 					s.logger.Tracef("stream counter: %v, session counter: %v", atomic.LoadInt32(&s.streamCounter), atomic.LoadInt32(&s.sessionCounter))
@@ -662,8 +681,7 @@ func (s *WsMuxTransport) acceptLocalConn(g *wsMuxGen, listener net.Listener, rem
 
 			default: // channel is full, discard the connection
 				s.logger.Warnf("forwarded port: the queue is full, dropping a client from %s", tcpConn.RemoteAddr().String())
-				s.limits.release()
-				conn.Close()
+				incoming.closeAndRelease(s.limits)
 			}
 		}
 	}

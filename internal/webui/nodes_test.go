@@ -27,10 +27,15 @@ import (
 func isolateFleet(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	oldStore, oldPairs := node.StorePath, manage.NodePairPath
+	oldStore, oldPairs, oldEnrollment, oldAgent := node.StorePath, manage.NodePairPath, node.EnrollmentStorePath, node.AgentConfigPath
 	node.StorePath = filepath.Join(dir, "nodes.json")
 	manage.NodePairPath = filepath.Join(dir, "node-pairs.json")
-	t.Cleanup(func() { node.StorePath, manage.NodePairPath = oldStore, oldPairs })
+	node.EnrollmentStorePath = filepath.Join(dir, "node-enrollment.json")
+	node.AgentConfigPath = filepath.Join(dir, "node-agent.json")
+	t.Cleanup(func() {
+		node.StorePath, manage.NodePairPath = oldStore, oldPairs
+		node.EnrollmentStorePath, node.AgentConfigPath = oldEnrollment, oldAgent
+	})
 }
 
 func newFleetServer() *server { return newServer() }
@@ -123,114 +128,96 @@ func TestAnEmptyFleetIsEmptyAndActsOnNothing(t *testing.T) {
 	}
 }
 
-// Turning it on and adding a server issues a usable command on that server's
-// own port.
-// Adding a server is one round trip to it, and the fleet only keeps what
-// answered.
-//
-// The flow this replaces saved the details first and found out whether they
-// worked later — which is how a server came to sit in the fleet doing nothing
-// with nothing saying why. A login that does not work is a typo, and a typo is
-// worth reporting while the operator is still looking at the form.
-func TestAddingAServerKeepsOnlyWhatAnswers(t *testing.T) {
+// Enrollment publishes a short-lived code. The node generates its own permanent
+// credential, joins through the existing WebUI listener, and only then enters
+// the fleet.
+func TestAddingAServerUsesOneTimeAgentEnrollment(t *testing.T) {
 	isolateFleet(t)
 	s := newFleetServer()
 	t.Cleanup(s.nodes.Stop)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/nodes", s.handleNodes)
+	mux.HandleFunc(node.EnrollmentPath, node.HandleEnrollmentHTTP)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
 
-	f := newFake()
-	withFleet(s, f)
-
-	// The form is checked before anything is dialled.
-	for _, bad := range []struct{ what, form string }{
-		{"no address", "action=add&name=kharej&host=&user=root&password=x"},
-		{"no password", "action=add&name=kharej&host=203.0.113.9&user=root&password="},
-		{"a bad name", "action=add&name=kha%2Frej&host=203.0.113.9&user=root&password=x"},
-		{"a bad ssh port", "action=add&name=kharej&host=203.0.113.9&user=root&password=x&sshPort=0"},
-	} {
-		if w := post(t, s, bad.form); w.Code == http.StatusOK {
-			t.Errorf("a server with %s was accepted", bad.what)
-		}
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/nodes",
+		strings.NewReader("action=add&name=kharej"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	// A server that does not answer is not kept.
-	if w := post(t, s, "action=add&name=kharej&host=203.0.113.9&user=root&password=x"); w.Code == http.StatusOK {
-		t.Error("a server that could not be reached was added anyway")
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("enrollment: %s", resp.Status)
+	}
+	var issued struct {
+		EnrollmentCode string `json:"enrollmentCode"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&issued); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(issued.EnrollmentCode, node.EnrollmentVersion+":") {
+		t.Fatal("the server did not issue a versioned code")
 	}
 	if len(node.List()) != 0 {
-		t.Errorf("an unreachable server was left in the fleet: %+v", node.List())
+		t.Fatal("pending enrollment appeared online as a Node")
 	}
 
-	// One that does is.
-	f.up["kharej"] = true
-	f.answers[node.OpHello] = node.Info{Version: "v1.7.6", OS: "Ubuntu 24.04"}
-	if w := post(t, s, "action=add&name=kharej&host=203.0.113.9&user=root&password=x"); w.Code != http.StatusOK {
-		t.Fatalf("add: %d %s", w.Code, w.Body.String())
+	cfg, err := node.JoinWithEnrollment(issued.EnrollmentCode, srv.Client())
+	if err != nil {
+		t.Fatal(err)
 	}
-	got := node.List()
-	if len(got) != 1 {
-		t.Fatalf("the fleet holds %d servers", len(got))
+	list := node.List()
+	if len(list) != 1 || list[0].ID != cfg.NodeID || list[0].Credential != "" {
+		t.Fatalf("fleet did not keep only the enrolled identity: %+v", list)
 	}
-	if got[0].Host != "203.0.113.9" || got[0].User != "root" {
-		t.Errorf("the server was stored as %+v", got[0])
+	if _, err := node.JoinWithEnrollment(issued.EnrollmentCode, srv.Client()); err == nil {
+		t.Fatal("one-time code enrolled another Agent")
 	}
-	if got[0].Password != "" {
-		t.Error("List handed out the password")
+	front := getNodes(t, s).Body.String()
+	if strings.Contains(front, cfg.Credential) || strings.Contains(front, issued.EnrollmentCode) {
+		t.Fatal("the browser fleet state exposed enrollment or permanent secrets")
 	}
-	if got[0].Info.Version != "v1.7.6" {
-		t.Errorf("what the server said about itself was not kept: %+v", got[0].Info)
+	if w := post(t, s, "action=add&name=kha%2Frej"); w.Code == http.StatusOK {
+		t.Fatal("invalid Node name was accepted")
 	}
-
-	// The same machine twice is a mistake worth catching: two names for one
-	// server means two cards that disagree about it.
-	if w := post(t, s, "action=add&name=other&host=203.0.113.9&user=root&password=x"); w.Code == http.StatusOK {
-		t.Error("the same address was added twice")
-	}
-
-	// Removing it drops the connection with the record.
-	if w := post(t, s, "action=remove&name=kharej"); w.Code != http.StatusOK {
-		t.Fatalf("remove: %d %s", w.Code, w.Body.String())
-	}
-	if len(node.List()) != 0 {
-		t.Error("the server is still in the fleet")
-	}
-	if len(f.forgot) == 0 || f.forgot[0] != "kharej" {
-		t.Error("the connection to a removed server was left open")
+	if w := post(t, s, "action=add&name=kharej"); w.Code == http.StatusOK {
+		t.Fatal("an already enrolled name was reused")
 	}
 }
 
-// The password is never sent to the browser, and changing the address forgets
-// the host key — a different machine is entitled to a different one.
-func TestCredentialsCanBeChangedAndAreNeverSentBack(t *testing.T) {
+// Old SSH fields must never reappear as a way to enroll a managed Node.
+func TestLegacySSHRejectedAndRevocationRemovesAgentAuthority(t *testing.T) {
 	isolateFleet(t)
 	s := newFleetServer()
 	t.Cleanup(s.nodes.Stop)
-	f := newFake()
-	f.up["kharej"] = true
-	withFleet(s, f)
-	post(t, s, "action=add&name=kharej&host=203.0.113.9&user=root&password=first")
-
-	if err := node.NoteFingerprint("kharej", "SHA256:abc"); err != nil {
-		t.Fatalf("fingerprint: %v", err)
+	for _, form := range []string{
+		"action=add&name=kharej&host=203.0.113.9&user=root&password=secret",
+		"action=credentials&name=kharej&password=secret",
+	} {
+		if w := post(t, s, form); w.Code != http.StatusGone {
+			t.Fatalf("legacy credentials accepted: %d %s", w.Code, w.Body.String())
+		}
 	}
-	if w := post(t, s, "action=credentials&name=kharej&host=198.51.100.7&password=second"); w.Code != http.StatusOK {
-		t.Fatalf("credentials: %d %s", w.Code, w.Body.String())
+	cred, err := node.GenerateCredential()
+	if err != nil {
+		t.Fatal(err)
 	}
-	n, _ := node.Find("kharej")
-	if n.Host != "198.51.100.7" {
-		t.Errorf("the address was not changed: %s", n.Host)
+	if _, err := node.AddManaged("kharej", "http://controller:7777", "node-1", cred); err != nil {
+		t.Fatal(err)
 	}
-	if n.Fingerprint != "" {
-		t.Error("the host key from the old address was kept for the new one")
+	if w := post(t, s, "action=revoke&name=kharej"); w.Code != http.StatusOK {
+		t.Fatalf("revoke: %d %s", w.Code, w.Body.String())
 	}
-
-	r := httptest.NewRequest("GET", "/api/nodes", nil)
-	w := httptest.NewRecorder()
-	s.handleNodes(w, r)
-	if strings.Contains(w.Body.String(), "first") || strings.Contains(w.Body.String(), "second") {
-		t.Error("the fleet listing carries the server's password")
+	n, ok := node.Find("kharej")
+	if !ok || !n.Revoked || n.Credential != "" {
+		t.Fatalf("revoked node state: %+v", n)
 	}
-	if !strings.Contains(w.Body.String(), "198.51.100.7") {
-		t.Error("the fleet listing does not say where the server is")
+	front := getNodes(t, s).Body.String()
+	if strings.Contains(front, cred) || !strings.Contains(front, "\"revoked\":true") {
+		t.Fatal("the browser state leaked a credential or lost revocation")
 	}
 }
 
@@ -336,34 +323,19 @@ func TestTheNodePickerReachesBothKindsOfTunnel(t *testing.T) {
 
 // The line the panel hands out has to be a line the installer understands.
 //
-// These are two files in two languages that never call each other, and the only
-// place they meet is a server the operator has just pasted into. A flag renamed
-// on one side fails there, minutes into an install, with an error nobody here
-// would ever see. So they are pinned against each other instead.
-// A server is added and managed without anything being run on it.
-//
-// This is the change the whole batch is for. What used to be here checked that
-// the panel handed out a setup command, that install.sh understood it, and that
-// the binary had the subcommand it ended in — three things that all had to
-// agree, and one line for the operator to carry to another machine.
-//
-// There is no line now. What has to hold instead is that the far side needs no
-// state of its own: one command, which the panel runs itself.
-func TestTheFarSideNeedsNothingButTheOneCommand(t *testing.T) {
+// Enrollment is the only fleet CLI entry point on a managed server.
+func TestTheFarSideUsesEnrollmentWithoutRemoteExec(t *testing.T) {
 	cli, err := os.ReadFile(filepath.Join("..", "..", "nodecmd.go"))
 	if err != nil {
 		t.Fatalf("reading nodecmd.go: %v", err)
 	}
 	src := string(cli)
-	if !strings.Contains(src, `case "exec":`) {
-		t.Fatal("`backpack node exec` is gone, and it is the only thing the panel runs " +
-			"on a managed server")
+	if !strings.Contains(src, `case "join":`) {
+		t.Fatal("`backpack node join` is missing")
 	}
-	for _, gone := range []string{`case "setup":`, `case "run":`, `case "remove":`} {
+	for _, gone := range []string{`case "exec":`, `case "setup":`, `case "run":`, `case "remove":`} {
 		if strings.Contains(src, gone) {
-			t.Errorf("nodecmd.go still has %s — the far server keeps no state now, so "+
-				"anything that sets it up or tears it down is a second model of the "+
-				"same thing", gone)
+			t.Errorf("nodecmd.go still has obsolete fleet command %s", gone)
 		}
 	}
 
@@ -374,11 +346,9 @@ func TestTheFarSideNeedsNothingButTheOneCommand(t *testing.T) {
 	if strings.Contains(string(sh), "node setup") {
 		t.Error("install.sh still ends in `backpack node setup`, which no longer exists")
 	}
-	// And it must still install without a terminal, because that is how the
-	// panel runs it on a server that has no Backpack yet.
+	// The installer supports noninteractive deployment before enrollment.
 	if !strings.Contains(string(sh), "if [ -t 0 ]") {
-		t.Error("install.sh no longer checks for a terminal, so a remote install would " +
-			"open a menu nobody can answer")
+		t.Error("install.sh no longer checks for a terminal")
 	}
 }
 
@@ -439,107 +409,22 @@ func TestTheCarryForwardNeverBlocksAnEdit(t *testing.T) {
 	}
 }
 
-// installingRunner is a fake that starts out too old to answer and is fixed by
-// the install, which is what a real server in an existing fleet does.
-type installingRunner struct {
-	*fakeRunner
-	installed int
-	// installWorks is whether the install actually brings the server up to a
-	// version this panel can talk to. A published release that is still the old
-	// one leaves it exactly where it was.
-	installWorks bool
-}
-
-func (r *installingRunner) Install(name string) (string, error) {
-	r.installed++
-	if r.installWorks {
-		r.up[name] = true
-	}
-	return "installed", nil
-}
-
-func (r *installingRunner) Call(name, op string, body, out any) error {
-	r.calls = append(r.calls, name+":"+op)
-	if !r.up[name] {
-		return node.ErrOffline{
-			Name: name,
-			Why:  "the Backpack on that server is too old to be managed from this panel",
-			Err:  node.ErrNeedsInstall,
-		}
-	}
-	if v, ok := r.answers[op]; ok && out != nil {
-		b, _ := json.Marshal(v)
-		return json.Unmarshal(b, out)
-	}
-	return nil
-}
-
-// A server already running an older Backpack is upgraded, not refused.
-//
-// This is the bug report: the panel reached a server in the operator's fleet,
-// found a Backpack that did not understand `node exec`, and treated it as a
-// server that could not be reached — refusing the add and printing the far
-// machine's own help, which told them to run `backpack node setup`, a command
-// this release removed. Every server in an existing fleet is in that state the
-// day the panel is upgraded, so this is the ordinary path, not an edge.
-func TestAServerRunningAnOlderBackpackIsUpgradedNotRefused(t *testing.T) {
+// The Agent protocol has no remote installer or shell operation. Updates are
+// performed with the verified local updater on the managed machine.
+func TestRemoteUpgradeIsUnavailableOverAgent(t *testing.T) {
 	isolateFleet(t)
 	s := newFleetServer()
 	t.Cleanup(s.nodes.Stop)
-
-	r := &installingRunner{fakeRunner: newFake(), installWorks: true}
-	r.answers[node.OpHello] = node.Info{Version: "v1.7.7", OS: "Ubuntu 24.04"}
-	s.nodes.Use(r)
-
-	w := post(t, s, "action=add&name=germany&host=91.107.245.145&user=root&password=x")
-	if w.Code != http.StatusOK {
-		t.Fatalf("a server running an older Backpack was refused: %d %s", w.Code, w.Body.String())
+	cred, err := node.GenerateCredential()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if r.installed != 1 {
-		t.Errorf("the panel installed %d times, want once — an out-of-date server "+
-			"has to be brought up to this release over the same connection", r.installed)
+	if _, err := node.AddManaged("germany", "http://controller:7777", "node-upgrade", cred); err != nil {
+		t.Fatal(err)
 	}
-	got := node.List()
-	if len(got) != 1 {
-		t.Fatalf("the fleet holds %d servers after a successful add", len(got))
-	}
-	if got[0].Info.Version != "v1.7.7" {
-		t.Errorf("the upgraded version was not recorded: %+v", got[0].Info)
-	}
-}
-
-// And when the install does not help, the operator is told that plainly rather
-// than being handed the far machine's output.
-//
-// This is the real shape of it on the day of a release: install.sh fetches the
-// latest published release, so until this version is published the install
-// succeeds and changes nothing. Failing is correct; failing at length in
-// somebody else's words is not.
-func TestAnUpgradeThatDoesNotHelpSaysSoInOneSentence(t *testing.T) {
-	isolateFleet(t)
-	s := newFleetServer()
-	t.Cleanup(s.nodes.Stop)
-
-	r := &installingRunner{fakeRunner: newFake(), installWorks: false}
-	s.nodes.Use(r)
-
-	w := post(t, s, "action=add&name=germany&host=91.107.245.145&user=root&password=x")
+	w := post(t, s, "action=upgrade&name=germany")
 	if w.Code == http.StatusOK {
-		t.Fatal("a server that still cannot answer was added anyway")
-	}
-	if len(node.List()) != 0 {
-		t.Errorf("a server that never answered was left in the fleet: %+v", node.List())
-	}
-
-	said := w.Body.String()
-	for _, leaked := range []string{"node setup", "--setup-key", "Nodes → Add server"} {
-		if strings.Contains(said, leaked) {
-			t.Errorf("the operator is being told to use a flow that no longer exists (%q):\n%s",
-				leaked, said)
-		}
-	}
-	if lines := strings.Count(strings.TrimSpace(said), "\n"); lines > 1 {
-		t.Errorf("the failure is %d lines long:\n%s", lines+1, said)
+		t.Fatalf("remote upgrade was offered without a restricted Agent operation: %s", w.Body.String())
 	}
 }
 
@@ -560,8 +445,15 @@ func TestTheFleetPageRefreshesWhatEachServerReports(t *testing.T) {
 	f.answers[node.OpHello] = node.Info{Version: "v1.7.7.5", CPUPercent: 41, MemPercent: 62}
 	withFleet(s, f)
 
-	if w := post(t, s, "action=add&name=germany&host=203.0.113.9&user=root&password=x"); w.Code != http.StatusOK {
-		t.Fatalf("add: %d %s", w.Code, w.Body.String())
+	cred, err := node.GenerateCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := node.AddManaged("germany", "http://controller:7777", "node-refresh", cred); err != nil {
+		t.Fatal(err)
+	}
+	if err := node.NoteInfo("germany", f.answers[node.OpHello].(node.Info)); err != nil {
+		t.Fatal(err)
 	}
 
 	// Fresh: the add just asked, so a listing straight afterwards must not ask

@@ -247,7 +247,7 @@ count.
 
 | Option | Notes |
 |---|---|
-| **Configure / Update bot** | token, admin id, and how the bot reaches Telegram (automatic through a tunnel peer, always a named tunnel, or direct) |
+| **Configure / Update bot** | token, admin id, and how the bot reaches Telegram (automatic through a connected Agent with tunnel fallback, always a named tunnel, or direct). No local port 443 is reserved. |
 | **Alerts** | warn when CPU, memory or disk crosses a threshold, a tunnel goes down or comes back, or a new release appears — each with a recovery message. [More](alerts.md) |
 | **Admins** | who else may use the bot, and who may only look |
 | **Diagnose relay** | names the exact hop that is broken when messages do not arrive |

@@ -1,12 +1,9 @@
 package webui
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,28 +36,19 @@ const nodeInfoTTL = 12 * time.Second
 type nodeView struct {
 	Name string `json:"name"`
 
-	// How the panel reaches it. The password is never sent back.
-	Host    string `json:"host"`
-	SSHPort int    `json:"sshPort,omitempty"`
-	User    string `json:"user"`
+	ID      string `json:"id,omitempty"`
+	Revoked bool   `json:"revoked,omitempty"`
 
-	// Fingerprint is the host key this server is known by. Shown because a
-	// server whose key has changed refuses to answer, and the operator has no
-	// way to tell that from a server that is simply down unless it is here.
-	Fingerprint string `json:"fingerprint,omitempty"`
-
-	// PinnedVersion and PinReason say this server is deliberately held back
-	// from fleet rollouts, and why. Shown on the card because a machine that is
-	// behind on purpose and one that is behind by accident look identical
-	// otherwise.
-	PinnedVersion string `json:"pinnedVersion,omitempty"`
-	PinReason     string `json:"pinReason,omitempty"`
-
-	Online   bool      `json:"online"`
-	Why      string    `json:"why,omitempty"` // why not, when it is not
-	Added    int64     `json:"added"`
-	LastSeen int64     `json:"lastSeen,omitempty"`
-	Info     node.Info `json:"info,omitempty"`
+	Online           bool      `json:"online"`
+	Why              string    `json:"why,omitempty"` // why not, when it is not
+	Added            int64     `json:"added"`
+	LastSeen         int64     `json:"lastSeen,omitempty"`
+	LastConnected    int64     `json:"lastConnected,omitempty"`
+	LastDisconnected int64     `json:"lastDisconnected,omitempty"`
+	ObservedAddress  string    `json:"observedAddress,omitempty"`
+	DisconnectReason string    `json:"disconnectReason,omitempty"`
+	ProtocolVersion  int       `json:"protocolVersion,omitempty"`
+	Info             node.Info `json:"info,omitempty"`
 
 	// Net is the path between this panel and that server — loss and round
 	// trip, measured here. See nodeprobe.go.
@@ -104,7 +92,7 @@ func (s *server) writeNodeState(w http.ResponseWriter) { s.writeNodeStateWith(w,
 // nothing.
 //
 // The fleet page used to wait on the live pass before it could draw anything:
-// four servers meant four SSH connections, and the page stood empty for as long
+// four servers meant four sequential connections, and the page stood empty for long
 // as the slowest of them took — four or five seconds — for information most of
 // which was already on disk. This is what the page draws immediately.
 //
@@ -117,9 +105,11 @@ func (s *server) writeNodeStateCached(w http.ResponseWriter) {
 	rows := make([]nodeView, len(list))
 	for i, n := range list {
 		rows[i] = nodeView{
-			Name: n.Name, Host: n.Host, SSHPort: n.SSHPort, User: n.User,
-			Fingerprint: n.Fingerprint, Added: n.Added, LastSeen: n.LastSeen,
-			Info: n.Info, Tunnels: manage.TunnelsOnNode(n.Name),
+			Name: n.Name, ID: n.ID, Revoked: n.Revoked, Added: n.Added, LastSeen: n.LastSeen,
+			LastConnected: n.LastConnected, LastDisconnected: n.LastDisconnected,
+			ObservedAddress: n.ObservedAddress, DisconnectReason: n.DisconnectReason,
+			ProtocolVersion: n.ProtocolVersion,
+			Info:            n.Info, Tunnels: manage.TunnelsOnNode(n.Name),
 			// Measured by this panel rather than asked of that server, so it is
 			// as current here as it is anywhere.
 			Net:     s.net.Health(n.Name),
@@ -127,12 +117,6 @@ func (s *server) writeNodeStateCached(w http.ResponseWriter) {
 		}
 	}
 	writeJSON(w, map[string]any{"nodes": rows})
-}
-
-// writeNodeMessage is the fleet state plus something to read — a rollout plan
-// or what a rollout did. Distinct from a warning: a plan is not a problem.
-func (s *server) writeNodeMessage(w http.ResponseWriter, message string) {
-	s.writeNodeStateWith(w, map[string]any{"message": message})
 }
 
 // writeNodeStateWith is the fleet state plus whatever the action that produced
@@ -149,11 +133,12 @@ func (s *server) writeNodeStateWith(w http.ResponseWriter, extra map[string]any)
 	var wg sync.WaitGroup
 	for i, n := range list {
 		rows[i] = nodeView{
-			Name: n.Name, Host: n.Host, SSHPort: n.SSHPort, User: n.User,
-			Fingerprint: n.Fingerprint, Added: n.Added, LastSeen: n.LastSeen,
-			Info: n.Info, Tunnels: manage.TunnelsOnNode(n.Name),
-			Net:           s.net.Health(n.Name),
-			PinnedVersion: n.PinnedVersion, PinReason: n.PinReason,
+			Name: n.Name, ID: n.ID, Revoked: n.Revoked, Added: n.Added, LastSeen: n.LastSeen,
+			LastConnected: n.LastConnected, LastDisconnected: n.LastDisconnected,
+			ObservedAddress: n.ObservedAddress, DisconnectReason: n.DisconnectReason,
+			ProtocolVersion: n.ProtocolVersion,
+			Info:            n.Info, Tunnels: manage.TunnelsOnNode(n.Name),
+			Net: s.net.Health(n.Name),
 		}
 		if run == nil {
 			continue
@@ -196,92 +181,49 @@ func (s *server) nodeAction(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	switch r.FormValue("action") {
 	case "add":
-		port := 22
-		if v := strings.TrimSpace(r.FormValue("sshPort")); v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil || n < 1 || n > 65535 {
-				http.Error(w, "choose an SSH port between 1 and 65535", http.StatusBadRequest)
+		for _, old := range []string{"host", "sshPort", "user", "password", "fingerprint"} {
+			if r.FormValue(old) != "" {
+				http.Error(w, "SSH enrollment is no longer supported; use a one-time Agent code", http.StatusGone)
 				return
 			}
-			port = n
 		}
 		name := strings.TrimSpace(r.FormValue("name"))
-
-		// The decision is control.Fleet.Join's — reach the machine now, install
-		// Backpack if it has none, take the entry back out if it cannot be
-		// reached. None of that is about HTTP, and having it here was why a CLI
-		// that wanted to add a server had to drive the panel. See
-		// internal/control/join.go.
-		_, err := s.nodes.Join(name, r.FormValue("host"), port,
-			r.FormValue("user"), r.FormValue("password"), r.FormValue("install") != "0")
+		cfg := Load()
+		controllerURL := cfg.Scheme() + "://" + r.Host
+		pin := ""
+		if cfg.HTTPS {
+			certFile := cfg.TLSCertFile
+			if !cfg.OwnCert() {
+				var certErr error
+				certFile, _, certErr = manage.EnsurePanelCert(cfg.TLSSelfHost)
+				if certErr != nil {
+					http.Error(w, "controller certificate unavailable", http.StatusServiceUnavailable)
+					return
+				}
+			}
+			var pinErr error
+			pin, pinErr = node.CertificatePin(certFile)
+			if pinErr != nil {
+				http.Error(w, "controller certificate unavailable", http.StatusServiceUnavailable)
+				return
+			}
+		}
+		code, err := node.CreateEnrollmentPinned(name, controllerURL, pin, 15*time.Minute)
 		if err != nil {
-			// The three stages fail for three different reasons and the
-			// operator is looking at the form: a rejected name or port is
-			// theirs to correct, a machine that will not answer is a
-			// credential or a firewall, and a failed install is the far
-			// machine's own words.
-			var je control.JoinError
-			status := http.StatusBadGateway
-			if errors.As(err, &je) && je.Stage == "register" {
-				status = http.StatusBadRequest
-			}
-			http.Error(w, err.Error(), status)
-			return
-		}
-
-		// A server joining the fleet may already hold the far end of tunnels
-		// this panel has been managing alone. Offered, never linked — see
-		// suggestPairsOn.
-		if sugg := s.suggestPairsOn(s.nodes.Runner(), name); len(sugg) > 0 {
-			s.writeNodeStateWith(w, map[string]any{"pairSuggestions": sugg})
-			return
-		}
-		s.writeNodeState(w)
-
-	case "credentials":
-		// The address, the login or the password changed. The host key is
-		// dropped with the address inside SetCredentials, and the connection is
-		// dropped here so the next call dials with what was just saved.
-		name := strings.TrimSpace(r.FormValue("name"))
-		port := 0
-		if v := strings.TrimSpace(r.FormValue("sshPort")); v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil || n < 1 || n > 65535 {
-				http.Error(w, "choose an SSH port between 1 and 65535", http.StatusBadRequest)
-				return
-			}
-			port = n
-		}
-		if err := node.SetCredentials(name, strings.TrimSpace(r.FormValue("host")), port,
-			strings.TrimSpace(r.FormValue("user")), r.FormValue("password")); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if run := s.nodes.Runner(); run != nil {
-			run.Forget(name)
-		}
-		s.writeNodeState(w)
+		writeJSON(w, map[string]any{"status": "enrollment_created", "name": name, "enrollmentCode": code,
+			"expiresIn": int((15 * time.Minute).Seconds())})
 
-	case "upgrade":
-		// One click, from here, for a server the operator may never log into.
-		// It is the same installer that put Backpack there: it fetches the
-		// current release, replaces the binary and restarts what was running.
-		run := s.nodes.Runner()
-		up, ok := run.(interface{ Upgrade(string) (string, error) })
-		if !ok {
-			http.Error(w, "this panel cannot upgrade servers", http.StatusBadRequest)
-			return
-		}
+	case "credentials":
+		http.Error(w, "SSH credentials are no longer supported; create a new enrollment code", http.StatusGone)
+
+	case "revoke":
 		name := strings.TrimSpace(r.FormValue("name"))
-		if _, err := up.Upgrade(name); err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
+		if err := node.Revoke(name); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
-		}
-		// Read back what it is now, so the card does not keep showing the
-		// version it had before.
-		var info node.Info
-		if err := run.Call(name, node.OpHello, nil, &info); err == nil {
-			_ = node.NoteInfo(name, info)
 		}
 		s.writeNodeState(w)
 
@@ -303,133 +245,6 @@ func (s *server) nodeAction(w http.ResponseWriter, r *http.Request) {
 		var info node.Info
 		if err := run.Call(name, node.OpHello, nil, &info); err == nil {
 			_ = node.NoteInfo(name, info)
-		}
-		s.writeNodeState(w)
-
-	case "rolloutplan":
-		// What "upgrade all" is about to do, before it does it.
-		//
-		// A rollout whose shape can only be discovered by starting it is the
-		// thing being fixed, so the plan is a separate call an operator can
-		// read first.
-		plan := s.rolloutPlan()
-		s.writeNodeMessage(w, plan.Describe(node.DefaultSoak))
-
-	case "upgradeall":
-		// Every server behind this panel, in one action — staged.
-		//
-		// This used to upgrade the whole fleet in parallel and report which
-		// ones failed. That is the right shape for a fleet of one and an act of
-		// faith for a fleet of twenty: a release with a fault in it takes every
-		// server down before anyone has read the first error, and the per-node
-		// rollback cannot help, because by then every node has rolled back and
-		// nobody knows into what.
-		//
-		// So: one canary, soaked and verified, then waves, each verified,
-		// halting when one fails. Pinned servers are left alone. See
-		// internal/node/rollout.go.
-		run := s.nodes.Runner()
-		up, ok := run.(interface{ Upgrade(string) (string, error) })
-		if !ok {
-			http.Error(w, "this panel cannot upgrade servers", http.StatusBadRequest)
-			return
-		}
-		plan := s.rolloutPlan()
-		if plan.Total() == 0 {
-			s.writeNodeMessage(w, plan.Describe(node.DefaultSoak))
-			return
-		}
-		// A rollout is minutes long by design — a soak window and a health
-		// check per wave — so it cannot be run inside the request that asked
-		// for it. It outlives the request, the page polls for where it has
-		// got to, and a panel that goes away does not leave servers being
-		// upgraded with nobody watching: the job's context is the panel's.
-		_, err := s.jobs.Start(s.jobCtx(), jobRollout, "",
-			func(ctx context.Context, p *control.Progress) (any, error) {
-				roll := &node.Rollout{
-					Upgrade: func(name string) error {
-						p.Step("upgrading %s", name)
-						_, uerr := up.Upgrade(name)
-						return uerr
-					},
-					// Healthy means: it answers, and the tunnels that were
-					// meant to be running on it are running. Asking only
-					// whether it answers would pass a server whose binary came
-					// back and whose tunnels did not, which is the failure a
-					// staged rollout exists to catch early.
-					Verify: func(name string) error {
-						p.Step("checking %s", name)
-						return s.verifyNode(run, name)
-					},
-					OnEvent: func(e node.Event) {
-						if e.Node != "" {
-							p.Step("%s: %s %s", e.Stage, e.Node, e.Message)
-							return
-						}
-						p.Step("%s: %s", e.Stage, e.Message)
-					},
-				}
-				res := roll.Run(ctx, plan)
-				noteJob(nil)
-				return describeRollout(res), nil
-			})
-		var busy control.ErrBusy
-		if errors.As(err, &busy) {
-			s.writeNodeMessage(w, "A rollout is already running.")
-			return
-		}
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		s.writeNodeMessage(w, "Rollout started.\n\n"+plan.Describe(node.DefaultSoak))
-
-	case "rolloutstatus":
-		// Where the rollout has got to, or what came of the last one.
-		job, ok := s.jobs.Latest(jobRollout)
-		if !ok {
-			s.writeNodeStateWith(w, map[string]any{"rollout": nil})
-			return
-		}
-		out := map[string]any{
-			"running": job.State == control.Running,
-			"step":    job.Step,
-			"state":   string(job.State),
-		}
-		if text, isText := control.ResultOf[string](job); isText {
-			out["message"] = text
-		}
-		if job.Err != "" {
-			out["message"] = job.Err
-		}
-		s.writeNodeStateWith(w, map[string]any{"rollout": out})
-
-	case "rolloutcancel":
-		job, ok := s.jobs.Current(jobRollout)
-		if !ok {
-			s.writeNodeMessage(w, "No rollout is running.")
-			return
-		}
-		s.jobs.Cancel(job.ID)
-		// A cancelled rollout stops between stages, never mid-upgrade — see
-		// node.Rollout.Run. The servers already upgraded stay upgraded.
-		s.writeNodeMessage(w, "The rollout will stop after the server it is on.")
-
-	case "pin":
-		// Hold one server back from fleet rollouts, with the reason written
-		// down next to it.
-		name := strings.TrimSpace(r.FormValue("name"))
-		if err := node.Pin(name, r.FormValue("reason")); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		s.writeNodeState(w)
-
-	case "unpin":
-		name := strings.TrimSpace(r.FormValue("name"))
-		if err := node.Unpin(name); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
 		}
 		s.writeNodeState(w)
 

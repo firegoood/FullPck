@@ -109,25 +109,11 @@ export const fleetDrift = () => get('/api/fleet/drift');
 export const nodesCached = () => get('/api/nodes?cached=1');
 const nodePost = form => post('/api/nodes', new URLSearchParams(form));
 export const nodeRemove = name => nodePost({ action: 'remove', name });
-/* Adding reaches the server while the operator waits, and installs Backpack on
-   it if it has none, so this is the one node call that can take minutes. */
+/* Adding issues an enrollment code; the Node joins from its own terminal. */
 export const nodeAdd = fields => nodePost({ action: 'add', ...fields });
-export const nodeCredentials = fields => nodePost({ action: 'credentials', ...fields });
-export const nodeUpgrade = name => nodePost({ action: 'upgrade', name });
+export const nodeRevoke = name => nodePost({ action: 'revoke', name });
 /* Ask one server again now, rather than waiting for its answer to go stale. */
 export const nodeRefresh = name => nodePost({ action: 'refresh', name });
-/* What an upgrade-all would do, without doing it. A rollout whose shape can
-   only be discovered by starting it is the thing staging exists to fix, so the
-   plan is its own call and the button reads it out first. */
-export const nodeRolloutPlan = () => nodePost({ action: 'rolloutplan' });
-/* Staged: one canary, soaked and checked, then waves, halting on a failure.
-   It answers immediately and runs for minutes — poll nodeRolloutStatus. */
-export const nodeUpgradeAll = () => nodePost({ action: 'upgradeall' });
-export const nodeRolloutStatus = () => nodePost({ action: 'rolloutstatus' });
-export const nodeRolloutCancel = () => nodePost({ action: 'rolloutcancel' });
-/* Hold one server back from rollouts, with the reason recorded beside it. */
-export const nodePin = (name, reason) => nodePost({ action: 'pin', name, reason });
-export const nodeUnpin = name => nodePost({ action: 'unpin', name });
 
 /* Both ends in one submission: this end is created here, and the other is
    derived from it and applied on the node. See handleNodePair. */

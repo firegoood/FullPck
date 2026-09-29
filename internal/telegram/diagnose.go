@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/backpack/backpack/internal/manage"
+	"github.com/backpack/backpack/internal/node"
 )
 
 // Relay diagnosis.
@@ -46,6 +48,26 @@ func DiagnoseRelay() []RelayStep {
 		})
 	}
 	out = append(out, RelayStep{Name: "Bot configured", OK: true, Detail: "token and admin id are set"})
+	if c.ViaTunnel == AutoRelay {
+		ctx, cancel := context.WithTimeout(context.Background(), 18*time.Second)
+		if node.TelegramRelayAvailable(ctx) {
+			conn, err := node.DialTelegramIPC(ctx)
+			if err == nil {
+				_ = conn.SetDeadline(time.Now().Add(15 * time.Second))
+				tlsConn := tls.Client(conn, &tls.Config{ServerName: "api.telegram.org", MinVersion: tls.VersionTLS12})
+				err = tlsConn.Handshake()
+				_ = tlsConn.Close()
+			}
+			if err == nil {
+				cancel()
+				return append(out, RelayStep{Name: "Agent relay", OK: true,
+					Detail: "a connected Agent reached Telegram with verified TLS"})
+			}
+			out = append(out, RelayStep{Name: "Agent relay", Detail: err.Error(),
+				Fix: "check the foreign Agent connection and its Telegram egress"})
+		}
+		cancel()
+	}
 
 	// 1) Is a relay chosen at all?
 	name, port, err := resolveRelay(c)

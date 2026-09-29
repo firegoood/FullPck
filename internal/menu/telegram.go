@@ -185,10 +185,9 @@ func configureAlerts(cfg telegram.Config) {
 	tui.PressEnter()
 }
 
-// configureTelegram sets up the bot. On an Iran server Telegram is blocked, so
-// the primary path relays traffic through a tunnel: backpack forwards a
-// loopback port on the chosen tunnel straight to api.telegram.org and sends
-// every bot request through it, with the peer making the outbound connection.
+// configureTelegram sets up the bot. Automatic mode uses a connected Agent
+// first, then a loopback-only tunnel forward as fallback. Neither path binds
+// local port 443; that number is the remote Telegram API destination.
 func configureTelegram(cfg telegram.Config) {
 	tui.Info("Get a bot token from @BotFather and your numeric user id from @userinfobot.")
 	fmt.Println()
@@ -204,19 +203,20 @@ func configureTelegram(cfg telegram.Config) {
 	fmt.Println()
 	tunnels := manage.List()
 	if len(tunnels) == 0 {
-		tui.Warn("No tunnels yet. On an IRAN server the bot can only reach Telegram")
-		tui.Warn("through a tunnel relay — create a tunnel first for reliable delivery.")
-		if !tui.Confirm("Send DIRECTLY instead (only works where Telegram is reachable)", false) {
-			return
+		tui.Info("Automatic uses a connected foreign Agent, with a tunnel fallback when available.")
+		if tui.Confirm("Use automatic Agent relay (recommended for Iran)", true) {
+			cfg.ViaTunnel = telegram.AutoRelay
+			cfg.SocksPort = 0
+		} else {
+			cfg.ViaTunnel = ""
 		}
-		cfg.ViaTunnel = ""
 	} else {
 		// Automatic first, and the default. Pinning a tunnel means the bot goes
 		// silent exactly when that tunnel drops — which is the moment its
 		// warnings matter most.
 		opts := []tui.Option{{
 			Title: "Automatic (recommended)",
-			Desc:  "picks a connected tunnel and switches by itself if it drops",
+			Desc:  "uses a connected Agent first, then a healthy tunnel fallback",
 		}}
 		for _, t := range tunnels {
 			opts = append(opts, tui.Option{
@@ -237,10 +237,12 @@ func configureTelegram(cfg telegram.Config) {
 		case idx == 0:
 			cfg.ViaTunnel = telegram.AutoRelay
 			cfg.SocksPort = 0 // resolved per request
-			tui.Info("Preparing a relay on a connected tunnel...")
+			tui.Info("Checking the Agent or tunnel relay...")
 			if name, port, err := telegram.PrepareAutoRelay(); err != nil {
 				tui.Warn("Could not prepare one yet: " + err.Error())
 				tui.Warn("The bot will keep trying as tunnels come up.")
+			} else if port == 0 {
+				tui.Success("Agent relay ready through " + name + ".")
 			} else {
 				tui.Success(fmt.Sprintf("Relay ready on %s (port %d).", name, port))
 				tui.Warn("Restart the CLIENT side of that tunnel once so it picks up the port.")
@@ -248,8 +250,8 @@ func configureTelegram(cfg telegram.Config) {
 
 		case idx <= len(tunnels):
 			cfg.ViaTunnel = tunnels[idx-1].Name
-			tui.Info("Setting up a SOCKS5 relay through tunnel " + cfg.ViaTunnel + "...")
-			port, err := manage.EnsureSocksPort(cfg.ViaTunnel)
+			tui.Info("Setting up Telegram TLS forwarding through tunnel " + cfg.ViaTunnel + "...")
+			port, err := manage.EnsureTelegramPort(cfg.ViaTunnel)
 			if err != nil {
 				tui.Error("Could not set up relay: " + err.Error())
 				tui.PressEnter()

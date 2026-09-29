@@ -118,6 +118,24 @@ func TestThePanelDemandsTheSpoofPeer(t *testing.T) {
 	}
 }
 
+func TestThePanelSNISettingReachesTheConfig(t *testing.T) {
+	n := NewDirectTunnel{
+		Side: "iran", Carrier: "sni", Name: "sni", Token: "a-token",
+		PeerAddr: "203.0.113.9", TunnelPort: "9000", Ports: "443",
+		SNIDomain: "mci.ir",
+	}
+	spec, err := n.spec()
+	if err != nil {
+		t.Fatalf("sni form was refused: %v", err)
+	}
+	if spec.SNIDomain != "mci.ir" {
+		t.Fatalf("sni domain = %q", spec.SNIDomain)
+	}
+	if got := decode(t, spec.render()).L3.SNIDomain; got != "mci.ir" {
+		t.Fatalf("rendered sni domain = %q", got)
+	}
+}
+
 // The panel's carrier list must be the wizard's list, in the wizard's order.
 func TestThePanelOffersTheSameCarriersAsTheWizard(t *testing.T) {
 	// One list, read by both screens — see askL3Carrier. What is checked here
@@ -136,6 +154,15 @@ func TestThePanelOffersTheSameCarriersAsTheWizard(t *testing.T) {
 	for _, want := range []string{"pck", "udp", "quic", "spoof", "xdi"} {
 		if !slices.Contains(got, want) {
 			t.Errorf("the screens do not offer %q", want)
+		}
+	}
+	var panel []string
+	for _, c := range PanelDirectCarriers() {
+		panel = append(panel, c["value"])
+	}
+	for _, want := range []string{"spoof", "sni"} {
+		if !slices.Contains(panel, want) {
+			t.Errorf("the WebUI carrier list does not include %q", want)
 		}
 	}
 }

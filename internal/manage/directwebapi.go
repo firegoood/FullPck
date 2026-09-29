@@ -132,17 +132,13 @@ func DirectCarriers() []map[string]string {
 			"desc": "plain and simple — use it where the path does not interfere"},
 		{"value": "quic", "label": "Quic", "needsRoot": "",
 			"desc": "a real QUIC session on UDP — indistinguishable from HTTP/3, and needs no root"},
-		// cliOnly keeps a carrier out of the panel without taking it away.
-		//
-		// These two are the ones whose answers depend on the route rather than
-		// on the tunnel: which forged source a path will carry, which domain it
-		// already lets through. Getting them wrong produces a tunnel that comes
-		// up and moves nothing, and finding out costs a capture on the machine
-		// itself. That is CLI work, so the panel does not offer them — and the
-		// engine still runs a config that names one, whichever screen wrote it.
-		{"value": "spoof", "label": "IP Spoofing", "needsRoot": "1", "cliOnly": "1",
+		// These two depend on the route rather than on the tunnel. The panel
+		// offers them too, with the same warning and root marker as the CLI;
+		// selecting one remains an operator decision that should be verified by
+		// the spoof tester or a link test before production use.
+		{"value": "spoof", "label": "IP Spoofing", "needsRoot": "1",
 			"desc": "raw packets with a forged source address — needs testing on your route"},
-		{"value": "sni", "label": "SNI Spoofing", "needsRoot": "1", "cliOnly": "1",
+		{"value": "sni", "label": "SNI Spoofing", "needsRoot": "1",
 			"desc": "PCK, plus a TLS hello naming a domain your route allows — the box in front reads that name and lets the rest through"},
 	}
 }
@@ -166,14 +162,15 @@ func offeredCarrier(name string) bool {
 	return false
 }
 
-// PanelDirectCarriers is DirectCarriers without the ones the panel does not
-// offer. The CLI reads the whole list; this is what /api/direct/options serves.
+// PanelDirectCarriers is the complete carrier list for /api/direct/options.
+// The panel used to hide spoof and sni because they need route-specific
+// verification, but that made the WebUI unable to create tunnels the CLI could
+// create. The form now shows the same warning/needs-root metadata and leaves
+// the route test to the operator, just like the CLI.
 func PanelDirectCarriers() []map[string]string {
 	out := make([]map[string]string, 0, len(DirectCarriers()))
 	for _, c := range DirectCarriers() {
-		if c["cliOnly"] == "" {
-			out = append(out, c)
-		}
+		out = append(out, c)
 	}
 	return out
 }
@@ -506,20 +503,29 @@ func SuggestDirectPort() string {
 // all three have to match the other end, so changing one here alone would only
 // break the tunnel.
 type DirectSettings struct {
-	Name      string `json:"name"`
-	Side      string `json:"side"`
-	Carrier   string `json:"carrier"`
-	Encap     string `json:"encap"`
-	Addr      string `json:"addr"`
-	Token     string `json:"token"`
-	Iface     string `json:"iface"`
-	LocalIP   string `json:"localIp"`
-	PeerIP    string `json:"peerIp"`
-	MTU       int    `json:"mtu"`
-	AutoMTU   bool   `json:"autoMtu"`
-	Preset    string `json:"preset"`
-	Ports     string `json:"ports"`
-	AcceptUDP bool   `json:"acceptUdp"`
+	// Kind distinguishes the legacy stream direct tunnel ([direct]) from the
+	// layer-3 direct tunnel ([l3]). The panel uses it to render the right
+	// editor; both are managed by this endpoint.
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
+	Side       string `json:"side"`
+	Transport  string `json:"transport"`
+	Carrier    string `json:"carrier"`
+	Encap      string `json:"encap"`
+	Addr       string `json:"addr"`
+	Token      string `json:"token"`
+	Iface      string `json:"iface"`
+	LocalIP    string `json:"localIp"`
+	PeerIP     string `json:"peerIp"`
+	MTU        int    `json:"mtu"`
+	AutoMTU    bool   `json:"autoMtu"`
+	Preset     string `json:"preset"`
+	Sessions   int    `json:"sessions"`
+	ServerName string `json:"serverName,omitempty"`
+	ACMEDomain string `json:"acmeDomain,omitempty"`
+	ACMEEmail  string `json:"acmeEmail,omitempty"`
+	Ports      string `json:"ports"`
+	AcceptUDP  bool   `json:"acceptUdp"`
 
 	MaxConnections int `json:"maxConnections"`
 	BandwidthMbps  int `json:"bandwidthMbps"`
@@ -537,8 +543,9 @@ type DirectSettings struct {
 
 	// Paths and FEC as the panel shows them: how many sockets, and whether
 	// error correction is on at all. The exact scheme stays a CLI tuning.
-	Paths int  `json:"paths"`
-	FEC   bool `json:"fec"`
+	Paths     int    `json:"paths"`
+	FEC       bool   `json:"fec"`
+	SNIDomain string `json:"sniDomain,omitempty"`
 }
 
 // DirectEdit is what the panel may change.
@@ -560,8 +567,9 @@ type DirectEdit struct {
 	// Paths changes how many sockets the udp carrier spreads over, and FEC
 	// turns error correction on or off with the recommended scheme. Both are
 	// nil unless the form sent them, on the same terms as everything else here.
-	Paths *int  `json:"paths"`
-	FEC   *bool `json:"fec"`
+	Paths     *int    `json:"paths"`
+	FEC       *bool   `json:"fec"`
+	SNIDomain *string `json:"sniDomain"`
 }
 
 // DirectSettingsOf reads one direct tunnel's editable settings.
@@ -570,10 +578,13 @@ func DirectSettingsOf(name string) (DirectSettings, error) {
 	if err != nil {
 		return DirectSettings{}, err
 	}
-	if !cfg.L3.Enabled() {
-		return DirectSettings{}, fmt.Errorf("%q is not a direct tunnel", name)
+	if cfg.Direct.Enabled() {
+		return directStreamSettingsFrom(name, cfg.Direct), nil
 	}
-	return directSettingsFrom(name, cfg.L3), nil
+	if cfg.L3.Enabled() {
+		return directSettingsFrom(name, cfg.L3), nil
+	}
+	return DirectSettings{}, fmt.Errorf("%q is not a direct tunnel", name)
 }
 
 // directSettingsFrom is the mapping, with no filesystem in it.
@@ -584,19 +595,21 @@ func DirectSettingsOf(name string) (DirectSettings, error) {
 // the I/O is above.
 func directSettingsFrom(name string, l config.L3Config) DirectSettings {
 	return DirectSettings{
-		Name:    name,
-		Side:    l3Role(l.Mode),
-		Carrier: orDefault(l.Carrier, "udp"),
-		Encap:   l3EncapLabel(l),
-		Addr:    l.Addr,
-		Token:   l.Token,
-		Iface:   orDefault(l.Iface, "bp0"),
-		LocalIP: l.LocalIP,
-		PeerIP:  l.PeerIP,
-		MTU:     l.MTU,
-		AutoMTU: l.AutoMTUEnabled(),
-		Preset:  orDefault(l.Preset, PresetTurbo),
-		Ports:   strings.Join(l.Ports, ", "),
+		Kind:      "l3",
+		Name:      name,
+		Side:      l3Role(l.Mode),
+		Transport: "l3/" + orDefault(l.Carrier, "udp"),
+		Carrier:   orDefault(l.Carrier, "udp"),
+		Encap:     l3EncapLabel(l),
+		Addr:      l.Addr,
+		Token:     l.Token,
+		Iface:     orDefault(l.Iface, "bp0"),
+		LocalIP:   l.LocalIP,
+		PeerIP:    l.PeerIP,
+		MTU:       l.MTU,
+		AutoMTU:   l.AutoMTUEnabled(),
+		Preset:    orDefault(l.Preset, PresetTurbo),
+		Ports:     strings.Join(l.Ports, ", "),
 
 		AcceptUDP:      l.AcceptUDP,
 		MaxConnections: l.MaxConnections,
@@ -606,11 +619,40 @@ func directSettingsFrom(name string, l config.L3Config) DirectSettings {
 		// stream that asks for it, so what is forwarded is set on Iran.
 		HoldsPorts: !strings.EqualFold(strings.TrimSpace(l.Mode), "listen"),
 
-		Spoof:   spoofOf(l.SpoofConfig),
-		Stealth: spoofStealthOn(l.SpoofConfig),
-		Paths:   l.Paths,
-		FEC:     l.FECData > 0 && l.FECParity > 0,
+		Spoof:     spoofOf(l.SpoofConfig),
+		Stealth:   spoofStealthOn(l.SpoofConfig),
+		Paths:     l.Paths,
+		FEC:       l.FECData > 0 && l.FECParity > 0,
+		SNIDomain: l.SNIDomain,
 	}
+}
+
+// directStreamSettingsFrom maps the legacy stream direct table. It is separate
+// from the layer-3 mapper because the two config tables intentionally do not
+// share fields, even though the panel manages them through one endpoint.
+func directStreamSettingsFrom(name string, d config.DirectConfig) DirectSettings {
+	return DirectSettings{
+		Kind: "stream", Name: name,
+		Side:      directRoleLabel(d.ResolvedRole()),
+		Transport: "direct/" + orDefault(d.Transport, "tcp"),
+		Carrier:   orDefault(d.Transport, "tcp"), Encap: "stream",
+		Addr: d.Addr, Token: d.Token,
+		Preset: orDefault(d.Preset, PresetTurbo), Sessions: max(d.Sessions, 1),
+		ServerName: d.ServerName, ACMEDomain: d.ACMEDomain, ACMEEmail: d.ACMEEmail,
+		Ports: strings.Join(d.Ports, ", "), AcceptUDP: d.AcceptUDP,
+		MaxConnections: d.MaxConnections, BandwidthMbps: d.BandwidthMbps,
+		HoldsPorts: d.ResolvedRole() == "edge",
+	}
+}
+
+func directRoleLabel(role string) string {
+	if role == "edge" {
+		return "iran"
+	}
+	if role == "origin" {
+		return "kharej"
+	}
+	return role
 }
 
 // EditDirectSettings applies the panel's edit and restarts the tunnel.
@@ -623,6 +665,25 @@ func EditDirectSettings(name string, e DirectEdit) error {
 	cfg, err := LoadTunnelConfig(name)
 	if err != nil {
 		return err
+	}
+	if cfg.Direct.Enabled() {
+		d, err := applyDirectStreamEdit(cfg.Direct, e)
+		if err != nil {
+			return err
+		}
+		spec := directSpecFromConfig(name, d)
+		if e.Preset != nil {
+			findDirectPreset(strings.ToLower(strings.TrimSpace(*e.Preset))).apply(&spec)
+		}
+		body := spec.render()
+		var check config.Config
+		if _, err := toml.Decode(body, &check); err != nil {
+			return fmt.Errorf("the edit produced a config that does not parse: %w", err)
+		}
+		if err := app.WriteFileAtomic(app.ConfigPath(name), []byte(body), app.TunnelConfigMode); err != nil {
+			return err
+		}
+		return RestartService(app.ServiceName(name))
 	}
 	if !cfg.L3.Enabled() {
 		return fmt.Errorf("%q is not a direct tunnel", name)
@@ -646,6 +707,48 @@ func EditDirectSettings(name string, e DirectEdit) error {
 		return err
 	}
 	return RestartService(app.ServiceName(name))
+}
+
+func applyDirectStreamEdit(d config.DirectConfig, e DirectEdit) (config.DirectConfig, error) {
+	if e.Ports != nil {
+		ports := parsePorts(*e.Ports)
+		if err := validatePortSpecs(ports); err != nil {
+			return d, err
+		}
+		d.Ports = ports
+	}
+	if e.AcceptUDP != nil {
+		d.AcceptUDP = *e.AcceptUDP
+	}
+	if e.MaxConnections != nil {
+		d.MaxConnections = *e.MaxConnections
+	}
+	if e.BandwidthMbps != nil {
+		d.BandwidthMbps = *e.BandwidthMbps
+	}
+	if e.MTU != nil || e.AutoMTU != nil || e.Spoof != nil || e.Stealth != nil || e.Paths != nil || e.FEC != nil || e.SNIDomain != nil {
+		return d, fmt.Errorf("the requested layer-3 setting does not apply to a stream direct tunnel")
+	}
+	return d, nil
+}
+
+func directSpecFromConfig(name string, d config.DirectConfig) directSpec {
+	side := sideKharej
+	if d.ResolvedRole() == "edge" {
+		side = sideIran
+	}
+	return directSpec{
+		Name: name, Side: side, Transport: orDefault(d.Transport, "tcp"),
+		Addr: d.Addr, Token: d.Token, Ports: d.Ports, AcceptUDP: d.AcceptUDP,
+		MaxConnections: d.MaxConnections, BandwidthMbps: d.BandwidthMbps,
+		Sessions: d.Sessions, Preset: d.Preset, MuxFrameSize: d.MaxFrameSize,
+		MuxReceiveBuffer: d.MaxReceiveBuffer, MuxStreamBuffer: d.MaxStreamBuffer,
+		Keepalive: d.Keepalive, Nodelay: d.Nodelay, ServerName: d.ServerName,
+		ACMEDomain: d.ACMEDomain, ACMEEmail: d.ACMEEmail,
+		TLSCertFile: d.TLSCertFile, TLSKeyFile: d.TLSKeyFile,
+		MuxVersion: d.MuxVersion, DialTimeout: d.DialTimeout,
+		RetryInterval: d.RetryInterval, MSS: d.MSS,
+	}
 }
 
 // applyDirectEdit folds the form into a config.
@@ -728,6 +831,12 @@ func applyDirectEdit(l config.L3Config, e DirectEdit) (config.L3Config, error) {
 			l.FECData, l.FECParity = 0, 0
 		}
 	}
+	if e.SNIDomain != nil {
+		if !strings.EqualFold(strings.TrimSpace(l.Carrier), "sni") {
+			return l, fmt.Errorf("SNI domain applies only to the sni carrier")
+		}
+		l.SNIDomain = strings.TrimSpace(*e.SNIDomain)
+	}
 	return l, nil
 }
 
@@ -745,19 +854,20 @@ func directSpecFrom(name string, l config.L3Config) l3Spec {
 		side = sideKharej
 	}
 	return l3Spec{
-		Name:    name,
-		Side:    side,
-		Carrier: orDefault(l.Carrier, "udp"),
-		Encap:   orDefault(l.Encap, "gre"),
-		GREKey:  l.GREKey,
-		Addr:    l.Addr,
-		Token:   l.Token,
-		Iface:   orDefault(l.Iface, "bp0"),
-		LocalIP: l.LocalIP,
-		PeerIP:  l.PeerIP,
-		MTU:     l.MTU,
-		AutoMTU: l.AutoMTU,
-		SockBuf: l.SockBuf, MSSClamp: l.MSSClamp,
+		Name:      name,
+		Side:      side,
+		Carrier:   orDefault(l.Carrier, "udp"),
+		SNIDomain: l.SNIDomain,
+		Encap:     orDefault(l.Encap, "gre"),
+		GREKey:    l.GREKey,
+		Addr:      l.Addr,
+		Token:     l.Token,
+		Iface:     orDefault(l.Iface, "bp0"),
+		LocalIP:   l.LocalIP,
+		PeerIP:    l.PeerIP,
+		MTU:       l.MTU,
+		AutoMTU:   l.AutoMTU,
+		SockBuf:   l.SockBuf, MSSClamp: l.MSSClamp,
 		FECData: l.FECData, FECParity: l.FECParity,
 		Paths:  l.Paths,
 		Preset: l.Preset, TxQueueLen: l.TxQueueLen, Qdisc: l.Qdisc,

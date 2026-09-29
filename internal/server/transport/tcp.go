@@ -138,6 +138,7 @@ func (s *TcpTransport) Start() {
 func (s *TcpTransport) start(g *tcpGen) {
 	// Whatever is still queued when this generation ends gives its slot back.
 	go drainOnEnd(g.ctx, g.localChannel, s.limits)
+	go drainTunnelOnEnd(g.ctx, g.tunnelChannel, func(c net.Conn) { c.Close() })
 
 	s.status.set("Disconnected (TCP)")
 
@@ -608,6 +609,8 @@ func (s *TcpTransport) admitControlChannel(g *tcpGen, conn net.Conn, ann announc
 // the pool is full.
 func (s *TcpTransport) deliverTunnelConn(g *tcpGen, conn net.Conn) {
 	select {
+	case <-generationDone(g.ctx):
+		conn.Close()
 	case g.tunnelChannel <- conn:
 	default: // The channel is full, do nothing
 		s.logger.Warnf("forwarded port: the queue is full, dropping a client from %s", conn.RemoteAddr().String())
@@ -739,9 +742,10 @@ func (s *TcpTransport) acceptLocalConn(g *tcpGen, listener net.Listener, remoteA
 				continue
 			}
 			conn = s.limits.wrap(g.ctx, conn)
+			incoming := newLocalTCPConn(conn, remoteAddr, s.limits)
 
 			select {
-			case g.localChannel <- LocalTCPConn{conn: conn, remoteAddr: remoteAddr, timeCreated: time.Now().UnixMilli()}:
+			case g.localChannel <- incoming:
 
 				select {
 				case g.reqNewConnChan <- struct{}{}:
@@ -760,8 +764,7 @@ func (s *TcpTransport) acceptLocalConn(g *tcpGen, listener net.Listener, remoteA
 				// connecting to itself thousands of times a second and sends
 				// anybody debugging it in the wrong direction entirely.
 				s.logger.Warnf("forwarded port %s: the queue is full, dropping a client from %s", listener.Addr().String(), tcpConn.RemoteAddr().String())
-				s.limits.release()
-				conn.Close()
+				incoming.closeAndRelease(s.limits)
 			}
 		}
 	}
@@ -790,7 +793,7 @@ func (s *TcpTransport) handleLoop(g *tcpGen) {
 					go func() {
 						// Free the connection slot once the transfer ends, or
 						// the limit would fill up permanently.
-						defer s.limits.release()
+						defer local.closeAndRelease(s.limits)
 						handlers.TCPConnectionHandler(g.ctx,
 							s.config.ProxyProtocol && !isUDPFlow(local.conn),
 							local.conn, metrics.CountedConn(c), s.logger,

@@ -112,12 +112,12 @@ func (c *QuicTransport) getQUICConn() *quic.Conn {
 
 func (c *QuicTransport) Start() {
 	if c.config.WebPort > 0 {
-		go c.state.Usage().Monitor()
+		c.state.Go(c.state.Usage().Monitor)
 	}
 
 	c.status.set("Disconnected (QUIC)")
 
-	go c.channelDialer()
+	c.state.Go(c.channelDialer)
 }
 
 func (c *QuicTransport) Restart() {
@@ -133,11 +133,7 @@ func (c *QuicTransport) Restart() {
 	level := c.logger.GetLevel()
 	c.logger.SetLevel(logrus.FatalLevel)
 
-	if c.state.Cancel() != nil {
-		c.state.Cancel()()
-	}
-
-	c.state.CloseConn()
+	c.state.Stop()
 	// Closing the QUIC connection tears down every stream it carries, including
 	// the pool, and releases the UDP socket underneath.
 	if qc := c.getQUICConn(); qc != nil {
@@ -145,7 +141,7 @@ func (c *QuicTransport) Restart() {
 		c.setQUICConn(nil)
 	}
 
-	time.Sleep(2 * time.Second)
+	c.state.Wait()
 
 	// The whole tunnel may have been shut down while this restart was waiting.
 	// Rebuilding from a finished parent context would bind and close for nothing.
@@ -176,7 +172,7 @@ func (c *QuicTransport) Restart() {
 
 	c.logger.SetLevel(level)
 
-	go c.Start()
+	c.Start()
 }
 
 func (c *QuicTransport) channelDialer() {
@@ -281,7 +277,9 @@ func (c *QuicTransport) channelDialer() {
 			}
 
 			c.setQUICConn(conn)
-			c.state.SetConn(control)
+			if !c.state.SetConn(control) {
+				return
+			}
 			c.logger.Info("control channel established successfully")
 
 			// Recorded on this side too, so the panel does not have to infer a
@@ -291,8 +289,8 @@ func (c *QuicTransport) channelDialer() {
 
 			c.status.set("Connected (QUIC)")
 
-			go c.poolMaintainer()
-			go c.channelHandler()
+			c.state.Go(c.poolMaintainer)
+			c.state.Go(c.channelHandler)
 
 			return
 		}
@@ -337,7 +335,7 @@ func (c *QuicTransport) channelHandler() {
 	// went on to watch the new context would never see its own run end.
 	ctx := c.state.Ctx()
 
-	go func() {
+	c.state.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -369,10 +367,14 @@ func (c *QuicTransport) channelHandler() {
 				if msg == utils.SG_HB {
 					beats.beat(time.Now())
 				}
-				msgChan <- msg
+				select {
+				case msgChan <- msg:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-	}()
+	})
 
 	for {
 		select {
@@ -390,7 +392,7 @@ func (c *QuicTransport) channelHandler() {
 
 				default:
 					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					go c.tunnelDialer()
+					c.state.Go(c.tunnelDialer)
 				}
 
 			case utils.SG_HB:
@@ -424,6 +426,12 @@ func (c *QuicTransport) tunnelDialer() {
 		return
 	}
 	data := network.NewQUICStreamConn(stream, qc)
+	untrack, ok := c.state.Track(data)
+	if !ok {
+		return
+	}
+	defer untrack()
+	defer data.Close()
 
 	// Announce the stream with the connection's proof so the server can
 	// authenticate it and file it as a data stream. The proof, not the token,

@@ -57,8 +57,8 @@ A binary RPC surface alongside REST.
 **Rejected.** The consumers are a browser and shell scripts. gRPC adds protobuf
 codegen to a build that currently needs nothing but `go build`, and buys
 performance on a control plane that handles a few requests a minute. The node
-RPC already has a working answer for machine-to-machine: JSON over SSH, with a
-closed op list.
+RPC already has a working answer for machine-to-machine: an encrypted reverse
+Agent session with a closed op list.
 
 ### ARC-05 — One engine binary, many tunnels
 
@@ -87,7 +87,7 @@ footgun.
 Several panels agreeing on fleet state through consensus.
 
 **Rejected.** The fleet is tens of servers managed by one or two people over
-SSH. Raft buys nothing here and introduces a quorum that can be lost — a new
+an outbound Agent session. Raft buys nothing here and introduces a quorum that can be lost — a new
 outage mode for a control plane whose current failure mode is 'the panel is
 down and the tunnels keep running'. That property is worth more than consensus.
 Panel resilience is a backup-and-restore problem (OPS-07), not a
@@ -142,7 +142,7 @@ the same thing with an extra layer to debug.
 Managing tunnels as cluster resources.
 
 **Rejected, firmly.** Every reason from INT-05 applies, plus: the users run
-individual VPSes, the fleet transport is SSH, and there is no cluster in the
+individual VPSes, the fleet transport is a reverse Agent session, and there is no cluster in the
 picture. This would be a second product sharing a name.
 
 ### MISC-05 — Per-user quotas and billing

@@ -48,44 +48,22 @@ func TestTheMetricsScreenKeepsOneGutter(t *testing.T) {
 	}
 }
 
-// Editing a server happens inside that server's own card, once.
-//
-// It used to insert a separate form after the card — a differently shaped box
-// that broke the row and took the server's context away from the thing being
-// edited — and it inserted another one on every press, so a server could end up
-// with several open forms disagreeing about its address.
-func TestEditingAServerHappensInsideItsCard(t *testing.T) {
+// Agent enrollment has no SSH address or password editor on a server card.
+func TestManagedServerCardExposesOnlyAgentActions(t *testing.T) {
 	loadPanel()
-
 	js, err := fs.ReadFile(panelRoot, "js/views/servers.js")
 	if err != nil {
 		t.Fatalf("servers.js: %v", err)
 	}
 	src := string(js)
-
-	if strings.Contains(src, "openCredentials") {
-		t.Error("the separate credentials form is still there")
+	for _, old := range []string{"editPanel(", "nodeCredentials(", "SSH port", "New password"} {
+		if strings.Contains(src, old) {
+			t.Errorf("legacy SSH editor remains in the fleet card: %s", old)
+		}
 	}
-	if !strings.Contains(src, "card.append(editor)") {
-		t.Error("the editor is not part of the card, so it cannot be the one instance " +
-			"a server has")
-	}
-	if !strings.Contains(src, "classList.toggle('ed7')") {
-		t.Error("Edit does not toggle, so pressing it twice does not close what it opened")
-	}
-	if strings.Contains(src, ".after(box)") {
-		t.Error("something is still inserted beside the card rather than into it")
-	}
-
-	// Its surface is the one the remove confirmation already uses, which is what
-	// makes the two read as one behaviour.
-	css, err := fs.ReadFile(panelRoot, "css/components/servers.css")
-	if err != nil {
-		t.Fatalf("servers.css: %v", err)
-	}
-	for _, want := range []string{".mp7 .ed-l", ".mp7.ed7 .ed-l"} {
-		if !strings.Contains(string(css), want) {
-			t.Errorf("%s is not styled, so the editor has no surface of its own", want)
+	for _, action := range []string{"nodeRefresh(", "nodeRevoke(", "nodeRemove("} {
+		if !strings.Contains(src, action) {
+			t.Errorf("Agent card lost %s", action)
 		}
 	}
 }

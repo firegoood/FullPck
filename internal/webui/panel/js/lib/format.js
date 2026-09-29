@@ -35,7 +35,16 @@ export function clock(unixSeconds) {
 }
 
 export function ago(unixSeconds) {
-  const s = Math.max(0, Math.floor(Date.now() / 1000 - unixSeconds));
+  if (unixSeconds === null || unixSeconds === undefined || unixSeconds === '') return 'time unknown';
+  let when;
+  if (typeof unixSeconds === 'string' && !/^\s*\d+(?:\.\d+)?\s*$/.test(unixSeconds)) {
+    when = Date.parse(unixSeconds) / 1000;
+  } else {
+    when = Number(unixSeconds);
+    if (when > 1e11) when /= 1000; // JavaScript millisecond timestamps.
+  }
+  if (!Number.isFinite(when) || when <= 0) return 'time unknown';
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - when));
   if (s < 60) return 'just now';
   if (s < 3600) return Math.floor(s / 60) + ' min ago';
   if (s < 86400) return Math.floor(s / 3600) + ' h ago';

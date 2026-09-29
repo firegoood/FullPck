@@ -161,14 +161,16 @@ export function addView(ctx) {
         let carriers = [];
         try { carriers = (await api.directOptions()).carriers || []; } catch (e) { return; }
         if (!carriers.length) return;
+        const marked = grid.querySelector('.dc.on')?.dataset.car;
+        const initial = carriers.find(c => c.value === marked) || carriers[0];
         grid.innerHTML = carriers.map((c, i) => {
           const needsRoot = c.needsRoot ? '<span class="root2">needs root</span>' : '';
-          return `<button class="dc${i === 0 ? ' on' : ''}" data-car="${esc(c.value)}"
+          return `<button class="dc${c.value === initial.value ? ' on' : ''}" data-car="${esc(c.value)}"
             data-fn="setCar" data-args="'${esc(c.value)}'" title="${esc(c.desc || '')}">
             <span class="tn2"><b>${esc(c.label)}</b>
             <span class="key2">${esc(c.value)}</span>${needsRoot}</span></button>`;
         }).join('');
-        chosen.carrier = carriers[0].value;
+        chosen.carrier = initial.value;
         applyShape();
       }
       paintCarriers();
@@ -469,7 +471,7 @@ export function addView(ctx) {
          * This step used to have two: a pane that watched the tunnel come up,
          * and a pane that handed the operator a setup link and four values to
          * type into a second panel on the other server. The second one is gone.
-         * The panel writes both ends over SSH, so there is nothing to carry
+         * The panel writes both ends through the authenticated Agent, so there is nothing to carry
          * anywhere and nothing to type twice — and a form that still offered to
          * would be offering a way to build half a tunnel. */
         const hand = step.querySelector('.handpane');
@@ -551,7 +553,7 @@ export function addView(ctx) {
           return;
         }
 
-        const { r, name } = out;
+        const { r, name, payload } = out;
         const partial = r.status === 'partial';
 
         settle(0, !!r.service || !onNode);
@@ -578,16 +580,26 @@ export function addView(ctx) {
         paired = partial ? false : (onNode || false);
 
         const good = !partial && r.active !== false;
-        if (title) title.textContent = good ? 'Both ends are up' : partial ? 'Only this end was built' : 'Created, not up yet';
+        if (title) title.textContent = !onNode ? 'This end was created'
+          : good ? 'Both ends are up' : partial ? 'Only this end was built' : 'Created, not up yet';
         if (sub) {
-          sub.textContent = good
+          sub.textContent = !onNode
+            ? 'Set up the other machine with the same port, transport and token.'
+            : good
             ? 'Nothing else to do on either server.'
             : partial
               ? `This server has it. ${onNode} does not.`
               : 'The config is written and the service is running, but the tunnel has not come up.';
         }
         if (result) {
-          result.innerHTML = good
+          result.innerHTML = !onNode
+            ? `<div class="doneline"><span class="tick">✓</span><div>
+                 <b>${esc(name || 'The tunnel')} is saved on this server</b>
+                 <span>Open Backpack on the other machine and choose the opposite side.</span>
+                 <span>Name: <code>${esc(name)}</code> · Port: <code>${esc(payload.tunnelPort || '')}</code> · ${direct ? 'Carrier' : 'Transport'}: <code>${esc(direct ? payload.carrier : payload.transport)}</code></span>
+                 <span>Security token: <code>${esc(payload.token || '')}</code></span>
+               </div></div>`
+            : good
             ? `<div class="doneline"><span class="tick">✓</span><div>
                  <b id="doneName">${esc(name || 'The tunnel')} is running on both servers</b>
                  <span>Written here and on ${esc(onNode)}.</span>
@@ -838,6 +850,19 @@ export function addView(ctx) {
        */
       let autoTok = '';
 
+      // The manual Iran-side flow needs a fresh token to share with its peer.
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const suggestedToken = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+      const manualToken = root.querySelector('#atok');
+      if (manualToken) manualToken.name = 'token';
+      root.querySelectorAll('#atok, .step3direct input[name="token"][value]').forEach(input => {
+        input.value = suggestedToken;
+        input.closest('.withb')?.querySelector('button')?.addEventListener('click', () => {
+          navigator.clipboard?.writeText(input.value).catch(oops);
+        });
+      });
+
       function autoToken(root) {
         root.querySelectorAll('[name="token"], #atok').forEach(i => {
           const box = i.closest('.f3');
@@ -1033,7 +1058,7 @@ export function addView(ctx) {
          * still be made from the CLI on each machine; the panel shows their
          * cards and manages them like any other. */
         if (!live.length || !nodeSel || !nodeGrp) {
-          noFleet(state);
+          reveal();
           return;
         }
         live.forEach(n => {
@@ -1085,41 +1110,7 @@ export function addView(ctx) {
         }
         applyShape();
 
-      }).catch(() => noFleet(null));
-
-      /* What this screen is when there is no server to build the far end on. */
-      function noFleet(state) {
-        const body = root.querySelector('.body5');
-        const steps = root.querySelector('.steps');
-        const foot = root.querySelector('.df, .dfoot, .actions5');
-        if (steps) steps.hidden = true;
-        if (foot) foot.hidden = true;
-        if (!body) { reveal(); return; }
-
-        const any = (state?.nodes || []).length;
-        body.innerHTML = `
-          <div class="nofleet">
-            <svg class="x" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/>
-              <path d="M7 7.5h.01M7 17.5h.01"/></svg>
-            <b>${any ? 'No server is answering' : 'No managed server yet'}</b>
-            <p>This screen writes <b>both</b> ends of a tunnel — this one here, and the other
-               one on a server the panel logs into. ${any
-                 ? 'The servers in the fleet are not answering at the moment, so the far end could not be written.'
-                 : 'Add a server first: its address, SSH port, username and password.'}</p>
-            <p class="alt">A tunnel whose other end is a machine this panel does not manage is
-               made from the CLI on each server — <code>sudo backpack</code> — and its card
-               appears here like any other.</p>
-            <div class="nf-act">
-              <button class="nb primary" data-to="/servers">${any ? 'Open the fleet' : 'Add a server'}</button>
-            </div>
-          </div>`;
-        body.querySelector('[data-to]')?.addEventListener('click', () => {
-          close();
-          go('/servers');
-        });
-        reveal();
-      }
+      }).catch(() => reveal());
 
       /* Picking a server and pasting a link from one are the same job done two
          ways, so only one of them is ever on screen. */
@@ -1215,7 +1206,7 @@ export function addView(ctx) {
             })
           : direct ? await api.directCreate(payload)
                    : await api.tunnelCreate(payload);
-        return { r, onNode, name: payload.name };
+        return { r, onNode, name: payload.name, payload };
       }
 
       ctx.setTeardown(close);

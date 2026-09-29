@@ -85,12 +85,12 @@ func NewWSClient(parentCtx context.Context, config *WsConfig, logger *logrus.Log
 func (c *WsTransport) Start() {
 	// for  webui
 	if c.config.WebPort > 0 {
-		go c.state.Usage().Monitor()
+		c.state.Go(c.state.Usage().Monitor)
 	}
 
 	c.status.set(fmt.Sprintf("Disconnected (%s)", c.config.Mode))
 
-	go c.channelDialer()
+	c.state.Go(c.channelDialer)
 
 }
 func (c *WsTransport) Restart() {
@@ -106,14 +106,7 @@ func (c *WsTransport) Restart() {
 	level := c.logger.GetLevel()
 	c.logger.SetLevel(logrus.FatalLevel)
 
-	if c.state.Cancel() != nil {
-		c.state.Cancel()()
-	}
-
-	// close control channel connection
-	c.state.CloseConn()
-
-	time.Sleep(2 * time.Second)
+	c.state.StopAndWait()
 
 	// The whole tunnel may have been shut down while this restart was waiting —
 	// on a reload, or on the process going down. Rebuilding the run from a
@@ -149,7 +142,7 @@ func (c *WsTransport) Restart() {
 	// set the log level again
 	c.logger.SetLevel(level)
 
-	go c.Start()
+	c.Start()
 }
 
 func (c *WsTransport) channelDialer() {
@@ -179,13 +172,15 @@ func (c *WsTransport) channelDialer() {
 			// See metrics.Snapshot.Connected: the watchdog asks the engine, not the
 			// socket table.
 			metrics.ReportPeer(tunnelWSConn.RemoteAddr().String())
-			c.state.SetWSConn(tunnelWSConn)
+			if !c.state.SetWSConn(tunnelWSConn) {
+				return
+			}
 			c.logger.Info("control channel established successfully")
 
 			c.status.set(fmt.Sprintf("Connected (%s)", c.config.Mode))
 
-			go c.poolMaintainer()
-			go c.channelHandler()
+			c.state.Go(c.poolMaintainer)
+			c.state.Go(c.channelHandler)
 
 			return
 		}
@@ -231,7 +226,7 @@ func (c *WsTransport) channelHandler() {
 	ctx := c.state.Ctx()
 
 	// Goroutine to handle the blocking ReceiveBinaryString
-	go func() {
+	c.state.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -270,10 +265,14 @@ func (c *WsTransport) channelHandler() {
 				if signal == utils.SG_HB {
 					beats.beat(time.Now())
 				}
-				msgChan <- signal
+				select {
+				case msgChan <- signal:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-	}()
+	})
 
 	// Main loop to listen for context cancellation or received messages
 	for {
@@ -291,7 +290,7 @@ func (c *WsTransport) channelHandler() {
 
 				default:
 					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					go c.tunnelDialer()
+					c.state.Go(c.tunnelDialer)
 				}
 
 			case utils.SG_HB:
@@ -332,6 +331,12 @@ func (c *WsTransport) tunnelDialer() {
 
 		return
 	}
+	untrack, ok := c.state.Track(tunnelConn)
+	if !ok {
+		return
+	}
+	defer untrack()
+	defer tunnelConn.Close()
 
 	// Increment active connections counter
 	atomic.AddInt32(&c.poolConnections, 1)

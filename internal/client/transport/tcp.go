@@ -101,12 +101,12 @@ func NewTCPClient(parentCtx context.Context, config *TcpConfig, logger *logrus.L
 
 func (c *TcpTransport) Start() {
 	if c.config.WebPort > 0 {
-		go c.state.Usage().Monitor()
+		c.state.Go(c.state.Usage().Monitor)
 	}
 
 	c.status.set("Disconnected (TCP)")
 
-	go c.channelDialer()
+	c.state.Go(c.channelDialer)
 }
 func (c *TcpTransport) Restart() {
 	if !c.restartMutex.TryLock() {
@@ -121,14 +121,7 @@ func (c *TcpTransport) Restart() {
 	level := c.logger.GetLevel()
 	c.logger.SetLevel(logrus.FatalLevel)
 
-	if c.state.Cancel() != nil {
-		c.state.Cancel()()
-	}
-
-	// close control channel connection
-	c.state.CloseConn()
-
-	time.Sleep(2 * time.Second)
+	c.state.StopAndWait()
 
 	// The whole tunnel may have been shut down while this restart was waiting —
 	// on a reload, or on the process going down. Rebuilding the run from a
@@ -175,7 +168,7 @@ func (c *TcpTransport) Restart() {
 	// set the log level again
 	c.logger.SetLevel(level)
 
-	go c.Start()
+	c.Start()
 }
 
 func (c *TcpTransport) channelDialer() {
@@ -293,12 +286,14 @@ func (c *TcpTransport) channelDialer() {
 				// rather than the socket table, which shows a socket long after the
 				// tunnel behind it has stopped working. See metrics.Snapshot.Connected.
 				metrics.ReportPeer(tunnelTCPConn.RemoteAddr().String())
-				c.state.SetConn(tunnelTCPConn)
+				if !c.state.SetConn(tunnelTCPConn) {
+					return
+				}
 				c.logger.Info("control channel established successfully")
 
 				c.status.set("Connected (TCP)")
-				go c.poolMaintainer()
-				go c.channelHandler()
+				c.state.Go(c.poolMaintainer)
+				c.state.Go(c.channelHandler)
 
 				return
 
@@ -351,7 +346,7 @@ func (c *TcpTransport) channelHandler() {
 	ctx := c.state.Ctx()
 
 	// Goroutine to handle the blocking ReceiveBinaryString
-	go func() {
+	c.state.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -383,10 +378,14 @@ func (c *TcpTransport) channelHandler() {
 				if msg == utils.SG_HB {
 					beats.beat(time.Now())
 				}
-				msgChan <- msg
+				select {
+				case msgChan <- msg:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-	}()
+	})
 
 	// Main loop to listen for context cancellation or received messages
 	for {
@@ -405,7 +404,7 @@ func (c *TcpTransport) channelHandler() {
 
 				default:
 					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					go c.tunnelDialer()
+					c.state.Go(c.tunnelDialer)
 				}
 
 			case utils.SG_HB:
@@ -447,6 +446,12 @@ func (c *TcpTransport) tunnelDialer() {
 
 		return
 	}
+	untrack, ok := c.state.Track(rawConn)
+	if !ok {
+		return
+	}
+	defer untrack()
+	defer rawConn.Close()
 
 	// Same stealth upgrade as the control channel: the data connection carries
 	// its bytes through the Noise record layer when the tunnel is in that mode.

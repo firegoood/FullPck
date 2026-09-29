@@ -19,6 +19,7 @@ import (
 	"github.com/backpack/backpack/internal/geo"
 	"github.com/backpack/backpack/internal/manage"
 	"github.com/backpack/backpack/internal/metrics"
+	"github.com/backpack/backpack/internal/node"
 	"github.com/backpack/backpack/internal/schedule"
 	"github.com/backpack/backpack/internal/sysstat"
 )
@@ -453,6 +454,9 @@ func isRelayWarmingUp(err error) bool {
 // The URL still names api.telegram.org, so TLS is verified against it and the
 // tunnel carries a stream it cannot read.
 func botClient(c Config, timeout time.Duration) (*http.Client, error) {
+	if c.ViaTunnel == AutoRelay {
+		return agentPreferredClient(c, timeout), nil
+	}
 	// Resolved per call rather than read from the config, so on automatic mode a
 	// tunnel going down switches the bot to another without intervention.
 	name, port, err := resolveRelay(c)
@@ -466,6 +470,29 @@ func botClient(c Config, timeout time.Duration) (*http.Client, error) {
 		return nil, fmt.Errorf("no relay port configured for tunnel %q", name)
 	}
 	return tunnelledClient(port, timeout), nil
+}
+
+// agentPreferredClient uses the fixed, root-only local IPC first. If the
+// WebUI or every Agent is down, the established tunnel relay remains the
+// fallback. TLS, URL and Bot Token stay in this monitor process.
+func agentPreferredClient(c Config, timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}
+	return &http.Client{Timeout: timeout, Transport: &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if addr != manage.TelegramHost {
+				return nil, fmt.Errorf("Telegram relay refuses destination %q", addr)
+			}
+			if conn, err := node.DialTelegramIPC(ctx); err == nil {
+				return conn, nil
+			}
+			_, port, err := resolveRelay(c)
+			if err != nil {
+				return nil, err
+			}
+			return dialer.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+		},
+		ForceAttemptHTTP2: true, TLSHandshakeTimeout: 15 * time.Second,
+	}}
 }
 
 // tunnelledClient sends every Telegram request through a local port that the
@@ -484,10 +511,10 @@ func tunnelledClient(port int, timeout time.Duration) *http.Client {
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				// Everything the bot asks for goes to the API host; anything
 				// else would be a bug rather than something to forward blindly.
-				if addr == manage.TelegramHost {
-					addr = local
+				if addr != manage.TelegramHost {
+					return nil, fmt.Errorf("Telegram relay refuses destination %q", addr)
 				}
-				return dialer.DialContext(ctx, network, addr)
+				return dialer.DialContext(ctx, network, local)
 			},
 			ForceAttemptHTTP2:   true,
 			TLSHandshakeTimeout: 15 * time.Second,

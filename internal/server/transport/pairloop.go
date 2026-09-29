@@ -98,6 +98,9 @@ func (p pairing[T]) run() {
 			// connection.
 			p.abandon()
 			return
+		case <-p.local.expiry():
+			timer.Stop()
+			return
 
 		case <-timer.C:
 			p.log.Debugf("timeouted local connection: %d ms", nowMillis()-p.local.timeCreated)
@@ -114,6 +117,10 @@ func (p pairing[T]) run() {
 				p.askForAnother()
 				continue
 			}
+			if !p.local.claim() {
+				p.discard(conn)
+				return
+			}
 			p.relay(conn, p.local)
 			return
 		}
@@ -124,8 +131,7 @@ func (p pairing[T]) run() {
 // place in this file that does either, which is what makes "was the slot
 // released" a question with one answer rather than seven.
 func (p pairing[T]) abandon() {
-	p.local.conn.Close()
-	p.limits.release()
+	p.local.closeAndRelease(p.limits)
 }
 
 func (p pairing[T]) askForAnother() {
@@ -146,6 +152,5 @@ func expired(local LocalTCPConn) bool {
 // disagree about whether the release belongs there.
 func drop(local LocalTCPConn, limits *limiter, log *logrus.Logger) {
 	log.Debugf("timeouted local connection: %d ms", nowMillis()-local.timeCreated)
-	local.conn.Close()
-	limits.release()
+	local.closeAndRelease(limits)
 }

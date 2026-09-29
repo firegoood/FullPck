@@ -21,6 +21,7 @@ import (
 	"github.com/backpack/backpack/internal/app"
 	"github.com/backpack/backpack/internal/manage"
 	"github.com/backpack/backpack/internal/manage/core"
+	"github.com/backpack/backpack/internal/node"
 	"github.com/backpack/backpack/internal/socks"
 	"github.com/backpack/backpack/internal/telegram"
 	"github.com/backpack/backpack/internal/tunhist"
@@ -142,6 +143,7 @@ func Run() {
 		{"alerts", telegram.RunAlerts},
 		{"history sampler", tunhist.Run},
 		{"auto-backup", manage.RunAutoBackup},
+		{"node Agent", node.RunConfiguredAgent},
 	}
 	for _, job := range jobs {
 		wg.Add(1)

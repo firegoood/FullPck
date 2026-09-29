@@ -3,6 +3,7 @@ package transport
 import (
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -30,12 +31,12 @@ func TestEveryControlChannelUsesTheLivenessBeat(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		m := raw.FindSubmatch(src)
+		m := raw.FindStringSubmatch(strings.ReplaceAll(string(src), "\r\n", "\n"))
 		if m == nil {
 			t.Errorf("%s: no heartbeat ticker found in channelHandler — the reader is out of date", f)
 			continue
 		}
-		if string(m[1]) != "newLivenessTicker(s.config.Heartbeat)" {
+		if m[1] != "newLivenessTicker(s.config.Heartbeat)" {
 			t.Errorf("%s: the control heartbeat ticks on %s, not newLivenessTicker", f, m[1])
 		}
 	}

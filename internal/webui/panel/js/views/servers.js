@@ -3,20 +3,14 @@
  * One of the panel's two sections, beside the tunnels, so it is a page in #view
  * rather than a dialog over one.
  *
- * It used to hand the operator a line to run on the other machine and then
- * watch for that machine to appear. It does not any more: the panel logs into
- * the server over its own SSH, which is already running and already how that
- * machine is administered. So adding a server is a form and an answer, the way
- * everything else in the panel is, and there is nothing to carry anywhere.
- *
- * CLI: nothing. There is no Backpack state on a managed server to configure.
+ * A generated enrollment code is pasted into `backpack node join` on the far
+ * machine. Its Agent then connects outward to this panel.
  */
 
 import { $, el, esc } from '../lib/dom.js';
 import { toast, oops } from '../ui/toast.js';
 import { confirmBox } from '../ui/confirm.js';
 import * as api from '../api.js';
-import * as store from '../store.js';
 import { bytes, flag } from '../lib/format.js';
 
 const ago = ts => {
@@ -100,13 +94,10 @@ const SHELL = `
     <h2>Servers</h2>
     <span class="cnt" id="nCount">0</span>
     <span class="sp"></span>
-    <button class="sb" id="nrollb" hidden>Upgrade the fleet</button>
-    <button class="sb warn" id="nrollstop" hidden>Stop the rollout</button>
     <button class="sb" id="ndriftb">Check the fleet</button>
     <button class="sb primary" id="naddb">Add a server</button>
   </div>
 
-  <pre class="rollout7" id="nroll" hidden></pre>
   <pre class="rollout7" id="ndrift" hidden></pre>
 
   <form class="addsv" id="addform" hidden autocomplete="off">
@@ -116,27 +107,20 @@ const SHELL = `
         <span class="asv-ic">${MAPICON_SVG}</span>
         <div>
           <b>Add a server</b>
-          <span>The panel logs in over SSH — the four things ssh itself asks for.
-                Nothing has to be run on that machine.</span>
+          <span>Generate a one-time enrollment code, then run <code>backpack node join</code>
+                on the foreign Node.</span>
         </div>
       </div>
 
       <div class="asv-g">
         <label class="f1"><span>Name</span>
           <input name="name" placeholder="kharej" autocomplete="off" required></label>
-        <label class="f2"><span>Address</span>
-          <input name="host" placeholder="203.0.113.9" autocomplete="off" required></label>
-        <label class="f3"><span>SSH port</span>
-          <input name="sshPort" type="number" min="1" max="65535" value="22"></label>
-        <label class="f4"><span>Username</span>
-          <input name="user" value="root" autocomplete="off"></label>
-        <label class="f5"><span>Password</span>
-          <input name="password" type="password" placeholder="that user's password"
-                 autocomplete="new-password" required></label>
+         <div class="f2"><span>Controller endpoint</span>
+           <code>this WebUI address</code></div>
       </div>
 
       <div class="asv-f">
-        <span class="asv-note" id="asvnote">Kept on this server only, readable by root.</span>
+         <span class="asv-note" id="asvnote">The code expires shortly and is valid once.</span>
         <span class="sp"></span>
         <button type="button" class="btn7" id="asvcancel">Cancel</button>
         <button type="submit" class="btn7 solid" id="asvgo">Add it</button>
@@ -163,9 +147,6 @@ export function serversView(ctx) {
   const note   = $('#asvnote', root);
   const goB    = $('#asvgo', root);
   const fleet  = $('#fleet', root);
-  const rollB  = $('#nrollb', root);
-  const stopB  = $('#nrollstop', root);
-  const rollOut = $('#nroll', root);
   const driftB  = $('#ndriftb', root);
   const driftOut = $('#ndrift', root);
 
@@ -178,8 +159,8 @@ export function serversView(ctx) {
    * that reported success and did not last: all of them leave a fleet that
    * looks correct on this page and is not.
    *
-   * It is a button rather than a poll on purpose. This asks every server in
-   * turn over SSH, which is minutes on a large fleet and is not something to
+   * It is a button rather than a poll on purpose. This asks every Agent in
+   * turn and is not something to
    * do behind somebody's back every few seconds. And it changes nothing — it
    * says what differs, and what to do about it is a decision with a hand on
    * it. */
@@ -195,88 +176,6 @@ export function serversView(ctx) {
     } finally { driftB.disabled = false; }
   });
 
-  /* Stopping a rollout that is under way.
-   *
-   * It stops *between* servers, never in the middle of one — interrupting an
-   * upgrade is how a machine ends up on neither version — so the wording says
-   * that rather than promising an immediate halt it cannot deliver. The
-   * servers already upgraded stay upgraded; this is not a rollback. */
-  stopB.addEventListener('click', async () => {
-    if (!await confirmBox({
-      title: 'Stop the rollout?',
-      body: 'It will finish the server it is on and then stop. Servers already '
-          + 'upgraded stay upgraded — this does not roll anything back.',
-      go: 'Stop it' })) return;
-    stopB.disabled = true;
-    try {
-      rollOut.textContent = (await api.nodeRolloutCancel()).message || 'Stopping…';
-    } catch (e) { oops(e); } finally { stopB.disabled = false; }
-  });
-
-  /* Upgrading the whole fleet, staged.
-   *
-   * Pressing it does not start anything: it reads back the plan the server
-   * worked out — which server goes first, how long it is watched, which ones
-   * are pinned and why — and asks. A rollout whose shape can only be found out
-   * by starting it is exactly what staging is for.
-   *
-   * The call that follows can take many minutes, because it soaks the canary
-   * and checks each wave before the next. That is the feature, so the button
-   * says so rather than looking hung. */
-  rollB.addEventListener('click', async () => {
-    rollB.disabled = true;
-    let plan;
-    try {
-      plan = (await api.nodeRolloutPlan()).message || '';
-    } catch (e) { oops(e); rollB.disabled = false; return; }
-
-    rollOut.hidden = false;
-    rollOut.textContent = plan;
-
-    if (!await confirmBox({
-      title: 'Upgrade the fleet?',
-      body: 'One server goes first and is watched before any other is touched. '
-          + 'If it does not come back healthy, nothing else is upgraded. '
-          + 'This takes several minutes and the page waits for it.',
-      go: 'Start the rollout' })) { rollB.disabled = false; return; }
-
-    rollB.textContent = 'Rolling out…';
-    stopB.hidden = false;
-    try {
-      rollOut.textContent = (await api.nodeUpgradeAll()).message || 'Started.';
-      /* The rollout outlives this request by design — a soak window and a
-         check per wave — so the page follows it rather than holding a
-         connection open for ten minutes and timing out. */
-      await followRollout();
-    } catch (e) { oops(e); } finally {
-      rollB.disabled = false;
-      rollB.textContent = 'Upgrade the fleet';
-      stopB.hidden = true;
-    }
-  });
-
-  /* Poll until the rollout ends, showing which server it is on. */
-  async function followRollout() {
-    for (;;) {
-      await new Promise(r => setTimeout(r, 2000));
-      let state;
-      try { state = await api.nodeRolloutStatus(); }
-      catch (e) { rollOut.textContent += '\n\nLost touch with the rollout.'; return; }
-      paint(state);
-      const r = state.rollout;
-      if (!r) return;
-      if (r.running) {
-        rollB.textContent = 'Rolling out…';
-        stopB.hidden = false;
-        rollOut.textContent = r.step || 'Working…';
-        continue;
-      }
-      stopB.hidden = true;
-      rollOut.textContent = r.message || `Rollout ${r.state}.`;
-      return;
-    }
-  }
-
   /* ---- painting ---- */
   function paint(state) {
     const nodes = state.nodes || [];
@@ -284,11 +183,6 @@ export function serversView(ctx) {
     $('#nCount', root).textContent = String(nodes.length);
 
     reconcile(nodes);
-
-    /* Only offer a fleet upgrade when more than one server could take one.
-       For a single server the per-card button says the same thing without the
-       ceremony of a plan. */
-    rollB.hidden = nodes.filter(n => !n.pinnedVersion).length < 2;
 
     const dock = $('#dock-s');
     if (dock) dock.textContent = nodes.length ? String(nodes.length) : '';
@@ -315,8 +209,6 @@ export function serversView(ctx) {
   function nodeCard(n) {
     const i = n.info || {};
     const dash = v => (v && v !== '-' ? v : '—');
-    const mine = (store.get().stats?.version || '').trim();
-    const behind = n.online && i.version && mine && i.version !== mine;
 
     /* One line of identity under the name: the address, where it is, which
        Backpack it runs, how long it has been up. They were four separate
@@ -329,7 +221,7 @@ export function serversView(ctx) {
        as text: it is the flag in the tile, which is where a tunnel card puts
        it too. */
     const lines = [
-      dash(i.ipv4) !== '—' ? i.ipv4 : n.host,
+       dash(i.ipv4) !== '—' ? i.ipv4 : '',
       i.version ? 'v' + String(i.version).replace(/^v/, '') : '',
     ].filter(Boolean);
 
@@ -352,7 +244,7 @@ export function serversView(ctx) {
           el('div', { class: 'mp-fl', text: flag(i.country) || '·' }),
           el('div', { class: 'mp-id' }, [
             el('b', { text: n.name }),
-            el('small', { text: i.hostname || n.host }),
+             el('small', { text: i.hostname || 'Waiting for Agent hello' }),
           ]),
           el('span', { class: 'stt' }, [
             el('span', { class: dotClass(n), 'data-dot': '' }),
@@ -388,57 +280,19 @@ export function serversView(ctx) {
 
         /* The path between this panel and that server.
          *
-         * This space used to repeat the login the panel connects with — the
-         * user, an at sign and the address — all of which is already on the
-         * card or in the form behind it. The panel runs on the Iran side and
-         * every managed server sits at the far end of the route that matters,
-         * so the one thing worth saying here is how that route behaves. */
+         * This space identifies the reverse Agent path between panel and Node.
+         * A live session is the source of truth; no login or address is stored
+         * in the browser. */
         el('div', { class: 'mp-net', 'data-net': '' }, netText(n)),
 
-        /* Why this one is behind. Said on the card rather than in a tooltip:
-           the question "why is that server still on the old version" is asked
-           by whoever is looking at the fleet, not by whoever set the pin. */
-        n.pinnedVersion
-          ? el('div', {}, [el('span', { class: 'pin7',
-              text: `Pinned at ${n.pinnedVersion}${n.pinReason ? ' — ' + n.pinReason : ''}` })])
-          : null,
       ]),
 
       el('div', { class: 'mp-foot' }, [
-        /* Upgrade only when there is something to upgrade to. A button that is
-           always there and usually does nothing is a button people stop
-           reading; this one appears when the panel has moved on and the server
-           has not, and says which version it would install. */
-        behind ? el('button', { class: 'btn7 solid', text: `Upgrade to ${mine}`,
-                                title: `That server is on ${i.version || 'an older build'}` }) : null,
         el('button', { class: 'btn7', text: 'Refresh', title: 'Ask it again, now' }),
-        /* Held back from fleet rollouts, on purpose.
-         *
-         * A server that is behind because somebody decided so and one that is
-         * behind because an upgrade failed look identical on a card, and the
-         * difference is the whole question an operator is asking. So the
-         * reason is stored beside the pin and shown here. */
-        el('button', { class: 'btn7', text: n.pinnedVersion ? 'Unpin' : 'Pin',
-                       title: n.pinnedVersion
-                         ? `Held at ${n.pinnedVersion}: ${n.pinReason || 'no reason recorded'}`
-                         : 'Hold this server back from fleet upgrades' }),
-        el('button', { class: 'btn7', text: 'Edit', title: 'Address, port, username, password' }),
+         el('button', { class: 'btn7 warn', text: n.revoked ? 'Revoked' : 'Revoke', title: 'Revoke this Agent credential', disabled: n.revoked }),
         el('button', { class: 'btn7 warn', text: 'Remove' }),
       ]),
     ]);
-
-    /* Editing happens inside the card.
-     *
-     * It used to insert a separate form after it: a second, differently shaped
-     * card that broke the row and took the server's own context away from the
-     * thing being edited. Worse, every press of Edit inserted another one, so a
-     * server could end up with four open forms disagreeing about its address.
-     *
-     * It is built once, with the card, and shown by a class — the same way the
-     * remove confirmation beside it works, which is what makes the two read as
-     * one surface rather than two features. */
-    const editor = editPanel(n);
-    card.append(editor);
 
     const confirm = el('div', { class: 'cf7' }, [
       el('p', { html: `Stop managing <b>${esc(n.name)}</b>? ${builtThere(n)} — this panel just loses the way to change them.` }),
@@ -447,43 +301,7 @@ export function serversView(ctx) {
     ]);
     card.append(confirm);
 
-    const btns = [...card.querySelectorAll('.mp-foot button')];
-    const upB = behind ? btns.shift() : null;
-    const [refreshB, pinB, editB, rmB] = btns;
-
-    /* Pinning asks for the reason, because a pin without one becomes
-       permanent by default: whoever finds it later cannot tell whether it
-       still applies, so nobody removes it and the machine stays behind. The
-       server refuses an empty reason for the same reason. */
-    pinB.addEventListener('click', async () => {
-      pinB.disabled = true;
-      try {
-        if (n.pinnedVersion) {
-          paint(await api.nodeUnpin(n.name));
-          toast(`${n.name} will take part in fleet upgrades again.`);
-          return;
-        }
-        const reason = prompt(
-          `Why is ${n.name} being held back from fleet upgrades?\n` +
-          'This is shown next to it, so the next person knows whether it still applies.');
-        if (!reason || !reason.trim()) { pinB.disabled = false; return; }
-        paint(await api.nodePin(n.name, reason.trim()));
-        toast(`${n.name} is pinned.`);
-      } catch (e) { oops(e); pinB.disabled = false; }
-    });
-
-    upB?.addEventListener('click', async () => {
-      if (!await confirmBox({
-        title: `Upgrade ${esc(n.name)} to ${esc(mine)}?`,
-        body: `It is on ${i.version}. The release is installed there and its tunnels `
-            + 'restart once. It takes a couple of minutes, and this page waits for it.',
-        go: 'Upgrade' })) return;
-      upB.disabled = true; upB.textContent = 'Upgrading…';
-      try {
-        paint(await api.nodeUpgrade(n.name));
-        toast(`${n.name} is on ${mine}.`);
-      } catch (e) { oops(e); upB.disabled = false; upB.textContent = `Upgrade to ${mine}`; }
-    });
+    const [refreshB, revokeB, rmB] = card.querySelectorAll('.mp-foot button');
 
     /* Ask it again, now. The fleet is polled and each answer stands for a
        short while, so after changing something on that machine there is a gap
@@ -498,17 +316,18 @@ export function serversView(ctx) {
     });
 
 
-    editB?.addEventListener('click', () => {
-      /* A toggle, so pressing Edit twice closes what it opened rather than
-         opening a second one. */
-      const open = card.classList.toggle('ed7');
-      card.classList.remove('arm7');
-      if (open) editor.querySelector('input')?.focus();
+    revokeB.addEventListener('click', async () => {
+      if (!await confirmBox({
+        title: `Revoke ${esc(n.name)}?`,
+        body: 'Its Agent connection will close and its credential will no longer be accepted. Existing tunnels keep running.',
+        go: 'Revoke',
+      })) return;
+      try { paint(await api.nodeRevoke(n.name)); toast(`${n.name} revoked.`); }
+      catch (e) { oops(e); }
     });
 
     rmB.addEventListener('click', () => {
       card.classList.add('arm7');
-      card.classList.remove('ed7');
     });
     const [go, cancel] = confirm.querySelectorAll('button');
     cancel.addEventListener('click', () => card.classList.remove('arm7'));
@@ -633,10 +452,9 @@ export function serversView(ctx) {
    * would be the card stating something false with confidence. */
   function netText(n) {
     const net = n.net || {};
-    if (!net.measured) return 'Packet loss —';
-    const loss = Number(net.lossPct) || 0;
+    if (!net.measured) return 'Agent RTT —';
     const rtt = Number(net.rttMs) || 0;
-    return `Packet loss ${loss.toFixed(1)}% · RTT ${rtt.toFixed(0)} ms`;
+    return `Agent RTT ${rtt.toFixed(0)} ms`;
   }
 
   /* The figures that move, written into the card that is already there.
@@ -702,64 +520,6 @@ export function serversView(ctx) {
     if (net) net.textContent = netText(n);
   }
 
-  /* Changing how a server is reached, inside the card it is about.
-   *
-   * The password is never sent back to the browser, so this asks for it again
-   * rather than showing a field that looks filled in and is not. Leaving it
-   * empty keeps the one that is stored, which is what an operator changing only
-   * the address means.
-   *
-   * Built with the card and shown by a class, so there is exactly one of these
-   * per server however many times Edit is pressed — and it sits over that
-   * server's own card, which is the context the change is being made in.
-   */
-  function editPanel(n) {
-    const box = el('form', { class: 'ed-l', autocomplete: 'off' }, [
-      el('div', { class: 'ed-h' }, [
-        el('b', { text: 'How the panel reaches this server' }),
-        el('span', { text: 'Leave the password blank to keep the one already stored.' }),
-      ]),
-      el('div', { class: 'ed-g', html:
-        `<label>Address<input name="host" value="${esc(n.host)}" autocomplete="off"></label>
-         <label>SSH port<input name="sshPort" type="number" min="1" max="65535" value="${n.sshPort || 22}"></label>
-         <label>Username<input name="user" value="${esc(n.user)}" autocomplete="off"></label>
-         <label class="wide">New password<input name="password" type="password"
-           placeholder="unchanged" autocomplete="new-password"></label>` }),
-      el('div', { class: 'ed-n', text:
-        'Changing the address forgets the host key — a different machine is entitled to a different one.' }),
-      el('div', { class: 'ed-f' }, [
-        el('button', { type: 'button', class: 'btn7', text: 'Cancel' }),
-        el('button', { type: 'submit', class: 'btn7 solid', text: 'Save' }),
-      ]),
-    ]);
-
-    const shut = () => box.closest('.mp7')?.classList.remove('ed7');
-    box.querySelector('.ed-f button').addEventListener('click', shut);
-    box.addEventListener('submit', async ev => {
-      ev.preventDefault();
-      const save = box.querySelector('button[type=submit]');
-      save.disabled = true; save.textContent = 'Saving…';
-      const f = new FormData(box);
-      try {
-        paint(await api.nodeCredentials({
-          name: n.name,
-          host: String(f.get('host') || '').trim(),
-          sshPort: String(f.get('sshPort') || '').trim(),
-          user: String(f.get('user') || '').trim(),
-          password: String(f.get('password') || ''),
-        }));
-        toast(`${n.name} updated.`);
-        shut();
-      } catch (e) {
-        oops(e);
-        save.disabled = false; save.textContent = 'Save';
-      }
-    });
-    return box;
-  }
-
-
-
   /* ---- the add form ---- */
   addB.addEventListener('click', () => {
     form.hidden = false;
@@ -772,17 +532,20 @@ export function serversView(ctx) {
     ev.preventDefault();
     const fields = Object.fromEntries(new FormData(form));
     goB.disabled = true;
-    goB.textContent = 'Reaching it…';
-    /* Adding can take minutes rather than seconds, because a server with no
-       Backpack on it gets one. Said plainly while it happens: a button that sits
-       there for two minutes with no explanation is one people press again. */
-    note.textContent = 'Logging in, and installing Backpack if that server has none. '
-                     + 'This can take a couple of minutes.';
+    goB.textContent = 'Generating…';
+    note.textContent = 'Generating a one-time enrollment code…';
     try {
       const state = await api.nodeAdd(fields);
-      form.hidden = true; form.reset();
-      paint(state);
-      toast(`${fields.name} is managed from here now.`);
+       form.hidden = true; form.reset();
+       if (state.status === 'enrollment_created') {
+         note.textContent = `Run backpack node join on the foreign Node, then paste this one-time code: ${state.enrollmentCode}`;
+         try { await navigator.clipboard?.writeText(state.enrollmentCode); } catch (_) {}
+         alert(`Enrollment code (copied when permitted):\n\n${state.enrollmentCode}`);
+         toast('Enrollment code created.');
+         return;
+       }
+       paint(state);
+       toast(`${fields.name} enrollment created.`);
       /* A server joining the fleet often already holds the far end of tunnels
          this panel has been managing alone — every tunnel built before there
          was a fleet is in that position. The panel can demonstrate which ones,
@@ -796,7 +559,7 @@ export function serversView(ctx) {
     } finally {
       goB.disabled = false;
       goB.textContent = 'Add it';
-      note.textContent = 'The password is kept on this server only, readable by root.';
+       note.textContent = 'The code expires shortly and is valid once.';
     }
   });
 
@@ -831,7 +594,7 @@ export function serversView(ctx) {
   const sigOf = d => {
     const i = d.info || {};
     return JSON.stringify([
-      d.online, d.why, d.host, d.user, d.sshPort, d.pending, d.tunnels || [],
+       d.online, d.why, d.id, d.revoked, d.pending, d.tunnels || [],
       i.hostname, i.version, i.os, i.distro, i.ipv4, i.ipv6,
       i.country, i.city, i.isp, i.cpuCores, i.memTotal,
     ]);

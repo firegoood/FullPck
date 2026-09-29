@@ -135,6 +135,7 @@ func (s *WsTransport) Start() {
 func (s *WsTransport) start(g *wsGen) {
 	// Whatever is still queued when this generation ends gives its slot back.
 	go drainOnEnd(g.ctx, g.localChannel, s.limits)
+	go drainTunnelOnEnd(g.ctx, g.tunnelChannel, func(c TunnelChannel) { c.conn.Close() })
 
 	// for  webui
 	if s.config.WebPort > 0 {
@@ -332,8 +333,6 @@ func (s *WsTransport) tunnelListener(g *wsGen) {
 
 	addr := s.config.BindAddr
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:   16 * 1024,
-		WriteBufferSize:  16 * 1024,
 		HandshakeTimeout: 45 * time.Second,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
@@ -407,6 +406,8 @@ func (s *WsTransport) tunnelListener(g *wsGen) {
 					mu:   &sync.Mutex{},
 				}
 				select {
+				case <-generationDone(g.ctx):
+					conn.Close()
 				case g.tunnelChannel <- wsConn:
 					go s.keepAlive(g, &wsConn)
 					s.logger.Debugf("websocket connection accepted from %s", conn.RemoteAddr().String())
@@ -631,9 +632,10 @@ func (s *WsTransport) acceptLocalConn(g *wsGen, listener net.Listener, remoteAdd
 				continue
 			}
 			conn = s.limits.wrap(g.ctx, conn)
+			incoming := newLocalTCPConn(conn, remoteAddr, s.limits)
 
 			select {
-			case g.localChannel <- LocalTCPConn{conn: conn, remoteAddr: remoteAddr, timeCreated: time.Now().UnixMilli()}:
+			case g.localChannel <- incoming:
 
 				select {
 				case g.reqNewConnChan <- struct{}{}:
@@ -647,8 +649,7 @@ func (s *WsTransport) acceptLocalConn(g *wsGen, listener net.Listener, remoteAdd
 
 			default: // channel is full, discard the connection
 				s.logger.Warnf("forwarded port %s: the queue is full, dropping a client from %s", listener.Addr().String(), tcpConn.RemoteAddr().String())
-				s.limits.release()
-				conn.Close()
+				incoming.closeAndRelease(s.limits)
 			}
 		}
 	}
@@ -681,7 +682,7 @@ func (s *WsTransport) handleLoop(g *wsGen) {
 					go func() {
 						// Free the connection slot once the transfer ends, or
 						// the limit would fill up permanently.
-						defer s.limits.release()
+						defer local.closeAndRelease(s.limits)
 						handlers.WSConnectionHandler(g.ctx, c.conn, local.conn,
 							s.logger, g.usageMonitor, localForwardPort(local.conn), s.config.Sniffer)
 					}()

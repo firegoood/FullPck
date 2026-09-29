@@ -360,15 +360,54 @@ func changeTunnelPort(name string, spec TunnelSpec) {
 	tui.PressEnter()
 }
 
-// changeForwardedPorts prompts for and applies a new forwarded-ports list.
+// changeForwardedPorts edits one forwarded port at a time, while retaining the
+// full-list option for range or bulk changes. EditTunnel retains hidden relay
+// mappings and validates the resulting list before restarting the tunnel.
 func changeForwardedPorts(name string, spec TunnelSpec) {
 	fmt.Println()
-	tui.Info("Current: " + strings.Join(VisiblePorts(spec.Ports, spec.Token), ", "))
-	tui.Warn("Enter the FULL new list (comma separated, e.g. 443,8080 or 443=1.1.1.1:443).")
-	raw := tui.Prompt("New forwarded ports: ")
-	ports := parsePorts(raw)
-	if len(ports) == 0 {
-		tui.Error("No valid ports entered.")
+	visible := VisiblePorts(spec.Ports, spec.Token)
+	tui.Info("Current: " + strings.Join(visible, ", "))
+	choice := tui.ChooseOpt("Forwarded ports:", []tui.Option{
+		{Title: "Add a port", Desc: "keep the existing ports"},
+		{Title: "Edit a port", Desc: "change one existing entry"},
+		{Title: "Remove a port", Desc: "keep at least one port"},
+		{Title: "Replace all ports", Desc: "enter a comma-separated list"},
+	})
+	if choice < 0 {
+		return
+	}
+	index := -1
+	if choice == 1 || choice == 2 {
+		if len(visible) == 0 {
+			tui.Error("No visible port to select.")
+			tui.PressEnter()
+			return
+		}
+		options := make([]tui.Option, len(visible))
+		for i, port := range visible {
+			options[i] = tui.Option{Title: port}
+		}
+		index = tui.ChooseOpt("Select a forwarded port:", options)
+		if index < 0 {
+			return
+		}
+	}
+	var entries []string
+	if choice != 2 {
+		label := "Port entry (e.g. 443 or 443=127.0.0.1:443): "
+		if choice == 3 {
+			label = "New full list (comma separated): "
+		}
+		entries = parsePorts(tui.Prompt(label))
+		if len(entries) == 0 || choice != 3 && len(entries) != 1 {
+			tui.Error("Enter one valid port entry, or use Replace all ports for a list.")
+			tui.PressEnter()
+			return
+		}
+	}
+	ports, err := editVisiblePorts(visible, choice, index, entries)
+	if err != nil {
+		tui.Error(err.Error())
 		tui.PressEnter()
 		return
 	}
@@ -379,6 +418,37 @@ func changeForwardedPorts(name string, spec TunnelSpec) {
 	}
 	tui.Success("Forwarded ports updated and the tunnel was restarted.")
 	tui.PressEnter()
+}
+
+// editVisiblePorts is deliberately independent of the hidden Telegram/SOCKS
+// mapping. EditTunnel restores that mapping from the stored specification.
+func editVisiblePorts(current []string, action, index int, entries []string) ([]string, error) {
+	ports := append([]string(nil), current...)
+	switch action {
+	case 0:
+		ports = append(ports, entries...)
+	case 1:
+		if index < 0 || index >= len(ports) || len(entries) != 1 {
+			return nil, fmt.Errorf("invalid port selection")
+		}
+		ports[index] = entries[0]
+	case 2:
+		if index < 0 || index >= len(ports) {
+			return nil, fmt.Errorf("invalid port selection")
+		}
+		ports = append(ports[:index], ports[index+1:]...)
+	case 3:
+		ports = append([]string(nil), entries...)
+	default:
+		return nil, fmt.Errorf("invalid port action")
+	}
+	if len(ports) == 0 {
+		return nil, fmt.Errorf("at least one forwarded port is required")
+	}
+	if err := validatePortSpecs(ports); err != nil {
+		return nil, err
+	}
+	return ports, nil
 }
 
 // fallbackSummary renders the backup-address list for the Edit header.

@@ -8,13 +8,14 @@ import (
 	"github.com/backpack/backpack/internal/manage"
 )
 
-// The setup link is gone from the panel, and this is what it leaves behind.
+// Managed pairing derives the far end; with no managed Node the wizard must
+// keep the local reverse/direct endpoints available.
 //
 // It existed for a second panel on the other server: the operator built one
 // end here, copied a link, opened the panel over there and pasted it in. That
 // is the two-pass flow the fleet exists to remove, and it is where most of what
 // went wrong with pairing came from — two forms, filled in twice, agreeing by
-// hand. The panel writes both ends over SSH now.
+// hand. The Agent writes both ends when a Node is selected.
 //
 // What must not go with it is the mirroring itself: pushing the far end still
 // derives it from the tunnel just written, through exactly the same code.
@@ -41,10 +42,13 @@ func TestThePanelNoLongerHandsOutSetupLinks(t *testing.T) {
 			t.Errorf("add.js still has %s, so the second-pass path is still on screen", gone)
 		}
 	}
-	// And it must refuse rather than build half a tunnel.
-	if !strings.Contains(src, "noFleet") {
-		t.Error("the wizard no longer has a state for having no managed server, so with " +
-			"an empty fleet it would build this end and leave the other undone")
+	for _, path := range []string{"api.tunnelCreate(payload)", "api.directCreate(payload)"} {
+		if !strings.Contains(src, path) {
+			t.Errorf("manual tunnel creation lost %s", path)
+		}
+	}
+	if strings.Contains(src, "noFleet(") {
+		t.Error("the wizard blocks manual creation when no managed Node is online")
 	}
 }
 

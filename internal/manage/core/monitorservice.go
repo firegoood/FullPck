@@ -22,7 +22,7 @@ import (
 
 // monitorUnit is the systemd unit for the monitor service.
 const monitorUnit = `[Unit]
-Description=Backpack Monitor (watchdog, Telegram bot and alerts)
+Description=Backpack Monitor (watchdog, Telegram bot, alerts and node Agent)
 After=network.target
 # A crash loop has to end somewhere visible.
 #

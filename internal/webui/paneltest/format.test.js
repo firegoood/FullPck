@@ -71,6 +71,16 @@ test('ago never reads as being in the future', () => {
   assert.equal(ago(Math.floor(Date.now() / 1000) + 600), 'just now');
 });
 
+test('ago handles server timestamps and malformed alert events', () => {
+  const now = Math.floor(Date.now() / 1000);
+  assert.equal(ago(String(now - 60)), '1 min ago');
+  assert.equal(ago((now - 60) * 1000), '1 min ago');
+  assert.equal(ago(new Date((now - 60) * 1000).toISOString()), '1 min ago');
+  for (const value of [undefined, null, '', 'broken', 'NaN', 0, -1, Infinity]) {
+    assert.equal(ago(value), 'time unknown');
+  }
+});
+
 test('clock pads both halves', () => {
   const d = new Date(2026, 0, 2, 3, 4, 0);
   assert.equal(clock(Math.floor(d.getTime() / 1000)), '03:04');

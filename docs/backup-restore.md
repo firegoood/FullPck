@@ -6,18 +6,17 @@ Backups live in `/root/BackPack/backups`.
 
 ## Restoring onto a different machine
 
-A backup carries everything except one thing: the key that decrypts the stored
-root passwords of your **managed servers**. That is deliberate — a backup is a
-file people move, and without the seal every copy of it would carry those
-passwords in the clear to wherever it went.
+A backup includes the encrypted credentials and identities of managed Node
+Agents, but excludes the separate key (`node.key`) that decrypts them. The
+short-lived pending enrollment file is also excluded.
 
 Restoring onto the same machine is unaffected: the key is already there and the
 restore leaves it alone.
 
-Restoring onto a **different** machine brings the fleet list back without the
-credentials, and the panel asks for each server's password again. That is the
-right default. If you would rather not re-enter them — the panel machine died
-and this is the recovery — keep the key yourself, separately:
+Restoring onto a **different** machine brings the fleet list back, but Agent
+sessions cannot authenticate until the fleet key is imported. Keep the key
+separately from the archive, or remove and re-enroll each Node with a new
+one-time code.
 
 **On the machine that has the fleet, before you need it:**
 
@@ -31,11 +30,11 @@ thing sealing them achieves.
 `sudo backpack` → **Backup & Restore** → **Restore the fleet key**
 
 It refuses if that machine already has a key of its own, because overwriting one
-would make every password currently sealed there unreadable and there is no
+would make every Agent credential currently sealed there unreadable and there is no
 undo — move the existing key aside yourself if that is genuinely what you mean.
 
-Both entries only appear when there is actually a managed server with a sealed
-password, so a single-machine install never sees them.
+Both entries only appear when a managed Node has a sealed credential, so a
+single-machine install never sees them.
 
 
 ## Restore
@@ -126,7 +125,7 @@ silent otherwise:
 
 - a backup with **no tunnel configuration at all**, which would restore a
   machine with nothing on it;
-- managed servers whose passwords are **sealed with a key the archive does not
+- managed Node credentials **sealed with a key the archive does not
   contain**. That is deliberate — a stolen backup must not carry a fleet with
   it — and it means restoring onto a *different* machine gives you the server
   list and no way to reach any of them. Take the fleet key now and keep it

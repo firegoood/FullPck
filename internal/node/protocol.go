@@ -22,6 +22,10 @@ const (
 	// than no fact.
 	OpHello = "hello"
 
+	// OpPing measures a round trip over the existing authenticated session.
+	// It performs no filesystem, service or network action on the Node.
+	OpPing = "ping"
+
 	// OpApply sends the complete desired state of one tunnel. It creates the
 	// tunnel if it is not there and rewrites it if it is; see ApplyRequest.
 	OpApply = "apply"
@@ -182,7 +186,7 @@ type TunnelState struct {
 	// amount of renaming changes that.
 	//
 	// They are carried on the list rather than fetched per tunnel because the
-	// alternative is one SSH round trip per candidate to answer a question
+	// alternative is one Agent round trip per candidate to answer a question
 	// about all of them.
 	Role       string `json:"role,omitempty"`       // server | client
 	TunnelPort string `json:"tunnelPort,omitempty"` // the port the pair meets on
@@ -201,14 +205,8 @@ type TunnelState struct {
 	// Connected is the engine's own answer about its control channel, as
 	// distinct from Active, which is only systemd's answer about the process.
 	//
-	// The difference is the whole failure this product cares about: a unit that
-	// is running and a tunnel that is carrying are not the same claim, and a
-	// staged rollout that asks only the first will pass a canary whose binary
-	// came back and whose tunnel did not. A pointer because absent has to be
-	// distinguishable from false — a node still running an older build through
-	// an upgrade has no opinion here, and reading that as "not connected" would
-	// halt a rollout on every node until they had all been upgraded, which is
-	// the one thing a rollout cannot do.
+	// A running unit and a tunnel that carries traffic are different claims.
+	// A pointer distinguishes absent data from a measured false value.
 	Connected *bool `json:"connected,omitempty"`
 }
 

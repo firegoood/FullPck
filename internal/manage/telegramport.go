@@ -105,6 +105,20 @@ func EnsureTelegramPort(name string) (int, error) {
 		if !ok {
 			continue
 		}
+		// A Telegram relay must never reserve local 443, even if a previous
+		// configuration explicitly placed its hidden mapping there.
+		if port == 443 {
+			replacement := randomHighPort()
+			spec.Ports[i] = fmt.Sprintf("%s:%d%s", telegramBindAddr, replacement, telegramPortSuffix)
+			if _, err := spec.Save(); err != nil {
+				return 0, err
+			}
+			RestartService(app.ServiceName(name))
+			if waitPortAccepting(replacement, 15*time.Second) {
+				return replacement, nil
+			}
+			return replacement, fmt.Errorf("moved the Telegram relay off local port 443 but port %d did not start listening", replacement)
+		}
 		// An install from before the loopback bind carries the bare-port form,
 		// which listens on every interface. Rewriting it here is the only thing
 		// that closes that exposure on a machine already running: the mapping is

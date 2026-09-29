@@ -111,7 +111,7 @@ func TestTheReverseWizardOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	body := string(src)
+	body := strings.ReplaceAll(string(src), "\r\n", "\n")
 	for _, tc := range []struct {
 		fn    string
 		steps []string

@@ -1,7 +1,6 @@
 package control
 
 import (
-	"log"
 	"sync"
 
 	"github.com/backpack/backpack/internal/node"
@@ -9,12 +8,8 @@ import (
 
 // Fleet owns the connections to the managed servers.
 //
-// There is no lifetime to manage any more. The channel this replaces had a
-// listener per server that had to be opened, moved when its port changed, and
-// closed when the server went — three things that could each be wrong on their
-// own, and each of which left a server listed here and unreachable. The panel
-// dials out now, so the only state worth holding is the connections it is
-// reusing, and those look after themselves.
+// The WebUI gateway owns sessions initiated by managed Nodes. Fleet exposes
+// only their typed operation runner and creates no listeners or outbound dial.
 type Fleet struct {
 	mu  sync.Mutex
 	run node.Runner
@@ -26,7 +21,10 @@ func (f *Fleet) Start() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.run == nil {
-		f.run = node.NewSSHRunner(func(m string) { log.Printf("fleet: %s", m) })
+		// Managed nodes dial the controller and keep their authenticated Agent
+		// session alive. The Fleet must never open a management connection to a
+		// node's public address.
+		f.run = node.NewAgentRunner(node.DefaultHub)
 	}
 	return nil
 }

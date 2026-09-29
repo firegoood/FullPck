@@ -47,6 +47,41 @@ func TestThePanelReadsADirectTunnelsSettings(t *testing.T) {
 	}
 }
 
+// Legacy stream direct tunnels are still present in installations created by
+// earlier releases. The WebUI must read their real transport instead of
+// leaving the preview's WebSocket default on screen.
+func TestThePanelReadsLegacyStreamDirectSettings(t *testing.T) {
+	d := config.DirectConfig{
+		Role: "iran", Addr: "203.0.113.9:8443", Token: "a-long-token",
+		Transport: "tcp", Ports: []string{"443", "8080=80"},
+		AcceptUDP: true, Preset: PresetTurbo, Sessions: 2,
+		MaxConnections: 32, BandwidthMbps: 100,
+	}
+	set := directStreamSettingsFrom("legacy", d)
+	if set.Kind != "stream" || set.Transport != "direct/tcp" || set.Carrier != "tcp" {
+		t.Fatalf("kind/transport/carrier = %q/%q/%q", set.Kind, set.Transport, set.Carrier)
+	}
+	if set.Side != "iran" || !set.HoldsPorts || set.Ports != "443, 8080=80" || !set.AcceptUDP {
+		t.Fatalf("stream settings lost side or ports: %+v", set)
+	}
+	if set.Sessions != 2 || set.MaxConnections != 32 || set.BandwidthMbps != 100 {
+		t.Fatalf("stream tuning lost: %+v", set)
+	}
+
+	ports := "443, 9090"
+	updated, err := applyDirectStreamEdit(d, DirectEdit{Ports: &ports})
+	if err != nil {
+		t.Fatalf("apply stream edit: %v", err)
+	}
+	if len(updated.Ports) != 2 || updated.Ports[1] != "9090" || updated.Transport != "tcp" {
+		t.Fatalf("stream edit changed the wrong fields: %+v", updated)
+	}
+	round := decode(t, directSpecFromConfig("legacy", updated).render()).Direct
+	if round.Transport != "tcp" || len(round.Ports) != 2 || round.Ports[1] != "9090" {
+		t.Fatalf("stream render did not round-trip: %+v", round)
+	}
+}
+
 // A field the form did not send must come back unchanged.
 //
 // A zero meaning "set this to zero" and a zero meaning "the form did not ask"

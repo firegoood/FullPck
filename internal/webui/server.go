@@ -223,6 +223,7 @@ func Serve() error {
 		return err
 	}
 	srv := newServer()
+	defer node.DefaultHub.Close()
 
 	// The SOCKS5 relay, the watchdog, the Telegram bot and the alerts all
 	// deliberately run elsewhere — in the backpack-monitor service. See
@@ -256,6 +257,11 @@ func Serve() error {
 	// fleet after the panel has gone is exactly the thing nobody would notice
 	// until it had finished.
 	srv.ctx = probeCtx
+	if stopIPC, err := node.StartTelegramIPC(probeCtx); err != nil {
+		log.Printf("Telegram Agent relay unavailable: %v", err)
+	} else {
+		defer stopIPC()
+	}
 
 	// Said once, at startup, into the journal.
 	//
@@ -270,11 +276,27 @@ func Serve() error {
 	}
 
 	addr := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
+	// The machine Agent endpoint is deliberately dispatched before the browser
+	// security and base-path wrappers. It shares this exact http.Server and
+	// configured WebUI port, but changing the browser path prefix must never
+	// move or disconnect authenticated Nodes.
+	panelHandler := withBasePath(cfg.PathPrefix(), withPanelSecurity(mux))
+	rootHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == node.EnrollmentPath {
+			node.HandleEnrollmentHTTP(w, r)
+			return
+		}
+		if r.URL.Path == node.AgentPath {
+			node.DefaultHub.ServeHTTP(w, r)
+			return
+		}
+		panelHandler.ServeHTTP(w, r)
+	})
 	httpServer := &http.Server{
 		Addr: addr,
 		// The base path is outermost: a request that is not under it is a 404
 		// before anything else looks at it.
-		Handler:      withBasePath(cfg.PathPrefix(), withPanelSecurity(mux)),
+		Handler:      rootHandler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}

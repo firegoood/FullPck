@@ -58,7 +58,7 @@ test('every module is imported by another, except the entry point', () => {
   for (const file of files) {
     if (file === entry) continue;
     const spec = relative(JS, file);
-    const base = spec.split('/').pop();
+    const base = spec.split(/[\\/]/).pop();
     const used = [...sources].some(([other, src]) =>
       other !== file && new RegExp(`from\\s+['"][^'"]*${base.replace('.', '\\.')}['"]`).test(src));
     assert.ok(used, `${spec} is imported by nothing — it is either dead or the import was lost`);

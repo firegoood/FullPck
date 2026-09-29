@@ -128,7 +128,7 @@ func TestRestore(path string) (RestoreReport, error) {
 			rep.Tunnels = append(rep.Tunnels, strings.TrimSuffix(name, ".toml"))
 		case name == "nodes.json":
 			if b, err := os.ReadFile(stage + "/nodes.json"); err == nil &&
-				strings.Contains(string(b), "password_sealed") {
+				(strings.Contains(string(b), "password_sealed") || strings.Contains(string(b), "credential_sealed")) {
 				rep.FleetSealed = true
 			}
 		}
@@ -137,10 +137,10 @@ func TestRestore(path string) (RestoreReport, error) {
 
 	if rep.FleetSealed {
 		rep.Warnings = append(rep.Warnings,
-			"this backup carries managed servers whose passwords are sealed with a key "+
-				"that is NOT in the archive. Restoring onto a different machine gives you "+
-				"the server list and no way to reach any of them — take the fleet key now, "+
-				"from Backup & Restore → Show the fleet key, and keep it somewhere else")
+			"this backup carries managed Node credentials sealed with node.key, which is NOT "+
+				"in the archive. A same-machine restore keeps existing Agent authority. On a "+
+				"different Controller, restore node.key separately or remove and re-enroll "+
+				"each Node; the restored registry alone cannot authenticate reconnects")
 	}
 	if !contents.SawTunnelConfig {
 		rep.Warnings = append(rep.Warnings,

@@ -203,6 +203,7 @@ type LocalTCPConn struct {
 	conn        net.Conn
 	remoteAddr  string
 	timeCreated int64
+	lease       *localTCPLease
 }
 
 type LocalUDPConn struct {

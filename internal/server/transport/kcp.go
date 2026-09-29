@@ -68,6 +68,7 @@ type KcpTransport struct {
 	controlChannel   netControl
 	usageMonitor     *web.Usage
 	restartMutex     sync.Mutex
+	streamMu         sync.Mutex
 	streamCounter    int32
 	sessionCounter   int32
 	limits           *limiter
@@ -222,6 +223,7 @@ func (s *KcpTransport) Start() {
 func (s *KcpTransport) start(g *kcpGen) {
 	// Whatever is still queued when this generation ends gives its slot back.
 	go drainOnEnd(g.ctx, g.localChannel, s.limits)
+	go drainTunnelOnEnd(g.ctx, g.tunnelChannel, func(session *smux.Session) { session.Close() })
 
 	if s.config.WebPort > 0 {
 		go g.usageMonitor.Monitor()
@@ -338,7 +340,9 @@ func (s *KcpTransport) Restart() {
 	s.status.set("")
 	// Stored atomically, like every other access: the goroutines of the run
 	// being replaced may still be counting while this resets them.
+	s.streamMu.Lock()
 	atomic.StoreInt32(&s.streamCounter, 0)
+	s.streamMu.Unlock()
 	atomic.StoreInt32(&s.sessionCounter, 0)
 
 	s.logger.SetLevel(level)
@@ -630,6 +634,8 @@ func (s *KcpTransport) acceptSession(g *kcpGen, session *kcp.UDPSession) {
 			return
 		}
 		select {
+		case <-generationDone(g.ctx):
+			muxSession.Close()
 		case g.tunnelChannel <- muxSession: // ok
 		default:
 			s.logger.Warnf("tunnel listener channel is full, discarding KCP session from %s", session.RemoteAddr())
@@ -751,12 +757,26 @@ func (s *KcpTransport) acceptLocalConn(g *kcpGen, listener net.Listener, remoteA
 				continue
 			}
 			conn = s.limits.wrap(g.ctx, conn)
+			s.streamMu.Lock()
+			if g.ctx != nil && g.ctx.Err() != nil {
+				s.streamMu.Unlock()
+				s.limits.release()
+				conn.Close()
+				continue
+			}
+			atomic.AddInt32(&s.streamCounter, 1)
+			s.streamMu.Unlock()
+			incoming := newCountedLocalTCPConn(conn, remoteAddr, s.limits, func() {
+				s.streamMu.Lock()
+				if g.ctx == nil || g.ctx.Err() == nil {
+					atomic.AddInt32(&s.streamCounter, -1)
+				}
+				s.streamMu.Unlock()
+			})
 
 			select {
-			case g.localChannel <- LocalTCPConn{conn: conn, remoteAddr: remoteAddr, timeCreated: time.Now().UnixMilli()}:
+			case g.localChannel <- incoming:
 				s.logger.Debugf("forwarded port: accepted a client from %s", tcpConn.RemoteAddr().String())
-
-				atomic.AddInt32(&s.streamCounter, 1)
 
 				if atomic.LoadInt32(&s.streamCounter) >= atomic.LoadInt32(&s.sessionCounter)*int32(s.config.MuxCon) {
 					s.logger.Tracef("stream counter: %v, session counter: %v", atomic.LoadInt32(&s.streamCounter), atomic.LoadInt32(&s.sessionCounter))
@@ -770,8 +790,7 @@ func (s *KcpTransport) acceptLocalConn(g *kcpGen, listener net.Listener, remoteA
 
 			default: // channel is full, discard the connection
 				s.logger.Warnf("forwarded port: the queue is full, dropping a client from %s", tcpConn.RemoteAddr().String())
-				s.limits.release()
-				conn.Close()
+				incoming.closeAndRelease(s.limits)
 			}
 		}
 	}

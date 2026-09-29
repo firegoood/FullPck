@@ -90,16 +90,7 @@ func (m muxSession) run(session *smux.Session) {
 		case incomingConn := <-m.local:
 			if nowMillis()-incomingConn.timeCreated > pairingTimeout.Milliseconds() {
 				m.log.Debugf("timeouted local connection: %d ms", nowMillis()-incomingConn.timeCreated)
-				incomingConn.conn.Close()
-
-				// Free the slot this connection took on accept. It is otherwise
-				// released only by the handler goroutine, which never runs for a
-				// connection that timed out waiting to be paired — so a tunnel
-				// with max_connections set loses a slot to every timeout and
-				// eventually refuses everything.
-				m.limits.release()
-
-				atomic.AddInt32(m.streams, -1)
+				m.releaseLocal(incomingConn)
 				<-counter
 				continue
 			}
@@ -128,8 +119,15 @@ func (m muxSession) run(session *smux.Session) {
 				// and stays counted; one there was no room for is counted out
 				// here, because nothing downstream will ever do it.
 				if !requeueLocal(m.local, incomingConn, m.limits, m.log) {
-					atomic.AddInt32(m.streams, -1)
+					if incomingConn.lease == nil {
+						atomic.AddInt32(m.streams, -1)
+					}
 				}
+				continue
+			}
+			if !incomingConn.claim() {
+				stream.Close()
+				<-counter
 				continue
 			}
 
@@ -137,11 +135,10 @@ func (m muxSession) run(session *smux.Session) {
 			go func() {
 				// Free the connection slot once the transfer ends, or the
 				// limit would fill up permanently.
-				defer m.limits.release()
+				defer m.releaseLocal(incomingConn)
 				handlers.TCPConnectionHandler(m.ctx, m.proxyProtocol && !isUDPFlow(incomingConn.conn),
 					incomingConn.conn, metrics.CountedConn(stream), m.log, m.usage,
 					localForwardPort(incomingConn.conn), m.sniffer)
-				atomic.AddInt32(m.streams, -1)
 				<-counter // read signal from the channel
 			}()
 		}
@@ -162,7 +159,9 @@ func (m muxSession) failed(incomingConn *LocalTCPConn, err error) {
 	// A connection there was no room for is counted out, since nothing
 	// downstream will do it.
 	if !requeueLocal(m.local, *incomingConn, m.limits, m.log) {
-		atomic.AddInt32(m.streams, -1)
+		if incomingConn.lease == nil {
+			atomic.AddInt32(m.streams, -1)
+		}
 	}
 
 	// Attempt to request a new connection
@@ -170,5 +169,13 @@ func (m muxSession) failed(incomingConn *LocalTCPConn, err error) {
 	case m.reqNewConn <- struct{}{}:
 	default:
 		m.log.Warn("request new connection channel is full")
+	}
+}
+
+func (m muxSession) releaseLocal(local LocalTCPConn) {
+	local.closeAndRelease(m.limits)
+	// Focused tests construct literal LocalTCPConn values without a lease.
+	if local.lease == nil {
+		atomic.AddInt32(m.streams, -1)
 	}
 }

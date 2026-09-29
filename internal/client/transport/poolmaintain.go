@@ -56,6 +56,8 @@ type poolSizer struct {
 	// size is the configured pool size — the floor the pool returns to, and
 	// the figure the panel shows beside what is actually open.
 	size int
+	// maxSize bounds automatic growth; zero uses the usual fourfold limit.
+	maxSize int
 	// aggressive selects the tighter factors: grow sooner, shrink later.
 	aggressive bool
 
@@ -69,12 +71,24 @@ type poolSizer struct {
 	// dial starts one new pool connection. It is expected to return when that
 	// connection ends, so the loop starts it on its own goroutine.
 	dial func()
+	// start registers dialers with the generation before launching them.
+	start func(func()) bool
 }
 
 // maintain fills the pool and then keeps it the right size until ctx ends.
 func (p poolSizer) maintain() {
+	if p.maxSize <= 0 {
+		p.maxSize = p.size * poolGrowthLimit
+	}
+	launch := func() {
+		if p.start != nil {
+			p.start(p.dial)
+		} else {
+			go p.dial()
+		}
+	}
 	for i := 0; i < p.size; i++ { // initial pool filling
-		go p.dial()
+		launch()
 	}
 
 	// The factors. a and b decide when the pool is too small, x and y when it
@@ -131,15 +145,15 @@ func (p poolSizer) maintain() {
 			// carrying 240 Mbit/s" instead of leaving somebody to guess.
 			metrics.ReportPool(openAvg, newPoolSize, p.size, mbps)
 
-			grow := ((taken+a) > openAvg*b && poolCanGrow(newPoolSize, p.size)) ||
-				load.wantsMore(mbps, openAvg, newPoolSize, p.size)
+			grow := ((taken+a) > openAvg*b && poolCanGrowWithin(newPoolSize, p.maxSize)) ||
+				load.wantsMoreWithin(mbps, openAvg, newPoolSize, p.maxSize)
 
 			switch {
 			case grow:
 				p.log.Debugf("increasing pool size: %d -> %d, avg pool conn: %d, avg load conn: %d, throughput: %d Mbit/s",
 					newPoolSize, newPoolSize+1, openAvg, taken, mbps)
 				newPoolSize++
-				go p.dial()
+				launch()
 
 			case float64(taken+x) < float64(openAvg)*y && newPoolSize > p.size:
 				p.log.Debugf("decreasing pool size: %d -> %d, avg pool conn: %d, avg load conn: %d",

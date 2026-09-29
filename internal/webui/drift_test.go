@@ -21,6 +21,7 @@ import (
 
 func driftServer(t *testing.T) *server {
 	t.Helper()
+	isolateFleet(t)
 	s := newServer()
 	s.want = control.NewDesiredAt(filepath.Join(t.TempDir(), "desired.json"))
 	return s

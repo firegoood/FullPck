@@ -191,6 +191,10 @@ func applyDefaults(cfg *config.Config) {
 		cfg.Server.MuxCon = defaultMuxCon
 	}
 
+	for _, warning := range enforceResourceLimits(cfg) {
+		logger.Warn(warning)
+	}
+
 	warnUnusedStreamBuffer(cfg)
 	warnIgnoredProxyProtocol(cfg)
 }

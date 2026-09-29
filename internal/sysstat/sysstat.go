@@ -94,17 +94,9 @@ func Get() Snapshot {
 // process (the panel, the monitor) that is a sensible few seconds of history
 // and costs nothing, which is why Get uses it.
 //
-// In a process that exists to answer one question and exit it means nothing at
-// all. `backpack node exec` is exactly that, and it is how a panel reads a
-// managed server: there is no previous call, so the only delta available is the
-// one since the package initialised microseconds earlier. Over a window that
-// short /proc/stat has usually not ticked, and gopsutil's own arithmetic then
-// returns 0 when nothing moved and 100 when a single jiffy landed. That is why
-// a managed server's card jumped between 0%, 100% and 50% on every poll while
-// the machine sat idle — the readings were not noisy, they were meaningless.
-//
-// Sampling over a real window costs that window once per call, which is the
-// price of a figure that means anything in a one-shot process.
+// An Agent may reconnect or restart before answering a fleet poll. Sampling
+// over a real window makes that first response meaningful instead of relying
+// on a near-zero interval since process startup.
 func CPUPercentOver(d time.Duration) float64 {
 	if d <= 0 {
 		d = 200 * time.Millisecond

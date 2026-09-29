@@ -271,6 +271,11 @@ func EditTunnel(name, host, tunnelPort string, ports []string) error {
 				clean = append(clean, p)
 			}
 		}
+		// A visible wildcard port can also conflict with the hidden loopback
+		// Telegram/SOCKS mapping. Check the actual list that will be started.
+		if err := validatePortSpecs(clean); err != nil {
+			return err
+		}
 		s.Ports = clean
 		changed = true
 	}

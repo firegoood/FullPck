@@ -168,7 +168,6 @@ func (s *server) handleLinkTest(w http.ResponseWriter, r *http.Request) {
 					}
 					res.Name, res.RanOn = name, runOn
 				}
-				noteJob(nil)
 				return &res, nil
 			})
 		var busy control.ErrBusy

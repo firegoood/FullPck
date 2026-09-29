@@ -46,8 +46,8 @@ func backupMenu() {
 			testRestore,
 		}
 		// Only offered where it means something: a machine with no managed
-		// servers has no sealed password and nothing to keep.
-		if node.HasSealedPasswords() {
+		// servers has no sealed Agent credential and nothing to keep.
+		if node.HasSealedCredentials() {
 			opts = append(opts,
 				tui.Option{Title: "Show the fleet key", Desc: "needed to restore managed servers onto a DIFFERENT machine"},
 				tui.Option{Title: "Restore the fleet key", Desc: "paste a key kept from another machine"})
@@ -64,20 +64,8 @@ func backupMenu() {
 
 // The fleet key, and why it is here rather than in the panel.
 //
-// A managed server's root password is sealed with a key that is deliberately
-// not in the backup archive — see internal/node/seal.go. That is the right
-// design: a backup is a thing people move, and it used to carry the root
-// password of every managed server in the clear to wherever it went.
-//
-// The consequence nobody had hit yet is what happens when the panel machine is
-// the one that dies. The archive restores onto a new machine, the fleet list
-// comes back, and none of the credentials do. The safety mechanism works
-// exactly as designed and the outcome is a fleet you cannot reach.
-//
-// So the key can be taken out and put back deliberately, by somebody with a
-// shell on the machine. Not through the panel and not in the archive: the whole
-// protection is that the two travel separately, and a button that put them back
-// together would be the protection removed with a nicer name.
+// Agent credentials are sealed with a key excluded from the backup archive.
+// The operator may export/import that key separately for disaster recovery.
 func showFleetKey() {
 	key, err := node.ExportSealKey()
 	if err != nil {
@@ -86,7 +74,7 @@ func showFleetKey() {
 		return
 	}
 	fmt.Println()
-	tui.Warn("This key decrypts the stored passwords of every managed server.")
+	tui.Warn("This key decrypts the stored Agent credentials of managed servers.")
 	tui.Warn("Keep it somewhere the BACKUP IS NOT. Storing them together undoes")
 	tui.Warn("the only thing sealing them achieves.")
 	tui.Warn("You need it only to restore this fleet onto a different machine.")
@@ -109,7 +97,7 @@ func restoreFleetKey() {
 		tui.PressEnter()
 		return
 	}
-	tui.Success("Fleet key restored. The managed servers' passwords are readable again.")
+	tui.Success("Fleet key restored. Managed Agent credentials are readable again.")
 	tui.PressEnter()
 }
 

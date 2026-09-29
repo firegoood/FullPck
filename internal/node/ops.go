@@ -46,6 +46,8 @@ type NameRequest struct {
 // design is that it does not.
 func Execute(req Request) Response {
 	switch req.Op {
+	case OpPing:
+		return okBody(nil)
 	case OpHello:
 		return okBody(LocalInfo())
 
@@ -259,10 +261,8 @@ func LocalInfo() Info {
 		Uptime:   sysstat.HumanDuration(m.Uptime),
 
 		// Sampled over a real window rather than taken from the snapshot. This
-		// runs inside `backpack node exec`, which starts, answers and exits, so
-		// the snapshot's instantaneous reading has no earlier sample to
-		// subtract and comes back as 0 or 100 almost at random. See
-		// sysstat.CPUPercentOver.
+		// Windowed sampling remains reliable across Agent reconnects and
+		// process restarts; an instantaneous sample can report 0 or 100.
 		CPUPercent: sysstat.CPUPercentOver(nodeCPUWindow),
 		CPUCores:   m.CPUCores,
 		MemPercent: m.MemPercent,

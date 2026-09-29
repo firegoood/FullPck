@@ -25,6 +25,10 @@ const backupMetaName = ".backpack-backup.json"
 // See where it is skipped, below, and internal/node/seal.go for what it is.
 const fleetKeyName = "node.key"
 
+// A pending enrollment record contains a hash used directly as the Noise
+// bootstrap PSK. It expires quickly and must never travel with backups.
+const enrollmentName = "node-enrollment.json"
+
 // backupMeta is the sidecar metadata embedded in every backup archive.
 type backupMeta struct {
 	Version          string `json:"version"`
@@ -126,20 +130,10 @@ func writeBackupEntries(tw *tar.Writer, root string) error {
 
 		// The fleet's sealing key is deliberately not in the archive.
 		//
-		// It is the whole of what the sealing is worth. The registry beside it
-		// holds the root password of every managed server, and a backup is a
-		// thing people move — downloaded through the panel, sent through the
-		// bot, kept on a laptop, attached to a support message. Sealed with a
-		// key that travels in the same file, that is plaintext with extra
-		// steps.
-		//
-		// Restoring onto the machine that took the backup still works, because
-		// a restore seeds its staging tree from the live directory and keeps a
-		// file the archive does not mention. Restoring onto a different machine
-		// leaves those passwords unreadable, and the fleet screen asks for them
-		// again — which is what an operator would choose if they were asked
-		// whether a backup should carry them.
-		if rel == fleetKeyName {
+		// The registry holds sealed Agent credentials. The key must travel
+		// separately from a backup; importing it after a restore can recover
+		// the credentials. Pending one-time enrollment data is also excluded.
+		if rel == fleetKeyName || rel == enrollmentName {
 			return nil
 		}
 

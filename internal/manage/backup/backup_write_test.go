@@ -330,6 +330,7 @@ func TestTheFleetKeyIsNotInTheBackup(t *testing.T) {
 	write("iran.toml", "[server]\ntoken = \"x\"\n")
 	write("nodes.json", `{"nodes":[{"name":"a","password_sealed":"enc:v1:AAAA"}]}`)
 	write(fleetKeyName, "0123456789abcdef0123456789abcdef")
+	write(enrollmentName, `[{"node_id":"pending","token_hash":"bootstrap-psk"}]`)
 
 	var buf bytes.Buffer
 	if err := writeBackupTree(&buf, dir); err != nil {
@@ -338,9 +339,8 @@ func TestTheFleetKeyIsNotInTheBackup(t *testing.T) {
 
 	names := archiveNames(t, buf.Bytes())
 	for _, n := range names {
-		if filepath.Base(n) == fleetKeyName {
-			t.Errorf("the archive carries %s, which makes sealing the fleet passwords "+
-				"worth nothing", n)
+		if filepath.Base(n) == fleetKeyName || filepath.Base(n) == enrollmentName {
+			t.Errorf("the archive carries secret bootstrap material: %s", n)
 		}
 	}
 	// And everything else is still there, or this test would pass on an empty

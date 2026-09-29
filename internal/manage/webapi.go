@@ -765,6 +765,9 @@ func EditTunnelSettings(name string, e TunnelEdit) error {
 				clean = append(clean, p)
 			}
 		}
+		if err := validatePortSpecs(clean); err != nil {
+			return err
+		}
 		s.Ports = clean
 		changed = true
 	}

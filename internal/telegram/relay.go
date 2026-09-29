@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/backpack/backpack/internal/manage"
+	"github.com/backpack/backpack/internal/node"
 )
 
 // Choosing which tunnel carries the bot's traffic.
@@ -172,6 +174,12 @@ func RelayStatus() string {
 	case "":
 		return "direct (no relay)"
 	case AutoRelay:
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		available := node.TelegramRelayAvailable(ctx)
+		cancel()
+		if available {
+			return "automatic — currently using a connected Agent"
+		}
 		name, _, err := resolveRelay(c)
 		if err != nil {
 			return "automatic — no connected tunnel available right now"
@@ -185,6 +193,11 @@ func RelayStatus() string {
 // PrepareAutoRelay picks a tunnel now and makes sure it exposes the relay port,
 // so setup can report something concrete instead of "it will sort itself out".
 func PrepareAutoRelay() (name string, port int, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if node.TelegramRelayAvailable(ctx) {
+		return "Agent", 0, nil
+	}
 	return pickRelay()
 }
 

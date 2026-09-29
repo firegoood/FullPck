@@ -1,77 +1,27 @@
-# Telegram bot
-
-Status reports and [alerts](alerts.md) delivered to Telegram — even from Iran,
-where Telegram is blocked.
-
-## How it reaches Telegram from Iran
-
-A loopback port on a tunnel forwards straight to the Telegram API, and the
-**far end** (kharej) makes the outbound connection. The traffic stays TLS
-between the bot and Telegram; the tunnel only moves bytes, it cannot read them.
-
-The bot **picks a live tunnel itself and switches to another when that one
-drops**, so you never have to choose or re-choose which tunnel relays. When it
-still cannot get out, **Diagnose** walks the chain hop by hop and names the
-exact link that is broken.
-
-## Setup
-
-**Telegram Bot → Configure** in the CLI (or **Settings** in the [web
-panel](web-panel.md)). You need a bot token from `@BotFather` and your numeric
-user id from `@userinfobot`.
-
-## What it offers
-
-Buttons and commands for **Status**, **System**, **Alerts**, **Backup**,
-**Web UI** and **Support**. Internal plumbing — the relay port, any SOCKS port,
-the API host — never appears in a message.
-
-## Who may do what
-
-The admin set up with the bot is its **owner**. Further admins can be added
-beside it, each with full or read-only (`:ro`) access:
-
-| | Owner | Admin | Read-only admin |
-|---|:--:|:--:|:--:|
-| Status, tunnels, alerts, health, history | ✅ | ✅ | ✅ |
-| Start, stop, restart tunnels | ✅ | ✅ | — |
-| **Web UI** (the panel's address *and password*) | ✅ | — | — |
-| **Backup** (the archive carries the panel password) | ✅ | — | — |
-
-The last two are the owner's alone because the panel password is full access —
-including who else gets in — which is the panel's `admin` scope. An added admin
-is the bot's equivalent of a `write` token, and a write token cannot reach it
-either. See [access control](access-control.md).
-
----
+# ربات Telegram
 
 <div dir="rtl">
 
 ## خلاصهٔ فارسی
 
-گزارش وضعیت و [هشدارها](alerts.md) در تلگرام — حتی از داخل ایران که تلگرام
-بسته است.
+BackPack می‌تواند گزارش وضعیت، هشدار و کنترل‌های مجاز را از طریق Telegram ارائه کند. برای تنظیم، در CLI گزینهٔ **Telegram Bot → Configure / Update bot** یا تنظیمات پنل را باز کنید. توکن ربات را از `@BotFather` و شناسهٔ عددی کاربر را از `@userinfobot` بگیرید.
 
-**چطور از ایران به تلگرام می‌رسد؟** یک پورت لوکال روی تونل مستقیم به API تلگرام
-forward می‌شود و **سمت خارج** اتصال بیرونی را برقرار می‌کند. ترافیک بین ربات و
-تلگرام همچنان TLS است؛ تونل فقط بایت جابه‌جا می‌کند و نمی‌تواند چیزی بخواند.
+## اتصال از ایران
 
-ربات **خودش یک تونل زنده را انتخاب می‌کند و وقتی آن یکی بیفتد به تونل دیگری
-می‌رود**، پس لازم نیست تو انتخاب کنی. اگر باز هم بیرون نرفت، گزینهٔ **Diagnose**
-زنجیره را قدم‌به‌قدم می‌رود و می‌گوید دقیقاً کدام حلقه خراب است.
+حالت **Automatic** ابتدا یک Agent خارجی متصل را انتخاب می‌کند. مانیتور کنترلر بایت‌های TLS را از Unix socket محلی `/run/backpack/control.sock` به Agent می‌فرستد و Agent فقط به `api.telegram.org:443` اتصال **خروجی** می‌گیرد. توکن ربات، long polling و منطق پیام‌ها روی کنترلر باقی می‌ماند؛ Agent پروکسی عمومی نیست. در صورت خطای Agent اول، Agentهای متصل دیگر امتحان می‌شوند.
 
-**راه‌اندازی:** `Telegram Bot → Configure` در CLI (یا Settings در
-[پنل وب](web-panel.md)). به یک توکن ربات از `@BotFather` و آیدی عددی خودت از
-`@userinfobot` نیاز داری.
+اگر Agent مناسب در دسترس نباشد، مسیر تونل موجود fallback است. این مسیر یک پورت بلند تصادفی روی `127.0.0.1` را به API تلگرام forward می‌کند. می‌توانید تونل خاصی را pin کنید یا، اگر خود سرور به Telegram دسترسی دارد، حالت Direct را انتخاب کنید. توقف WebUI جلسه‌های Agent را قطع می‌کند، ولی fallback تونل همچنان در دسترس می‌ماند.
 
-دکمه‌ها و دستورها: Status، System، Alerts، Backup، Web UI و Support. جزئیات
-داخلی (پورت رله، پورت SOCKS، هاست API) هیچ‌وقت در پیام‌ها ظاهر نمی‌شود.
+**Telegram هیچ listener محلی روی پورت 443 ایجاد نمی‌کند.** عدد 443 در `api.telegram.org:443` پورت مقصد خارجی است. نگاشت قدیمی Telegram روی 443 محلی هنگام آماده‌سازی relay به پورت بلند منتقل می‌شود. پورت 80 نیز برای این قابلیت لازم نیست.
+
+ارتباط HTTPS همچنان از کلاینت ربات تا Telegram برقرار است و گواهی برای `api.telegram.org` بررسی می‌شود. Agent فقط بایت‌های رمزگذاری‌شده را منتقل می‌کند. اتصال طولانی `getUpdates` و قطع شدن آن باید منابع stream را آزاد کند.
+
+## دسترسی‌ها
+
+مالک ربات به Status، System، Alerts، Backup، Web UI و Support دسترسی دارد. مدیران افزوده‌شده می‌توانند سطح کامل یا فقط خواندن (`:ro`) داشته باشند. اطلاعات ورود Web UI و فایل backup که ممکن است اطلاعات حساس داشته باشد فقط برای مالک ارسال می‌شود. جزئیات relay در پیام‌های ربات نمایش داده نمی‌شود.
+
+برای عیب‌یابی، گزینهٔ **Diagnose relay** را اجرا کنید. [هشدارها](alerts.md)، [سرورهای مدیریت‌شده](managed-servers.md) و [کنترل دسترسی](access-control.md) را نیز ببینید.
 
 </div>
-
----
-[← Back to the docs index](README.md)
-
----
 
 *Last verified against Backpack v1.8.4.*

@@ -65,9 +65,8 @@ func requeueLocal(ch chan LocalTCPConn, conn LocalTCPConn, lim *limiter, logger 
 	default:
 		if conn.conn != nil {
 			logger.Warnf("the local queue is full, dropping a client from %s", conn.conn.RemoteAddr())
-			conn.conn.Close()
 		}
-		lim.release()
+		conn.closeAndRelease(lim)
 		return false
 	}
 }
@@ -87,15 +86,37 @@ func drainOnEnd(ctx context.Context, queue <-chan LocalTCPConn, limits *limiter)
 	sweepAfterEnd(ctx, func() bool {
 		select {
 		case c := <-queue:
-			if c.conn != nil {
-				c.conn.Close()
-			}
-			limits.release()
+			c.closeAndRelease(limits)
 			return true
 		default:
 			return false
 		}
 	})
+}
+
+// A generation may end with unused tunnel sockets or mux sessions buffered in
+// its pool. Close them after cancellation, including late arrivals from an
+// admission goroutine that had already passed its context check.
+func drainTunnelOnEnd[T any](ctx context.Context, queue <-chan T, closeConn func(T)) {
+	sweepAfterEnd(ctx, func() bool {
+		select {
+		case c := <-queue:
+			closeConn(c)
+			return true
+		default:
+			return false
+		}
+	})
+}
+
+// Some focused admission tests build a generation without a context. A nil
+// done channel disables cancellation in their select without changing the
+// behaviour of real generations.
+func generationDone(ctx context.Context) <-chan struct{} {
+	if ctx == nil {
+		return nil
+	}
+	return ctx.Done()
 }
 
 // sweepAfterEnd waits for ctx to end, then calls take until it reports the

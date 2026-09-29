@@ -47,6 +47,14 @@ const (
 	// WebUIConfig stores the web panel settings (JSON).
 	WebUIConfig = ConfigDir + "/webui.json"
 
+	// NodeAgentConfig stores the reverse Agent credentials on a managed node.
+	// It is separate from the controller's registry: a foreign node only needs
+	// its own identity and outbound controller details.
+	NodeAgentConfig = ConfigDir + "/node-agent.json"
+
+	// NodeEnrollmentConfig stores one-time enrollment records on the controller.
+	NodeEnrollmentConfig = ConfigDir + "/node-enrollment.json"
+
 	// WebUIService is the systemd unit that runs the web panel.
 	WebUIService = "backpack-webui.service"
 

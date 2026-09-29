@@ -32,6 +32,7 @@ type KcpTransport struct {
 	kcpSettings     network.KCPSettings
 	parentctx       context.Context
 	state           clientState
+	sessionSlots    *sessionSlots
 	logger          *logrus.Logger
 	restartMutex    sync.Mutex
 	poolConnections int32
@@ -147,6 +148,7 @@ func NewKcpClient(parentCtx context.Context, config *KcpConfig, logger *logrus.L
 		poolConnections: 0,
 		loadConnections: 0,
 		controlFlow:     make(chan struct{}, 100),
+		sessionSlots:    newSessionSlots(muxPoolLimit(config.ConnPoolSize, config.MaxReceiveBuffer)),
 	}
 	// Surface the carrier's startup diagnostics (effective FEC/MTU, and for pck
 	// the discovered egress and RST-guard status) in the tunnel log, so a client
@@ -160,12 +162,12 @@ func NewKcpClient(parentCtx context.Context, config *KcpConfig, logger *logrus.L
 
 func (c *KcpTransport) Start() {
 	if c.config.WebPort > 0 {
-		go c.state.Usage().Monitor()
+		c.state.Go(c.state.Usage().Monitor)
 	}
 
 	c.status.set("Disconnected (" + c.transportLabel() + ")")
 
-	go c.channelDialer()
+	c.state.Go(c.channelDialer)
 }
 
 func (c *KcpTransport) Restart() {
@@ -181,13 +183,7 @@ func (c *KcpTransport) Restart() {
 	level := c.logger.GetLevel()
 	c.logger.SetLevel(logrus.FatalLevel)
 
-	if c.state.Cancel() != nil {
-		c.state.Cancel()()
-	}
-
-	c.state.CloseConn()
-
-	time.Sleep(2 * time.Second)
+	c.state.StopAndWait()
 
 	// The whole tunnel may have been shut down while this restart was waiting —
 	// on a reload, or on the process going down. Rebuilding the run from a
@@ -228,7 +224,7 @@ func (c *KcpTransport) Restart() {
 
 	c.logger.SetLevel(level)
 
-	go c.Start()
+	c.Start()
 }
 
 // dial opens one KCP session.
@@ -335,7 +331,9 @@ func (c *KcpTransport) channelDialer() {
 			// Heartbeats every few seconds are all it carries once the pool is
 			// up, so it idles like any pool session (kcpidle.go) — keeping the
 			// ack-nodelay it was given above when it wakes.
-			c.state.SetConn(network.IdleAwareKCP(tunnelConn, c.kcpSettings, true))
+			if !c.state.SetConn(network.IdleAwareKCP(tunnelConn, c.kcpSettings, true)) {
+				return
+			}
 			c.logger.Info("control channel established successfully")
 
 			// The dialling side has to record its peer for the same reason the
@@ -354,8 +352,8 @@ func (c *KcpTransport) channelDialer() {
 
 			c.status.set("Connected (" + c.transportLabel() + ")")
 
-			go c.poolMaintainer()
-			go c.channelHandler()
+			c.state.Go(c.poolMaintainer)
+			c.state.Go(c.channelHandler)
 
 			return
 		}
@@ -369,6 +367,7 @@ func (c *KcpTransport) poolMaintainer() {
 		ctx:        c.state.Ctx(),
 		log:        c.logger,
 		size:       c.config.ConnPoolSize,
+		maxSize:    c.sessionSlots.max(),
 		aggressive: c.config.AggressivePool,
 		open:       &c.poolConnections,
 		taken:      &c.loadConnections,
@@ -401,7 +400,7 @@ func (c *KcpTransport) channelHandler() {
 	ctx := c.state.Ctx()
 
 	// Goroutine to handle the blocking ReceiveBinaryByte
-	go func() {
+	c.state.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -440,10 +439,14 @@ func (c *KcpTransport) channelHandler() {
 				if msg == utils.SG_HB {
 					beats.beat(time.Now())
 				}
-				msgChan <- msg
+				select {
+				case msgChan <- msg:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-	}()
+	})
 
 	for {
 		select {
@@ -461,7 +464,7 @@ func (c *KcpTransport) channelHandler() {
 
 				default:
 					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					go c.tunnelDialer()
+					c.state.Go(c.tunnelDialer)
 				}
 
 			case utils.SG_HB:
@@ -482,6 +485,10 @@ func (c *KcpTransport) channelHandler() {
 }
 
 func (c *KcpTransport) tunnelDialer() {
+	if !c.sessionSlots.tryAcquire() {
+		return
+	}
+	defer c.sessionSlots.release()
 	addr := c.config.Endpoints.Next()
 	c.logger.Debugf("initiating new tunnel connection to address %s", addr)
 
@@ -490,6 +497,12 @@ func (c *KcpTransport) tunnelDialer() {
 		c.logger.Errorf("tunnel server dialer: %v", err)
 		return
 	}
+	untrack, ok := c.state.Track(tunnelConn)
+	if !ok {
+		return
+	}
+	defer untrack()
+	defer tunnelConn.Close()
 
 	// KCP has no connection handshake of its own: the server's listener only
 	// materialises a session once it receives a packet from this socket. So
@@ -518,6 +531,7 @@ func (c *KcpTransport) handleSession(tunnelConn net.Conn) {
 		tunnelConn.Close()
 		return
 	}
+	defer session.Close()
 
 	for {
 		select {
@@ -538,7 +552,9 @@ func (c *KcpTransport) handleSession(tunnelConn net.Conn) {
 				continue
 			}
 
-			go c.localDialer(stream, remoteAddr)
+			if !c.state.Go(func() { c.localDialer(stream, remoteAddr) }) {
+				stream.Close()
+			}
 		}
 	}
 }

@@ -18,7 +18,7 @@ are.
 | `backpack --monitor` | watchdog, Telegram bot, alerts, history — `internal/monitor` |
 | `backpack --proxy` | the built-in SOCKS5/HTTP proxy — `internal/localproxy` |
 | `backpack --restart-all` / `--telegram-report` | one-shot jobs, run from cron |
-| `backpack node exec <base64>` | the one operation a panel runs on a managed server over SSH |
+| `backpack node join` | one-time interactive enrollment of a managed Node Agent |
 
 Everything except engine mode is management. Engine mode is the product.
 
@@ -108,7 +108,7 @@ miss looked healthy in the socket table.
 | `internal/menu` | the interactive TUI. One 1,400-line file with no tests and no non-interactive entry point, which is why nothing can drive it |
 | `internal/webui` | the panel: a Go mux plus a vanilla-JS SPA under `panel/`, served beneath a random secret base path. Also currently owns the fleet |
 | `internal/telegram` | bot, alerts, scheduled reports. Has a read-only admin tier |
-| `internal/node` | the fleet: JSON over the managed server's own SSH, with a closed list of operations |
+| `internal/node` | reverse Agent session, enrollment, typed Fleet operations and restricted Telegram byte relay |
 | `internal/monitor` | the always-on service: watchdog, bot, alerts, history sampler, auto-backup — each in its own supervised goroutine |
 
 `internal/manage` is the seam. The panel and the CLI are two callers of the same
@@ -116,11 +116,13 @@ functions, which is why a setting can be changed wherever it can be chosen.
 
 ### The fleet
 
-The panel dials **out** over the managed server's own SSH. The far side needs no
-agent, no daemon and no state — `backpack node exec <base64>` performs one
-operation from a closed list and prints the answer. The list is the security
-boundary: there is no operation that runs a command, reads a path or installs a
-binary.
+The managed Node Agent dials outward to the Controller's existing WebUI origin.
+Enrollment uses a short-lived one-time code and creates a separate permanent
+credential. The encrypted WebSocket channel accepts only typed Fleet operations;
+it has no remote shell. The Agent runs in the existing monitor service. It opens
+no inbound management port and never reserves 80 or 443. Telegram can relay
+opaque TLS bytes to the fixed external destination `api.telegram.org:443` through
+the same session, with tunnel fallback when the Agent is unavailable.
 
 ---
 
@@ -183,8 +185,10 @@ they are worth reading before changing the code they sit on.
 منوی مدیریت است؛ `backpack -c <file>` **حالت موتور** است یعنی یک تونل از یک
 کانفیگ؛ `--webui` پنل وب؛ `--monitor` نگهبان و ربات تلگرام و هشدارها و تاریخچه؛
 `--proxy` پراکسی داخلی SOCKS5/HTTP؛ `--restart-all` و `--telegram-report` کارهای
-یک‌باره‌ای که از cron اجرا می‌شوند؛ و `backpack node exec <base64>` تنها عملیاتی
-که پنل روی یک سرور مدیریت‌شده از طریق SSH اجرا می‌کند. **هر چیزی جز حالت موتور،
+یک‌باره‌ای که از cron اجرا می‌شوند؛ و `backpack node join` برای ثبت‌نام تعاملی
+Agent سرور مدیریت‌شده است. Agent از سرور خارجی به WebUI کنترلر وصل می‌شود و
+در سرویس monitor موجود اجرا می‌شود. این مسیر پورت مدیریتی جداگانه یا listener
+محلی 443 ایجاد نمی‌کند. **هر چیزی جز حالت موتور،
 مدیریت است. حالت موتور، خودِ محصول است.** هر تونل یک سرویس systemd جداگانه و یک
 پروسهٔ جداگانه دارد.
 

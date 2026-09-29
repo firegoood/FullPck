@@ -29,6 +29,7 @@ type WsMuxTransport struct {
 	smuxConfig      *smux.Config
 	parentctx       context.Context
 	state           clientState
+	sessionSlots    *sessionSlots
 	logger          *logrus.Logger
 	restartMutex    sync.Mutex
 	poolConnections int32
@@ -88,6 +89,7 @@ func NewWSMuxClient(parentCtx context.Context, config *WsMuxConfig, logger *logr
 		poolConnections: 0,
 		loadConnections: 0,
 		controlFlow:     make(chan struct{}, 100),
+		sessionSlots:    newSessionSlots(muxPoolLimit(config.ConnPoolSize, config.MaxReceiveBuffer)),
 	}
 
 	// Seed the first generation through the same path a restart uses, so
@@ -98,12 +100,12 @@ func NewWSMuxClient(parentCtx context.Context, config *WsMuxConfig, logger *logr
 
 func (c *WsMuxTransport) Start() {
 	if c.config.WebPort > 0 {
-		go c.state.Usage().Monitor()
+		c.state.Go(c.state.Usage().Monitor)
 	}
 
 	c.status.set(fmt.Sprintf("Disconnected (%s)", c.config.Mode))
 
-	go c.channelDialer()
+	c.state.Go(c.channelDialer)
 }
 
 func (c *WsMuxTransport) Restart() {
@@ -119,14 +121,7 @@ func (c *WsMuxTransport) Restart() {
 	level := c.logger.GetLevel()
 	c.logger.SetLevel(logrus.FatalLevel)
 
-	if c.state.Cancel() != nil {
-		c.state.Cancel()()
-	}
-
-	// close control channel connection
-	c.state.CloseConn()
-
-	time.Sleep(2 * time.Second)
+	c.state.StopAndWait()
 
 	// The whole tunnel may have been shut down while this restart was waiting —
 	// on a reload, or on the process going down. Rebuilding the run from a
@@ -166,7 +161,7 @@ func (c *WsMuxTransport) Restart() {
 	// set the log level again
 	c.logger.SetLevel(level)
 
-	go c.Start()
+	c.Start()
 }
 
 func (c *WsMuxTransport) channelDialer() {
@@ -197,13 +192,15 @@ func (c *WsMuxTransport) channelDialer() {
 			// See metrics.Snapshot.Connected: the watchdog asks the engine, not the
 			// socket table.
 			metrics.ReportPeer(tunnelWSConn.RemoteAddr().String())
-			c.state.SetWSConn(tunnelWSConn)
+			if !c.state.SetWSConn(tunnelWSConn) {
+				return
+			}
 			c.logger.Info("control channel established successfully")
 
 			c.status.set(fmt.Sprintf("Connected (%s)", c.config.Mode))
 
-			go c.poolMaintainer()
-			go c.channelHandler()
+			c.state.Go(c.poolMaintainer)
+			c.state.Go(c.channelHandler)
 
 			return
 		}
@@ -217,6 +214,7 @@ func (c *WsMuxTransport) poolMaintainer() {
 		ctx:        c.state.Ctx(),
 		log:        c.logger,
 		size:       c.config.ConnPoolSize,
+		maxSize:    c.sessionSlots.max(),
 		aggressive: c.config.AggressivePool,
 		open:       &c.poolConnections,
 		taken:      &c.loadConnections,
@@ -249,7 +247,7 @@ func (c *WsMuxTransport) channelHandler() {
 	ctx := c.state.Ctx()
 
 	// Goroutine to handle the blocking ReceiveBinaryString
-	go func() {
+	c.state.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -287,10 +285,14 @@ func (c *WsMuxTransport) channelHandler() {
 				if signal == utils.SG_HB {
 					beats.beat(time.Now())
 				}
-				msgChan <- signal
+				select {
+				case msgChan <- signal:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
-	}()
+	})
 
 	for {
 		select {
@@ -307,7 +309,7 @@ func (c *WsMuxTransport) channelHandler() {
 
 				default:
 					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					go c.tunnelDialer()
+					c.state.Go(c.tunnelDialer)
 				}
 
 			case utils.SG_HB:
@@ -336,6 +338,10 @@ func (c *WsMuxTransport) channelHandler() {
 }
 
 func (c *WsMuxTransport) tunnelDialer() {
+	if !c.sessionSlots.tryAcquire() {
+		return
+	}
+	defer c.sessionSlots.release()
 	c.logger.Debugf("initiating new %s tunnel connection to address %s", c.config.Mode, c.config.RemoteAddr)
 
 	// Dial to the tunnel server
@@ -348,6 +354,12 @@ func (c *WsMuxTransport) tunnelDialer() {
 
 		return
 	}
+	untrack, ok := c.state.Track(tunnelWSConn)
+	if !ok {
+		return
+	}
+	defer untrack()
+	defer tunnelWSConn.Close()
 
 	// Increment active connections counter
 	atomic.AddInt32(&c.poolConnections, 1)
@@ -366,6 +378,7 @@ func (c *WsMuxTransport) handleSession(tunnelConn *websocket.Conn) {
 		c.logger.Errorf("failed to create mux session: %v", err)
 		return
 	}
+	defer session.Close()
 
 	for {
 		select {
@@ -386,7 +399,9 @@ func (c *WsMuxTransport) handleSession(tunnelConn *websocket.Conn) {
 				continue
 			}
 
-			go c.localDialer(stream, remoteAddr)
+			if !c.state.Go(func() { c.localDialer(stream, remoteAddr) }) {
+				stream.Close()
+			}
 		}
 	}
 }

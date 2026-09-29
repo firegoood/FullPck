@@ -27,6 +27,15 @@ func TestNewMappingBindsLoopback(t *testing.T) {
 	}
 }
 
+func TestTelegramFallbackNeverChoosesLocal443(t *testing.T) {
+	for i := 0; i < 64; i++ {
+		port := randomHighPort()
+		if port == 443 || port < 20000 || port >= 60000 {
+			t.Fatalf("Telegram fallback chose local port %d", port)
+		}
+	}
+}
+
 // Reading the port back has to work for both forms. If the loopback form were
 // unreadable, EnsureTelegramPort would fail to recognise its own mapping and
 // append another one on every single call.

@@ -117,7 +117,7 @@ func (c *Client) Start() {
 		if r == nil {
 			return chain.Attempt{}
 		}
-		return chain.Attempt{Settled: r.Running}
+		return chain.Attempt{Settled: r.Running, Stop: r.Shutdown}
 	})
 
 	c.logger.Info("all workers stopped successfully")
@@ -157,7 +157,10 @@ func buildOutbound(cfg *config.ClientConfig) (*network.Outbound, error) {
 // runner is what a started transport gives the chain back: a way to ask
 // whether the control channel is up. Every transport already answers it — see
 // internal/client/transport/status.go.
-type runner interface{ Running() bool }
+type runner interface {
+	Running() bool
+	Shutdown()
+}
 
 // startTransport launches one transport under ctx and returns it. Cancelling
 // ctx tears it down; nothing else here reaches for c.ctx, so a chain can run
@@ -187,7 +190,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Stealth: tr == config.STEALTH,
 		}
 		tcpClient := transport.NewTCPClient(ctx, tcpConfig, c.logger)
-		go tcpClient.Start()
+		tcpClient.Start()
 		return tcpClient
 
 	case config.TCPMUX:
@@ -214,7 +217,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Outbound:         outbound,
 		}
 		tcpMuxClient := transport.NewMuxClient(ctx, tcpMuxConfig, c.logger)
-		go tcpMuxClient.Start()
+		tcpMuxClient.Start()
 		return tcpMuxClient
 
 	case config.KCP, config.XDI, config.PCK:
@@ -255,7 +258,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			PckFlags:         c.config.PckFlags,
 		}
 		kcpClient := transport.NewKcpClient(ctx, kcpConfig, c.logger)
-		go kcpClient.Start()
+		kcpClient.Start()
 		return kcpClient
 
 	case config.QUIC:
@@ -275,7 +278,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			SO_SNDBUF:      c.config.SO_SNDBUF,
 		}
 		quicClient := transport.NewQuicClient(ctx, quicConfig, c.logger)
-		go quicClient.Start()
+		quicClient.Start()
 		return quicClient
 
 	case config.WS, config.WSS:
@@ -299,7 +302,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Outbound:       outbound,
 		}
 		WsClient := transport.NewWSClient(ctx, WsConfig, c.logger)
-		go WsClient.Start()
+		WsClient.Start()
 		return WsClient
 
 	case config.WSMUX, config.WSSMUX:
@@ -327,7 +330,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Outbound:         outbound,
 		}
 		wsMuxClient := transport.NewWSMuxClient(ctx, wsMuxConfig, c.logger)
-		go wsMuxClient.Start()
+		wsMuxClient.Start()
 		return wsMuxClient
 
 	case config.UDP:
@@ -346,7 +349,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			SO_SNDBUF:      c.config.SO_SNDBUF,
 		}
 		udpClient := transport.NewUDPClient(ctx, udpConfig, c.logger)
-		go udpClient.Start()
+		udpClient.Start()
 		return udpClient
 
 	default:

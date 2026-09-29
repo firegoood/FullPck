@@ -47,8 +47,8 @@ Reference pages: what each part of Backpack **is**, and every setting it has.
 - [Web panel](web-panel.md)
 - [The web panel, screen by screen](web-panel-screens.md) — every screen, its
   address, and the CLI entry that does the same job
-- [Managed servers (nodes)](managed-servers.md) — register a foreign server with
-  the panel once, then build both ends of a tunnel from one screen, with no SSH
+- [Managed servers (nodes)](managed-servers.md) — enroll a foreign Agent once,
+  then build both ends of a tunnel from one screen, with no login held for that machine
   and no login held for that machine
 - [Telegram bot](telegram-bot.md)
 - [Alerts](alerts.md)
@@ -61,6 +61,7 @@ Reference pages: what each part of Backpack **is**, and every setting it has.
 ### Maintenance
 - [Backup & restore](backup-restore.md)
 - [Updates & rollback](updates.md)
+- [Upstream Pull Request review](UPSTREAM_PULL_REQUESTS.md) — changes adapted for this customized branch
 
 ---
 

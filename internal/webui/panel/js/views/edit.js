@@ -169,6 +169,52 @@ function shapeForTransport(root, settings, tunnel) {
   });
 }
 
+/* Direct tunnels have their own config tables and therefore do not fit the
+   reverse form above. Keep this shape decision in one place so a legacy
+   [direct] tcp tunnel can never inherit the preview's WebSocket defaults. */
+function shapeDirect(root, settings) {
+  const form = root.querySelector('[data-direct-editor]');
+  if (!form) return null;
+  root.querySelector('.panes')?.setAttribute('hidden', '');
+  root.querySelector('.tabs')?.setAttribute('hidden', '');
+  form.hidden = false;
+
+  const kind = settings.kind || 'l3';
+  const carrier = String(settings.carrier || '').toLowerCase();
+  form.querySelector('option[value="throughput"]')?.toggleAttribute('hidden', kind !== 'stream');
+  form.querySelector('option[value="aggressive"]')?.toggleAttribute('hidden', kind === 'stream');
+  form.querySelectorAll('[data-direct-display]').forEach(n => {
+    const key = n.dataset.directDisplay;
+    let value = String(settings[key] ?? '');
+    if (key === 'family') {
+      const transport = String(settings.transport || '').replace(/^(?:direct|l3)\//i, '').toLowerCase();
+      value = kind === 'l3' ? 'Direct / Layer 3'
+        : ['ws', 'wss', 'wsmux', 'wssmux'].includes(transport) ? 'WebSocket'
+        : ['udp', 'kcp', 'quic', 'xdi', 'pck'].includes(transport) ? 'UDP / Packet'
+        : 'TCP';
+    }
+    if (key === 'transport') value = value.replace(/^(?:direct|l3)\//i, '');
+    n.value = value;
+  });
+  const row = sel => form.querySelectorAll(sel).forEach(n => {
+    const box = n.closest('.f, .tg, .two > div') || n;
+    box.hidden = false;
+  });
+  const hide = sel => form.querySelectorAll(sel).forEach(n => {
+    const box = n.closest('.f, .tg, .two > div') || n;
+    box.hidden = true;
+    n.setAttribute('data-off', '1');
+  });
+
+  row('[data-direct-ports]');
+  if (!settings.holdsPorts) hide('[data-direct-ports]');
+  if (kind !== 'l3') hide('[data-l3-field]');
+  if (kind === 'l3' && carrier !== 'sni') hide('[data-sni-field]');
+  if (kind === 'l3' && carrier !== 'spoof') hide('[data-spoof-field]');
+  if (kind === 'l3' && carrier !== 'udp') hide('[data-udp-field]');
+  return form;
+}
+
 /* The choices each menu offers. Transport and preset come from the server, so
    the form can never offer one the engine does not have. */
 async function choicesFor(name, opts, family) {
@@ -333,9 +379,21 @@ export async function editView(ctx) {
       if (sub && t) sub.textContent = kindLabel(t) + ' · ' + (t.addr || '');
 
       let settings = {};
+      let direct = t?.direction === 'direct';
+      /* Do not flash the preview's reverse/WebSocket defaults while a direct
+         tunnel's own settings are being fetched. A blank direct shape is
+         honest for that short interval; a visible wss selector is not. */
+      if (direct) {
+        root.querySelector('.panes')?.setAttribute('hidden', '');
+        root.querySelector('.tabs')?.setAttribute('hidden', '');
+        root.querySelector('[data-direct-editor]')?.removeAttribute('hidden');
+      }
       try {
         settings = await api.tunnelSettings(name);
-        if (settings.kind === 'direct') settings = settings.direct || {};
+        if (settings.kind === 'direct') {
+          direct = true;
+          settings = settings.direct || {};
+        }
       } catch (e) { oops(e); }
       /* The switches and the menus were drawings.
        *
@@ -347,7 +405,7 @@ export async function editView(ctx) {
        * read() see them like any other input.
        */
       await wireControls(root);
-      shapeForTransport(root, settings, t);
+      const directRoot = direct ? shapeDirect(root, settings) : null;
       /* The tunnel port field shows the address as well when the control port
          is pinned to one.
        *
@@ -357,13 +415,17 @@ export async function editView(ctx) {
        * place the two belong back together: an operator who typed
        * 85.10.11.51:443 has to see that on the next visit, or accepting the
        * field unchanged would quietly widen the tunnel to every interface. */
-      fill(root, { ...settings, tunnelPort: bindValue(settings) });
+      if (directRoot) fill(directRoot, settings);
+      else fill(root, { ...settings, tunnelPort: bindValue(settings) });
       /* The family is not a field, so fill() never touches it and the dialog
          opened showing whichever one the preview happened to be drawn with —
          WebSocket, on every tunnel, including a TCP one. It is derived: the
          family is whichever one lists this tunnel's transport. */
-      selectFamilyFor(root, wireControls.opts, settings.transport);
-      syncControls(root);
+      if (!directRoot) {
+        shapeForTransport(root, settings, t);
+        selectFamilyFor(root, wireControls.opts, settings.transport);
+        syncControls(root);
+      }
 
       /* Tabs and drawers are the preview's own handlers, rebound in screen.js. */
 
@@ -399,7 +461,8 @@ export async function editView(ctx) {
         });
       }
       save?.addEventListener('click', async () => {
-        const payload = { name, ...read(root) };
+        const values = directRoot ? read(directRoot) : read(root);
+        const payload = directRoot ? { name, direct: values } : { name, ...values };
         save.disabled = true;
         try {
           const r = await api.tunnelEdit(payload);

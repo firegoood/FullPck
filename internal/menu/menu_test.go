@@ -123,6 +123,7 @@ func TestTheManageMenuHasACaseForEveryOption(t *testing.T) {
 		t.Fatalf("reading the package: %v", err)
 	}
 
+	body = strings.ReplaceAll(body, "\r\n", "\n")
 	start := strings.Index(body, "func manageMenu()")
 	if start < 0 {
 		t.Fatal("manageMenu is gone — this guard needs updating")

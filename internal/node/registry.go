@@ -1,6 +1,7 @@
 package node
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,12 +13,7 @@ import (
 	"github.com/backpack/backpack/internal/app"
 )
 
-// StorePath is where the panel keeps its side of the fleet: the servers it
-// manages and how to reach them.
-//
-// It sits beside webui.json and is written with the same permissions and for
-// the same reason — a root password for another machine is in here, so it is
-// root-only and never world-readable, even briefly.
+// StorePath holds enrolled Node identities and sealed credentials.
 var StorePath = app.ConfigDir + "/nodes.json"
 
 // Node is one managed server.
@@ -27,66 +23,38 @@ type Node struct {
 	// strand the tunnels already pointing at it.
 	Name string `json:"name"`
 
-	// Host is its address, and SSHPort the port sshd answers on. The panel
-	// dials out to these; nothing is opened here.
-	Host    string `json:"host"`
-	SSHPort int    `json:"sshPort,omitempty"` // 0 means 22
+	// ID is the stable identity used by the reverse Agent session. It is
+	// independent of the observed address and therefore remains valid when the
+	// node changes IP or reconnects through another route.
+	ID string `json:"id,omitempty"`
 
-	// User and Password are the login. Root, in practice: the panel installs
-	// services and writes into /etc on that machine, which is what managing it
-	// means.
-	//
-	// Password is in memory only. What goes on disk is Sealed, and the
-	// difference is about the backup archive rather than about this machine —
-	// see seal.go. A legacy registry that still has a plaintext "password" is
-	// read from this field and re-sealed on its next save.
-	User     string `json:"user"`
-	Password string `json:"password,omitempty"`
-	// Sealed is Password encrypted with a key that is not in the backup.
-	Sealed string `json:"password_sealed,omitempty"`
+	// ControllerURL is the configured WebUI origin the node dials outward to.
+	// The Agent always appends /_bp/node and never assumes a default port.
+	ControllerURL string `json:"controller_url,omitempty"`
 
-	// Fingerprint is the SHA-256 of the host key this server presented the
-	// first time it answered. Every connection after that must match it. Empty
-	// until the first successful call.
-	Fingerprint string `json:"fingerprint,omitempty"`
+	// Credential is the permanent per-node secret. It is unsealed on load only
+	// inside this package and is never returned by List or Find.
+	Credential       string `json:"credential,omitempty"`
+	CredentialSealed string `json:"credential_sealed,omitempty"`
 
-	Added    int64 `json:"added"`              // unix seconds
-	LastSeen int64 `json:"lastSeen,omitempty"` // unix seconds
+	// Revoked prevents a removed or explicitly revoked node from reconnecting
+	// with a credential that may still exist on its disk.
+	Revoked bool `json:"revoked,omitempty"`
+
+	Added            int64  `json:"added"`              // unix seconds
+	LastSeen         int64  `json:"lastSeen,omitempty"` // unix seconds
+	LastConnected    int64  `json:"last_connected,omitempty"`
+	LastDisconnected int64  `json:"last_disconnected,omitempty"`
+	ObservedAddress  string `json:"observed_address,omitempty"`
+	DisconnectReason string `json:"disconnect_reason,omitempty"`
+	ProtocolVersion  int    `json:"protocol_version,omitempty"`
 
 	// Info is what the server last said about itself. It is stored rather than
 	// asked for on demand so the fleet screen can draw a server that is down.
 	Info Info `json:"info,omitempty"`
-
-	// Pin holds this server back from a fleet rollout.
-	//
-	// There is always a reason a machine is deliberately behind — a customer
-	// mid-migration, a kernel the new build has not been tried on, a box
-	// somebody is bisecting against. That reason currently lives in whoever set
-	// it up, and a fleet upgrade run by anyone else quietly undoes it. Written
-	// down next to the node, "why is that one still on the old version" has an
-	// answer the next person can read.
-	//
-	// PinnedVersion is what it is held at, for the record; nothing enforces it
-	// on the machine itself. PinReason is required when pinning, because a pin
-	// with no reason becomes permanent by default — nobody dares remove it.
-	PinnedVersion string `json:"pinnedVersion,omitempty"`
-	PinReason     string `json:"pinReason,omitempty"`
-}
-
-// Pinned reports whether this node is held back, in the shape a rollout plan
-// wants.
-func (n Node) Pinned() (Skip, bool) {
-	if n.PinnedVersion == "" {
-		return Skip{}, false
-	}
-	return Skip{Name: n.Name, Version: n.PinnedVersion, Reason: n.PinReason}, true
 }
 
 // Store is the whole persisted state.
-//
-// There is no "enabled" here any more. It existed to say whether the panel
-// should open its listeners; the panel dials out now, so an empty fleet is
-// already the off state and a switch for it was one more thing to be wrong.
 type Store struct {
 	Nodes []Node `json:"nodes,omitempty"`
 }
@@ -96,39 +64,38 @@ type Store struct {
 // whichever wrote second would silently drop the other.
 var storeMu sync.Mutex
 
-// LoadStore reads the persisted state. A missing or unreadable file is an empty
-// fleet, not an error: the panel has to start on a server that has never used
-// this feature.
+// LoadStore reads the persisted state. A missing file is an empty fleet.
 func LoadStore() Store {
 	var s Store
 	if data, err := os.ReadFile(StorePath); err == nil {
 		json.Unmarshal(data, &s)
 	}
 	for i := range s.Nodes {
-		// A sealed value wins; a plaintext one is what an older version wrote
-		// and is kept working until the next save re-seals it.
-		if s.Nodes[i].Sealed != "" {
-			s.Nodes[i].Password = unseal(s.Nodes[i].Sealed)
+		if s.Nodes[i].CredentialSealed != "" {
+			s.Nodes[i].Credential = unseal(s.Nodes[i].CredentialSealed)
 		}
-		s.Nodes[i].Sealed = ""
 	}
 	return s
 }
 
-// SaveStore persists the state, root-only and with every password sealed.
+// SaveStore persists the state, root-only and with each Agent secret sealed.
 //
 // Sealing here rather than at each call site is what makes it unconditional:
 // this is the only function that writes the file, so there is no path by which
-// a password reaches the disk in the clear.
+// an Agent credential reaches the disk in the clear.
 func SaveStore(s Store) error {
 	out := Store{Nodes: append([]Node(nil), s.Nodes...)}
 	for i := range out.Nodes {
-		sealed, err := seal(out.Nodes[i].Password)
-		if err != nil {
-			return err
+		if out.Nodes[i].Credential != "" {
+			sealed, err := seal(out.Nodes[i].Credential)
+			if err != nil {
+				return err
+			}
+			out.Nodes[i].CredentialSealed = sealed
 		}
-		out.Nodes[i].Sealed = sealed
-		out.Nodes[i].Password = ""
+		// A restored registry may lack its separate key. Keep the original
+		// ciphertext so a later key import can recover the Agent credential.
+		out.Nodes[i].Credential = ""
 	}
 	data, _ := json.MarshalIndent(out, "", "  ")
 	return app.WriteFileAtomic(StorePath, data, 0600)
@@ -167,49 +134,47 @@ func validName(name string) error {
 	return nil
 }
 
-// Add records a server the panel will manage over SSH.
-//
-// Nothing is contacted here. Whether the address answers, whether the password
-// is right and whether Backpack is installed there are all questions with the
-// same answer — try it — and the caller does that once, so a failure is
-// reported as itself rather than as four checks that each half-worked.
-func Add(name, host string, sshPort int, user, password string) (Node, error) {
+// blank returns a copy without the Agent credential.
+func blank(n Node) Node {
+	n.Credential = ""
+	n.CredentialSealed = ""
+	return n
+}
+
+// AddManaged records a reverse-Agent node. SaveStore seals its credential.
+func AddManaged(name, controllerURL, id, credential string) (Node, error) {
 	name = strings.TrimSpace(name)
 	if err := validName(name); err != nil {
 		return Node{}, err
 	}
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return Node{}, fmt.Errorf("the server needs an address")
+	controllerURL = strings.TrimRight(strings.TrimSpace(controllerURL), "/")
+	if controllerURL == "" {
+		return Node{}, fmt.Errorf("the controller URL is required")
 	}
-	if strings.ContainsAny(host, " \t/\\") {
-		return Node{}, fmt.Errorf("%q is not an address", host)
+	if !strings.HasPrefix(controllerURL, "http://") && !strings.HasPrefix(controllerURL, "https://") {
+		return Node{}, fmt.Errorf("the controller URL must start with http:// or https://")
 	}
-	if sshPort < 0 || sshPort > 65535 {
-		return Node{}, fmt.Errorf("choose an SSH port between 1 and 65535")
+	id = strings.TrimSpace(id)
+	credential = strings.TrimSpace(credential)
+	if id == "" || credential == "" {
+		return Node{}, fmt.Errorf("managed nodes need an identity and permanent credential")
 	}
-	user = strings.TrimSpace(user)
-	if user == "" {
-		return Node{}, fmt.Errorf("the server needs a username")
+	secret, err := base64.RawURLEncoding.DecodeString(credential)
+	if err != nil || len(secret) != 32 {
+		return Node{}, fmt.Errorf("managed Node credentials must hold 32 random bytes")
 	}
-	if password == "" {
-		return Node{}, fmt.Errorf("the server needs a password")
-	}
-
 	var out Node
-	err := update(func(s *Store) error {
+	err = update(func(s *Store) error {
 		for _, n := range s.Nodes {
 			if strings.EqualFold(n.Name, name) {
 				return fmt.Errorf("a server called %q is already in the fleet", name)
 			}
-			if strings.EqualFold(n.Host, host) && n.SSHPort == sshPort {
-				return fmt.Errorf("%s is already in the fleet, as %q", host, n.Name)
+			if n.ID != "" && n.ID == id {
+				return fmt.Errorf("node identity %q is already enrolled", id)
 			}
 		}
-		out = Node{
-			Name: name, Host: host, SSHPort: sshPort, User: user, Password: password,
-			Added: time.Now().Unix(),
-		}
+		out = Node{Name: name, ID: id, ControllerURL: controllerURL,
+			Credential: credential, Added: time.Now().Unix()}
 		s.Nodes = append(s.Nodes, out)
 		return nil
 	})
@@ -219,15 +184,38 @@ func Add(name, host string, sshPort int, user, password string) (Node, error) {
 	return out, nil
 }
 
-// blank returns a copy with the password and host key removed.
-//
-// Nothing that reads the fleet list needs the credential, and a struct that
-// carries one travels: into a JSON response, into a log line, into a bug
-// report. The one place that does need it looks it up by name.
-func blank(n Node) Node {
-	n.Password = ""
-	n.Sealed = ""
-	return n
+// findByID returns the secret only inside this package. Browser handlers must
+// use List/Find, which blank credentials before serialisation.
+func findByID(id string) (Node, bool) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Node{}, false
+	}
+	for _, n := range LoadStore().Nodes {
+		if n.ID == id {
+			return n, true
+		}
+	}
+	return Node{}, false
+}
+
+// Revoke permanently disables a node credential without deleting its history.
+func Revoke(name string) error {
+	var id string
+	err := update(func(s *Store) error {
+		for i := range s.Nodes {
+			if strings.EqualFold(s.Nodes[i].Name, name) {
+				id = s.Nodes[i].ID
+				s.Nodes[i].Revoked = true
+				return nil
+			}
+		}
+		return fmt.Errorf("no server called %q", name)
+	})
+	if err == nil && id != "" {
+		DefaultHub.CloseNode(id)
+	}
+	return err
 }
 
 // List returns the fleet, oldest first, without credentials.
@@ -261,25 +249,6 @@ func findWithSecret(name string) (Node, bool) {
 	return Node{}, false
 }
 
-// NoteFingerprint records the host key a server presented, the first time it
-// answered. It refuses to overwrite one that is already there: a key that
-// changed is a thing to report, not to accept quietly.
-func NoteFingerprint(name, fp string) error {
-	return update(func(s *Store) error {
-		for i := range s.Nodes {
-			if !strings.EqualFold(s.Nodes[i].Name, name) {
-				continue
-			}
-			if s.Nodes[i].Fingerprint != "" && s.Nodes[i].Fingerprint != fp {
-				return ErrHostKeyChanged{Name: name, Had: s.Nodes[i].Fingerprint, Got: fp}
-			}
-			s.Nodes[i].Fingerprint = fp
-			return nil
-		}
-		return fmt.Errorf("no server called %q", name)
-	})
-}
-
 // NoteInfo stores what a server last reported about itself.
 func NoteInfo(name string, info Info) error {
 	return update(func(s *Store) error {
@@ -295,30 +264,24 @@ func NoteInfo(name string, info Info) error {
 	})
 }
 
-// SetCredentials changes how a server is reached. Changing the address clears
-// the host key: a different machine is entitled to a different one.
-func SetCredentials(name, host string, sshPort int, user, password string) error {
-	return update(func(s *Store) error {
+func noteConnection(id, observed, reason string, connected bool) {
+	_ = update(func(s *Store) error {
 		for i := range s.Nodes {
-			if !strings.EqualFold(s.Nodes[i].Name, name) {
+			if s.Nodes[i].ID != id {
 				continue
 			}
-			if host != "" && !strings.EqualFold(host, s.Nodes[i].Host) {
-				s.Nodes[i].Host = host
-				s.Nodes[i].Fingerprint = ""
-			}
-			if sshPort > 0 {
-				s.Nodes[i].SSHPort = sshPort
-			}
-			if user != "" {
-				s.Nodes[i].User = user
-			}
-			if password != "" {
-				s.Nodes[i].Password = password
+			if connected {
+				s.Nodes[i].LastConnected = time.Now().Unix()
+				s.Nodes[i].ObservedAddress = observed
+				s.Nodes[i].ProtocolVersion = agentProtocolVersion
+				s.Nodes[i].DisconnectReason = ""
+			} else {
+				s.Nodes[i].LastDisconnected = time.Now().Unix()
+				s.Nodes[i].DisconnectReason = reason
 			}
 			return nil
 		}
-		return fmt.Errorf("no server called %q", name)
+		return fmt.Errorf("unknown Node")
 	})
 }
 
@@ -326,12 +289,14 @@ func SetCredentials(name, host string, sshPort int, user, password string) error
 // because they are systemd services on that machine and have nothing to do with
 // this panel being able to reach it.
 func Remove(name string) error {
-	return update(func(s *Store) error {
+	var id string
+	err := update(func(s *Store) error {
 		kept := s.Nodes[:0]
 		found := false
 		for _, n := range s.Nodes {
 			if strings.EqualFold(n.Name, name) {
 				found = true
+				id = n.ID
 				continue
 			}
 			kept = append(kept, n)
@@ -342,46 +307,8 @@ func Remove(name string) error {
 		}
 		return nil
 	})
-}
-
-// Pin holds a server back from fleet rollouts at the version it is on.
-//
-// The reason is required. A pin with no reason outlives the situation that
-// caused it: nobody who finds it later knows whether it is still needed, so
-// nobody removes it, and the machine is behind for ever.
-func Pin(name, reason string) error {
-	reason = strings.TrimSpace(reason)
-	if reason == "" {
-		return fmt.Errorf("say why %s is being held back — a pin with no reason never gets removed", name)
+	if err == nil && id != "" {
+		DefaultHub.CloseNode(id)
 	}
-	return update(func(s *Store) error {
-		for i := range s.Nodes {
-			if s.Nodes[i].Name != name {
-				continue
-			}
-			v := s.Nodes[i].Info.Version
-			if v == "" {
-				v = "its current version"
-			}
-			s.Nodes[i].PinnedVersion = v
-			s.Nodes[i].PinReason = reason
-			return nil
-		}
-		return fmt.Errorf("no server called %q", name)
-	})
-}
-
-// Unpin lets a server take part in rollouts again.
-func Unpin(name string) error {
-	return update(func(s *Store) error {
-		for i := range s.Nodes {
-			if s.Nodes[i].Name != name {
-				continue
-			}
-			s.Nodes[i].PinnedVersion = ""
-			s.Nodes[i].PinReason = ""
-			return nil
-		}
-		return fmt.Errorf("no server called %q", name)
-	})
+	return err
 }
