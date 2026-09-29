@@ -133,7 +133,9 @@ func writeBackupEntries(tw *tar.Writer, root string) error {
 		// The registry holds sealed Agent credentials. The key must travel
 		// separately from a backup; importing it after a restore can recover
 		// the credentials. Pending one-time enrollment data is also excluded.
-		if rel == fleetKeyName || rel == enrollmentName {
+		// The install role is local to this host, like install_path: importing
+		// a Kharej role on an Iran Controller would disable its WebUI.
+		if rel == fleetKeyName || rel == enrollmentName || rel == filepath.Base(app.RoleFile) {
 			return nil
 		}
 

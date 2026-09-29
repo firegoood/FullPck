@@ -118,6 +118,12 @@ func stageRestore(r io.Reader, configDir, stage string) (restoreContents, error)
 		if err != nil {
 			return contents, err
 		}
+		// The role belongs to the installation, never to a portable backup.
+		// Keep the local role that seedStage copied, even for an archive made
+		// before role files were excluded from new backups.
+		if name == filepath.Base(app.RoleFile) {
+			continue
+		}
 		if seen[name] {
 			// The same path twice is either a broken archive or an attempt to
 			// have the second write land somewhere the first one's checks

@@ -169,7 +169,7 @@ func restoreBackup() {
 
 	// Bring the web panel back up (it may have a restored password now), except
 	// on a managed foreign node where the Controller owns the only WebUI.
-	if !node.HasAgentConfig() {
+	if !node.IsManagedForeign() {
 		if _, err := webui.EnsureRunning(); err != nil {
 			tui.Warn("Web panel could not start: " + err.Error())
 		} else if res.WebUIConfig {

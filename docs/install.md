@@ -2,15 +2,21 @@
 
 ## The normal way
 
-One command as root on the VPS:
+Choose the role when installing as root on each VPS:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh)
+# Iran Controller
+bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role iran
+
+# Managed foreign Node
+bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 ```
 
 It downloads the prebuilt release archive for your architecture (amd64/arm64)
 into `/root/FullPack`, **verifies it against the checksum published with the
-release**, installs the binary, and opens the menu when it finishes.
+release**, and installs the binary. The Iran role opens the menu when run in an
+interactive terminal. The foreign role keeps the local WebUI off; add the Node
+in the Iran panel, then run `sudo fullpack node join` on the foreign server.
 
 Reopen the menu any time with:
 
@@ -23,8 +29,8 @@ backups in `/root/FullPack/backups`, tunnel configs in `/etc/fullpack`. See
 [server layout](server-layout.md).
 
 > **Building from source** still works as a fallback: clone the repo and run
-> `sudo bash install.sh` inside it. If the release download fails it builds with
-> Go, fetching modules **directly first** and via Iran-friendly mirrors
+> `sudo bash install.sh --role iran` or `--role kharej` inside it. If the release
+> download fails it builds with Go, fetching modules **directly first** and via Iran-friendly mirrors
 > (RunFlare, goproxy.cn) only when direct access fails.
 
 ---
@@ -47,8 +53,10 @@ and never touches the network:
 
 ```bash
 scp install.sh SHA256SUMS fullpack_linux_amd64.tar.gz root@SERVER_IP:/root/
-ssh root@SERVER_IP "cd /root && sudo bash install.sh"
+ssh root@SERVER_IP "cd /root && sudo bash install.sh --role kharej"
 ```
+
+Use `--role iran` for the Controller server.
 
 ### By hand
 
@@ -60,8 +68,14 @@ tar xzf fullpack_linux_amd64.tar.gz
 mkdir -p /etc/fullpack /root/FullPack/backups
 install -m 0755 fullpack /usr/local/bin/fullpack
 echo /root/FullPack > /etc/fullpack/install_path
+printf '%s\n' kharej > /etc/fullpack/role  # use iran on the Controller
+chmod 0600 /etc/fullpack/role
 sudo fullpack
 ```
+
+For a managed foreign Node installed by hand, run `sudo fullpack node join`
+after adding the Node in the Iran panel. The installer above handles the role
+marker automatically.
 
 The `install_path` line is what the built-in uninstaller reads to know what to
 remove; skip it and everything still runs, but uninstalling has to be done by
@@ -93,8 +107,10 @@ installed. [More](updates.md).
 ## خلاصهٔ فارسی
 
 **نصب عادی:** یک دستور با کاربر root روی سرور — آرشیو ریلیز مخصوص معماری سرور را
-دانلود می‌کند، با چک‌سام منتشرشده **تأیید** می‌کند، نصب می‌کند و خودش منو را باز
-می‌کند. بعداً با `sudo fullpack` منو را باز کن.
+دانلود می‌کند و با چک‌سام منتشرشده **تأیید** می‌کند. برای ایران `--role iran`
+و برای سرور خارج `--role kharej` را بده. نصب ایران منو را باز می‌کند؛ نصب خارج
+WebUI محلی را اجرا نمی‌کند. پس از افزودن نود در پنل ایران، روی خارج
+`sudo fullpack node join` را اجرا کن. بعداً با `sudo fullpack` منو را باز کن.
 
 **نصب آفلاین (سروری که به گیت‌هاب دسترسی ندارد):** فایل ریلیز را روی یک ماشین با
 اینترنت دانلود کن و به سرور کپی کن. با `uname -m` معماری را ببین: `x86_64` یعنی

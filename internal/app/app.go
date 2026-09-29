@@ -52,6 +52,11 @@ const (
 	// its own identity and outbound controller details.
 	NodeAgentConfig = ConfigDir + "/node-agent.json"
 
+	// RoleFile records an explicit installer role before a foreign node has
+	// completed enrollment. It prevents the local CLI from starting a WebUI
+	// during that gap.
+	RoleFile = ConfigDir + "/role"
+
 	// NodeEnrollmentConfig stores one-time enrollment records on the controller.
 	NodeEnrollmentConfig = ConfigDir + "/node-enrollment.json"
 

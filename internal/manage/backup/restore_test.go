@@ -182,6 +182,17 @@ func TestArchivedInstallPathIsUsedWhenThereIsNoLocalOne(t *testing.T) {
 	assertStaged(t, stage, "install_path", "/opt/fullpack")
 }
 
+func TestRestoreKeepsThisHostsInstallRole(t *testing.T) {
+	live := t.TempDir()
+	stage := t.TempDir()
+	writeAt(t, live, "role", "kharej\n", 0600)
+	archive := archiveOf(t, entry{name: "role", body: "iran\n"})
+	if _, err := stageRestore(bytes.NewReader(archive), live, stage); err != nil {
+		t.Fatal(err)
+	}
+	assertStaged(t, stage, "role", "kharej\n")
+}
+
 // The commit is the only moment the live directory changes, and it either
 // happens or it does not.
 func TestCommitSwapsTheTreeInOneStep(t *testing.T) {

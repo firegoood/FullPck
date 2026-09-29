@@ -2,7 +2,8 @@
 #
 # FullPack installer — one command on the VPS (as root):
 #
-#   bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role iran
+#   bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 #
 # It downloads the prebuilt release tar.gz for this architecture into
 # /root/FullPack and installs the binary, verifying it against the checksum
@@ -15,8 +16,10 @@
 # archive and its checksum would arrive through the same proxy, so verifying
 # one against the other would prove nothing.
 #
-# When it finishes it opens the menu automatically (on an interactive terminal).
-# Later, reopen it any time with:  sudo fullpack
+# With --role kharej it records the foreign-node role and leaves WebUI off;
+# finish enrollment with `sudo fullpack node join`. The default and --role iran
+# paths open the menu on an interactive terminal. Later, reopen it with:
+#   sudo fullpack
 #
 set -euo pipefail
 
@@ -60,20 +63,17 @@ fi
 
 if [[ $EUID -ne 0 ]]; then err "Please run as root (sudo)."; exit 1; fi
 
-# This script takes no arguments.
-#
-# It used to accept `node --panel <host:port> --key <setup-key>`, which
-# installed FullPack and then enrolled the machine with a panel. A panel reaches
-# a managed server over its own SSH now, so there is nothing to enrol: the
-# operator adds the server from the panel and never touches this machine again.
-#
-# Run from a panel over SSH it has no terminal, which is already the quiet path
-# below — it installs and says how to open the menu instead of opening one.
+# The optional role is explicit because a foreign node must not start a local
+# WebUI before it has an Agent config. The default remains the original
+# controller/manual-install behavior.
+ROLE=""
 if [[ $# -gt 0 ]]; then
-  err "Unknown argument: $1"
-  err "This script takes no arguments. Run it to install FullPack."
-  err "To have a panel manage this server, add it from the panel; nothing is needed here."
-  exit 2
+  if [[ $# -eq 2 && "$1" == "--role" && ( "$2" == "iran" || "$2" == "kharej" ) ]]; then
+    ROLE="$2"
+  else
+    err "Usage: $0 [--role iran|kharej]"
+    exit 2
+  fi
 fi
 
 # Which release asset this machine can run.
@@ -399,8 +399,26 @@ else
 fi
 
 chmod +x "$BIN_PATH"
+
+if [[ -n "$ROLE" ]]; then
+  printf '%s\n' "$ROLE" > /etc/fullpack/role
+  chmod 0600 /etc/fullpack/role
+fi
+
+if [[ "$ROLE" == "kharej" && -f /etc/systemd/system/fullpack-webui.service ]]; then
+  systemctl disable --now fullpack-webui.service
+  rm -f /etc/systemd/system/fullpack-webui.service
+  systemctl daemon-reload
+fi
+
 echo
 echo -e "${WHITE}Done!${NC}"
+
+if [[ "$ROLE" == "kharej" ]]; then
+  echo -e "Foreign managed-node role selected; local WebUI was not started."
+  echo -e "Add this node from the Iran panel, then run: ${RED}sudo fullpack node join${NC}"
+  exit 0
+fi
 
 # Open the menu straight away — people miss the "now run sudo fullpack" step.
 # Only when there is an interactive terminal to read from: a piped install

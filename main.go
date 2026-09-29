@@ -84,7 +84,7 @@ func main() {
 		}
 		return
 	case *webPanel:
-		if node.HasAgentConfig() {
+		if node.IsManagedForeign() {
 			fmt.Fprintln(os.Stderr, "WebUI is disabled on a managed foreign node; use the Iran Controller panel.")
 			os.Exit(2)
 		}

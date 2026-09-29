@@ -58,6 +58,22 @@ func TestBackupArchiveCarriesTheTreeAndItsModes(t *testing.T) {
 	}
 }
 
+func TestBackupDoesNotExportTheLocalInstallRole(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string]os.FileMode{"role": 0600, "tunnel.toml": 0600})
+	var buf bytes.Buffer
+	if err := writeBackupTree(&buf, root); err != nil {
+		t.Fatal(err)
+	}
+	entries := readArchive(t, buf.Bytes())
+	if _, ok := entries["role"]; ok {
+		t.Fatal("a backup exported the machine-specific role")
+	}
+	if _, ok := entries["tunnel.toml"]; !ok {
+		t.Fatal("excluding the role also lost tunnel configuration")
+	}
+}
+
 // The failure this is really about: the tar footer and the gzip trailer are
 // written by Close, so an error there used to be swallowed by a deferred call
 // and the backup reported success over a truncated archive.

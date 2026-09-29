@@ -29,6 +29,36 @@ func TestHasAgentConfigTreatsPresenceAsManagedNodeMarker(t *testing.T) {
 	}
 }
 
+func TestIsManagedForeignHonorsTheInstallerRoleMarker(t *testing.T) {
+	dir := t.TempDir()
+	oldAgent, oldRole := AgentConfigPath, roleFilePath
+	AgentConfigPath = filepath.Join(dir, "node-agent.json")
+	roleFilePath = filepath.Join(dir, "role")
+	t.Cleanup(func() { AgentConfigPath, roleFilePath = oldAgent, oldRole })
+
+	if IsManagedForeign() {
+		t.Fatal("an unconfigured installation was marked as foreign")
+	}
+	if err := os.WriteFile(roleFilePath, []byte("kharej\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !IsManagedForeign() {
+		t.Fatal("the kharej role marker was ignored")
+	}
+	if err := os.WriteFile(roleFilePath, []byte("iran\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if IsManagedForeign() {
+		t.Fatal("the Iran role marker was treated as foreign")
+	}
+	if err := os.WriteFile(AgentConfigPath, []byte("incomplete"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !IsManagedForeign() {
+		t.Fatal("the Agent config did not override the Iran role marker")
+	}
+}
+
 func TestEnrollmentPinsSelfSignedControllerTLS(t *testing.T) {
 	dir := t.TempDir()
 	oldStore, oldEnroll, oldAgent := StorePath, EnrollmentStorePath, AgentConfigPath

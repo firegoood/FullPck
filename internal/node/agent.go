@@ -621,12 +621,27 @@ type AgentConfig struct {
 // /etc/fullpack path.
 var AgentConfigPath = app.NodeAgentConfig
 
+// roleFilePath is only overridden by tests; production reads the installer's
+// role marker from the root-only configuration directory.
+var roleFilePath = app.RoleFile
+
 // HasAgentConfig reports whether this installation has been enrolled as a
 // managed foreign node. Presence is enough here: even a damaged or partial
 // file must not make the CLI silently expose a WebUI listener on that node.
 func HasAgentConfig() bool {
 	_, err := os.Stat(AgentConfigPath)
 	return err == nil
+}
+
+// IsManagedForeign reports whether this installation is intended to be a
+// managed foreign node. The role marker covers the period between installation
+// and enrollment; the Agent config keeps the decision after enrollment.
+func IsManagedForeign() bool {
+	if HasAgentConfig() {
+		return true
+	}
+	b, err := os.ReadFile(roleFilePath)
+	return err == nil && strings.EqualFold(strings.TrimSpace(string(b)), "kharej")
 }
 
 func LoadAgentConfig() (AgentConfig, error) {

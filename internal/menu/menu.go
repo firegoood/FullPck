@@ -22,7 +22,7 @@ var ipStore atomic.Value // holds string
 // Run starts the interactive menu loop.
 func Run() {
 	requireRoot()
-	managedNode := node.HasAgentConfig()
+	managedNode := node.IsManagedForeign()
 
 	// Bring the monitoring web panel up in the background and start resolving
 	// the public IP (shown inside the Web Panel section).
