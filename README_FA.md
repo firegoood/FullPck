@@ -2,25 +2,16 @@
 
 ## شروع سریع (Quick Start)
 
-روی هر سرور Ubuntu با معماری amd64، ابزارهای لازم را نصب و FullPack را دریافت کنید:
+روی سرور ایران با Ubuntu و معماری amd64، نصب را با نقش کنترلر انجام دهید. در صورت نیاز، رمز `sudo` درخواست می‌شود و پس از نصب منو باز می‌شود:
 
 ```bash
-sudo apt update
-sudo apt install -y git curl tar
-git clone https://github.com/firegoood/FullPck.git FullPack
-cd FullPack
-```
-
-روی سرور ایران نصب را با نقش کنترلر انجام دهید:
-
-```bash
-sudo bash install.sh --role iran
+bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role iran
 ```
 
 روی سرور خارج نقش نود مدیریت‌شده را انتخاب کنید تا WebUI محلی اجرا نشود:
 
 ```bash
-sudo bash install.sh --role kharej
+bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 ```
 
 پس از افزودن نود از پنل ایران، ثبت‌نام را روی سرور خارج کامل کنید:

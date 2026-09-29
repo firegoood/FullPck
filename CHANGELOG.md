@@ -1,6 +1,23 @@
 # Changelog
 
-All notable changes to Backpack are documented here.
+All notable changes to FullPack are documented here.
+
+## v1.8.5 — 2026-09-29
+
+### Added
+
+- One-command installation for Iran Controllers and managed foreign Nodes. The installer requests `sudo` when needed and can build from the FullPack source archive before a prebuilt release is available.
+- Managed Node enrollment and Fleet controls on the existing Controller WebUI listener, without a local WebUI on the foreign server.
+
+### Changed
+
+- Rebranded the executable, configuration paths, installer, and release assets as FullPack.
+- Changed the default WebUI port to `7654`.
+
+### Fixed
+
+- Made Node enrollment retry-safe and bounded recovery for provisioned enrollment.
+- Preserved manual tunnel setup while adding managed Nodes.
 
 ## v1.8.4 — 2026-09-26
 

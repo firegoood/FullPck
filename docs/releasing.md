@@ -27,8 +27,8 @@ written down, so a release made in a hurry is the same release.
 ## Tagging
 
 ```
-git tag -a v1.8.4 -m "v1.8.4"
-git push origin v1.8.4
+git tag -a v1.8.5 -m "v1.8.5"
+git push fullpack v1.8.5
 ```
 
 The release workflow builds every architecture, writes `SHA256SUMS`, signs it

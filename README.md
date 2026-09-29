@@ -2,25 +2,16 @@
 
 ## Quick Start
 
-On each Ubuntu amd64 server, install the required tools and clone FullPack:
+On the Iran server (Ubuntu amd64), install as Controller. Enter your sudo password if prompted; the interactive menu opens after installation:
 
 ```bash
-sudo apt update
-sudo apt install -y git curl tar
-git clone https://github.com/firegoood/FullPck.git FullPack
-cd FullPack
-```
-
-On the Iran server, install as Controller. The interactive menu starts the WebUI and monitor:
-
-```bash
-sudo bash install.sh --role iran
+bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role iran
 ```
 
 On the foreign server, install as a managed Node. This does not start a local WebUI:
 
 ```bash
-sudo bash install.sh --role kharej
+bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 ```
 
 Add the foreign node in the Iran panel, then complete enrollment on the foreign server:

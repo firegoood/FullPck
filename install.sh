@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# FullPack installer — one command on the VPS (as root):
+# FullPack installer — one command on the VPS (sudo is requested if needed):
 #
 #   bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role iran
 #   bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 #
 # It downloads the prebuilt release tar.gz for this architecture into
 # /root/FullPack and installs the binary, verifying it against the checksum
-# published with the release. If run inside a source checkout and the download
-# fails, it builds from source as a last resort.
+# published with the release. Before the first release, or if no archive exists
+# for this architecture, it downloads the FullPack source and builds locally.
 #
 # A server that cannot reach GitHub at all installs offline instead: download
 # the archive on a machine that can, copy it over, and follow the offline steps
@@ -29,6 +29,7 @@ warn() { echo -e "${GRAY}[!]${NC} $*"; }
 err()  { echo -e "${RED}[x]${NC} $*" >&2; }
 
 REPO="firegoood/FullPck"
+RAW_INSTALL_URL="https://raw.githubusercontent.com/${REPO}/main/install.sh"
 BIN_PATH="/usr/local/bin/fullpack"
 INSTALL_DIR="/root/FullPack"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-/tmp}")" 2>/dev/null && pwd || echo /tmp)"
@@ -46,9 +47,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-/tmp}")" 2>/dev/null && pwd || ec
 # these stayed at 1.24.5, so building from source could not succeed on any
 # machine. That is the path taken only when the release download has already
 # failed, which is to say on exactly the servers with the worst connectivity —
-# the ones least able to do anything else. The values below are the fallback for
-# a standalone `curl | bash`, where there is no go.mod to read and no source
-# build to do either.
+# the ones least able to do anything else. The values below apply until a
+# source archive has been downloaded and its go.mod can be read.
 GO_VERSION="1.26.6"
 GO_MIN_MINOR=26
 if [[ -f "$SCRIPT_DIR/go.mod" ]]; then
@@ -61,8 +61,6 @@ if [[ -f "$SCRIPT_DIR/go.mod" ]]; then
   unset gomod_go
 fi
 
-if [[ $EUID -ne 0 ]]; then err "Please run as root (sudo)."; exit 1; fi
-
 # The optional role is explicit because a foreign node must not start a local
 # WebUI before it has an Agent config. The default remains the original
 # controller/manual-install behavior.
@@ -74,6 +72,22 @@ if [[ $# -gt 0 ]]; then
     err "Usage: $0 [--role iran|kharej]"
     exit 2
   fi
+fi
+
+# Process-substitution file descriptors are commonly closed by sudo. Download
+# the installer into a private temporary file and run that copy as root instead.
+# Keeping stdin attached to the terminal also lets the Iran menu open normally.
+if [[ $EUID -ne 0 ]]; then
+  command -v sudo >/dev/null 2>&1 || { err "sudo is required to install FullPack."; exit 1; }
+  command -v curl >/dev/null 2>&1 || { err "curl is required to install FullPack."; exit 1; }
+  installer_tmp="$(mktemp "${TMPDIR:-/tmp}/fullpack-install.XXXXXXXX")"
+  trap 'rm -f -- "$installer_tmp"' EXIT
+  if ! curl -fsSL --connect-timeout 15 "$RAW_INSTALL_URL" -o "$installer_tmp"; then
+    err "Could not download the FullPack installer from ${RAW_INSTALL_URL}."
+    exit 1
+  fi
+  sudo bash "$installer_tmp" "$@"
+  exit $?
 fi
 
 # Which release asset this machine can run.
@@ -249,8 +263,7 @@ install_binary_from_tar() {
 }
 
 # ---------------------------------------------------------------------------
-# Build-from-source fallback (only used when the release download fails and
-# this script sits inside a source checkout).
+# Build-from-source fallback (used when the release download fails).
 # ---------------------------------------------------------------------------
 # The checksums Go publishes for the toolchain this build needs.
 #
@@ -381,6 +394,42 @@ build_from_source() {
   echo "$INSTALL_DIR" > /etc/fullpack/install_path
 }
 
+# When invoked with bash <(curl ...), SCRIPT_DIR points to /dev/fd rather than
+# a checkout. GitHub's source archive makes that one-line install usable even
+# before the first release. Extract only into a root-owned temporary directory.
+SOURCE_TEMP_DIR=""
+cleanup_source() {
+  if [[ -n "$SOURCE_TEMP_DIR" ]]; then
+    rm -rf -- "$SOURCE_TEMP_DIR"
+    SOURCE_TEMP_DIR=""
+  fi
+}
+trap cleanup_source EXIT
+download_source() {
+  SOURCE_TEMP_DIR="$(mktemp -d "$INSTALL_DIR/.source.XXXXXXXX")" || return 1
+  if ! fetch "https://github.com/${REPO}/archive/refs/heads/main.tar.gz" "$SOURCE_TEMP_DIR/source.tar.gz"; then
+    return 1
+  fi
+  if ! tar --no-same-owner -xzf "$SOURCE_TEMP_DIR/source.tar.gz" -C "$SOURCE_TEMP_DIR" --strip-components=1; then
+    err "Could not unpack the FullPack source archive."
+    return 1
+  fi
+  rm -f "$SOURCE_TEMP_DIR/source.tar.gz"
+  if [[ ! -f "$SOURCE_TEMP_DIR/go.mod" || ! -f "$SOURCE_TEMP_DIR/main.go" ]]; then
+    err "The downloaded archive is not a FullPack source tree."
+    return 1
+  fi
+  SCRIPT_DIR="$SOURCE_TEMP_DIR"
+  gomod_go="$(grep -m1 -E '^go[[:space:]]+[0-9]+\.[0-9]+' "$SCRIPT_DIR/go.mod" | awk '{print $2}' || true)"
+  if [[ ! "$gomod_go" =~ ^[0-9]+\.([0-9]+)(\.[0-9]+)?$ ]]; then
+    err "Could not read the required Go version from the downloaded go.mod."
+    return 1
+  fi
+  if [[ -n "${BASH_REMATCH[2]}" ]]; then GO_VERSION="$gomod_go"; else GO_VERSION="${gomod_go}.0"; fi
+  GO_MIN_MINOR="${BASH_REMATCH[1]}"
+  unset gomod_go
+}
+
 if install_release; then
   install_binary_from_tar
   info "Installed release binary -> ${BIN_PATH}"
@@ -388,13 +437,16 @@ elif [[ -f "$SCRIPT_DIR/go.mod" && -f "$SCRIPT_DIR/main.go" ]] && trusted_dir "$
   warn "Release download failed — building from source instead."
   build_from_source
   info "Built and installed -> ${BIN_PATH}"
+elif download_source; then
+  warn "Release download failed — building the downloaded source instead."
+  build_from_source
+  cleanup_source
+  info "Built and installed -> ${BIN_PATH}"
 else
-  err "Could not download the release, and no usable source checkout was found here."
-  err "(A checkout in a world-writable directory is not built from: it would"
-  err " compile whatever is there into a binary that then runs as root.)"
+  err "Could not download a release or the FullPack source archive."
   err "This server may not be able to reach GitHub. Install offline instead:"
   err "download the archive on a machine that can, copy it over, and follow the"
-  err "offline steps in the README. Or clone the repo and run install.sh inside it."
+  err "offline steps in docs/install.md."
   exit 1
 fi
 

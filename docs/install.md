@@ -2,7 +2,7 @@
 
 ## The normal way
 
-Choose the role when installing as root on each VPS:
+Choose the role on each VPS. The installer asks for sudo when needed:
 
 ```bash
 # Iran Controller
@@ -12,9 +12,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/insta
 bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 ```
 
-It downloads the prebuilt release archive for your architecture (amd64/arm64)
-into `/root/FullPack`, **verifies it against the checksum published with the
-release**, and installs the binary. The Iran role opens the menu when run in an
+If a prebuilt release exists, the installer downloads the archive for your
+architecture (amd64/arm64) into `/root/FullPack`, **verifies it against the
+checksum published with the release**, and installs the binary. Until the first
+release is published, it downloads the source archive from the FullPack repository
+and builds on the server with Go. The Iran role opens the menu when run in an
 interactive terminal. The foreign role keeps the local WebUI off; add the Node
 in the Iran panel, then run `sudo fullpack node join` on the foreign server.
 
@@ -28,10 +30,10 @@ Everything lands in a tidy layout — the release bundle in `/root/FullPack`,
 backups in `/root/FullPack/backups`, tunnel configs in `/etc/fullpack`. See
 [server layout](server-layout.md).
 
-> **Building from source** still works as a fallback: clone the repo and run
-> `sudo bash install.sh --role iran` or `--role kharej` inside it. If the release
-> download fails it builds with Go, fetching modules **directly first** and via Iran-friendly mirrors
-> (RunFlare, goproxy.cn) only when direct access fails.
+> **Building from source** also works from a local checkout: clone the repo and
+> run `sudo bash install.sh --role iran` or `--role kharej` inside it. If the release
+> download fails, it builds with Go, fetching modules **directly first** and via
+> Iran-friendly mirrors (RunFlare, goproxy.cn) only when direct access fails.
 
 ---
 
