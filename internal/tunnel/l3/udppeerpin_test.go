@@ -163,21 +163,30 @@ func TestBatchedUDPCarriesMixedRunsIntactBothWays(t *testing.T) {
 		from, to *batchDevice
 	}{{"dial→listen", aDev, bDev}, {"listen→dial", bDev, aDev}} {
 		want := map[string]int{}
-		for i := 0; i < packets; i++ {
-			p := build(i)
-			want[string(p)]++
-			dir.from.queue(p)
-		}
 		deadline := time.After(20 * time.Second)
-		for got := 0; got < packets; got++ {
-			select {
-			case p := <-dir.to.emitted:
-				if want[string(p)] == 0 {
-					t.Fatalf("%s: a packet arrived changed or twice (%d bytes)", dir.name, len(p))
+		// Exercise full batches without making kernel receive-buffer capacity
+		// part of the assertion. UDP can drop an unpaced 2 MB burst before the
+		// reader runs, especially on a busy CI runner; this checks framing and
+		// segmentation, not reliable delivery under overload.
+		for first := 0; first < packets; first += batch {
+			end := min(first+batch, packets)
+			run := make([][]byte, 0, end-first)
+			for i := first; i < end; i++ {
+				p := build(i)
+				want[string(p)]++
+				run = append(run, p)
+			}
+			dir.from.queue(run...)
+			for got := first; got < end; got++ {
+				select {
+				case p := <-dir.to.emitted:
+					if want[string(p)] == 0 {
+						t.Fatalf("%s: a packet arrived changed or twice (%d bytes)", dir.name, len(p))
+					}
+					want[string(p)]--
+				case <-deadline:
+					t.Fatalf("%s: only %d of %d packets crossed", dir.name, got, packets)
 				}
-				want[string(p)]--
-			case <-deadline:
-				t.Fatalf("%s: only %d of %d packets crossed", dir.name, got, packets)
 			}
 		}
 	}
