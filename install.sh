@@ -440,6 +440,7 @@ elif [[ -f "$SCRIPT_DIR/go.mod" && -f "$SCRIPT_DIR/main.go" ]] && trusted_dir "$
 elif download_source; then
   warn "Release download failed — building the downloaded source instead."
   build_from_source
+  cd "$INSTALL_DIR"
   cleanup_source
   info "Built and installed -> ${BIN_PATH}"
 else
