@@ -115,8 +115,8 @@ const SHELL = `
       <div class="asv-g">
         <label class="f1"><span>Name</span>
           <input name="name" placeholder="kharej" autocomplete="off" required></label>
-         <div class="f2"><span>Controller endpoint</span>
-           <code>this WebUI address</code></div>
+         <label class="f1"><span>Controller endpoint reachable from the foreign server (include the WebUI port)</span>
+           <input name="controller_url" type="url" placeholder="https://iran.example:7654" required></label>
       </div>
 
       <div class="asv-f">
@@ -524,6 +524,8 @@ export function serversView(ctx) {
   addB.addEventListener('click', () => {
     form.hidden = false;
     $('#nempty', root).hidden = true;
+    const current = new URL(window.location.origin);
+    form.querySelector('input[name=controller_url]').value = current.port ? current.origin : '';
     form.querySelector('input[name=name]').focus();
   });
   $('#asvcancel', root).addEventListener('click', () => { form.hidden = true; form.reset(); });

@@ -147,12 +147,10 @@ func AddManaged(name, controllerURL, id, credential string) (Node, error) {
 	if err := validName(name); err != nil {
 		return Node{}, err
 	}
-	controllerURL = strings.TrimRight(strings.TrimSpace(controllerURL), "/")
-	if controllerURL == "" {
-		return Node{}, fmt.Errorf("the controller URL is required")
-	}
-	if !strings.HasPrefix(controllerURL, "http://") && !strings.HasPrefix(controllerURL, "https://") {
-		return Node{}, fmt.Errorf("the controller URL must start with http:// or https://")
+	var err error
+	controllerURL, err = ValidateControllerURL(controllerURL)
+	if err != nil {
+		return Node{}, err
 	}
 	id = strings.TrimSpace(id)
 	credential = strings.TrimSpace(credential)

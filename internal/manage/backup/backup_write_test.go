@@ -347,6 +347,8 @@ func TestTheFleetKeyIsNotInTheBackup(t *testing.T) {
 	write("nodes.json", `{"nodes":[{"name":"a","password_sealed":"enc:v1:AAAA"}]}`)
 	write(fleetKeyName, "0123456789abcdef0123456789abcdef")
 	write(enrollmentName, `[{"node_id":"pending","token_hash":"bootstrap-psk"}]`)
+	write(pendingAgentName, `{"credential":"temporary-retry-secret"}`)
+	write(agentJoinLockName, "")
 
 	var buf bytes.Buffer
 	if err := writeBackupTree(&buf, dir); err != nil {
@@ -355,7 +357,8 @@ func TestTheFleetKeyIsNotInTheBackup(t *testing.T) {
 
 	names := archiveNames(t, buf.Bytes())
 	for _, n := range names {
-		if filepath.Base(n) == fleetKeyName || filepath.Base(n) == enrollmentName {
+		if filepath.Base(n) == fleetKeyName || filepath.Base(n) == enrollmentName ||
+			filepath.Base(n) == pendingAgentName || filepath.Base(n) == agentJoinLockName {
 			t.Errorf("the archive carries secret bootstrap material: %s", n)
 		}
 	}

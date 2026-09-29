@@ -8,7 +8,8 @@ Backups live in `/root/FullPack/backups`.
 
 A backup includes the encrypted credentials and identities of managed Node
 Agents, but excludes the separate key (`node.key`) that decrypts them. The
-short-lived pending enrollment file is also excluded.
+short-lived Controller enrollment file and the Node's unfinished join intent
+(`node-agent.json.pending`) are also excluded.
 
 Restoring onto the same machine is unaffected: the key is already there and the
 restore leaves it alone.
@@ -35,6 +36,12 @@ undo — move the existing key aside yourself if that is genuinely what you mean
 
 Both entries only appear when a managed Node has a sealed credential, so a
 single-machine install never sees them.
+
+If `fullpack node join` fails after the Controller has saved a Node, rerun it
+with the same enrollment code on the same foreign machine. Its private pending
+intent keeps the same permanent credential for the retry. A completed join
+removes that intent. Ordinary backups omit the intent; recovery on a different
+machine requires a fresh enrollment.
 
 
 ## Restore

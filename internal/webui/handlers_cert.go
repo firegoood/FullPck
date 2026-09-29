@@ -136,7 +136,7 @@ func certSnapshot() certView {
 //
 // There are exactly two routes. On port 443 the panel's own listener answers
 // the challenge over TLS-ALPN, needing nothing else open. Anywhere else — and
-// the panel's default is 7777 — the challenge has to arrive over plain HTTP on
+// the panel's default is 7654 — the challenge has to arrive over plain HTTP on
 // port 80, so that port must be free for the responder to bind.
 func acmeValidationPath(panelPort int, port80Free bool) (string, string) {
 	if panelPort == 443 {

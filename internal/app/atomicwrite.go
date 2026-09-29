@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 // WriteFileAtomic writes data to path by writing a temporary file in the same
@@ -50,5 +51,23 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	if err := os.Chmod(name, perm); err != nil {
 		return err
 	}
-	return os.Rename(name, path)
+	if err := os.Rename(name, path); err != nil {
+		return err
+	}
+	// On Linux the rename itself must also reach stable storage. Without a
+	// directory fsync a power loss can forget the new name after a successful
+	// file fsync, which matters for enrollment's commit record.
+	if runtime.GOOS != "windows" {
+		d, err := os.Open(dir)
+		if err != nil {
+			return err
+		}
+		err = d.Sync()
+		closeErr := d.Close()
+		if err != nil {
+			return err
+		}
+		return closeErr
+	}
+	return nil
 }

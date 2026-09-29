@@ -275,7 +275,7 @@ func groupShares(shares []l3Share) []sharedTunnel {
 }
 
 // busyForwardPorts lists the mapped ports something on this machine already
-// listens on. The web panel's own port (7777 by default) is the usual one: a
+// listens on. The web panel's own port (7654 by default) is the usual one: a
 // tunnel forwarding it started, reported nothing wrong in the wizard, and its
 // forwarder failed to bind in a log nobody was reading.
 func busyForwardPorts(specs []string, peer string) []string {

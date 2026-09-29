@@ -1,11 +1,12 @@
 # Web panel
 
-A **monitoring-only** dashboard on **port 7777**, matching the CLI's look. It
-shows live CPU / RAM / disk / traffic, each tunnel's state, real ping, and logs.
+A dashboard and tunnel-management panel on **port 7654** by default. It shows
+live CPU / RAM / disk / traffic, each tunnel's state, real ping, and logs.
 Backup, Telegram setup and the panel password live in **Settings**.
 
-Run it on the **Iran** server, where you watch things from. It does not create
-or change tunnels — that is the CLI's job.
+Run it on the **Iran** server. Add Tunnel offers an explicit **Manual / Local**
+choice for a single local end and **Managed / Paired** for both ends when an
+online Node is available. The CLI also remains available for manual setup.
 
 ## Getting in
 
@@ -13,7 +14,7 @@ The link and login code are shown in the CLI under **Web Panel** (whose settings
 also cover update, panel port and password). Open the port first:
 
 ```bash
-sudo ufw allow 7777
+sudo ufw allow 7654
 ```
 
 ## Using your own certificate (certbot or any other)
@@ -86,12 +87,13 @@ the same Security pane if that matters.
 
 ## خلاصهٔ فارسی
 
-یک داشبورد **فقط-پایشی** روی **پورت ۷۷۷۷** با ظاهری هماهنگ با CLI: پردازنده،
+یک پنل پایش و مدیریت تونل روی **پورت پیش‌فرض ۷۶۵۴** با ظاهری هماهنگ با CLI: پردازنده،
 حافظه، دیسک و ترافیک زنده، وضعیت هر تونل، پینگ واقعی و لاگ‌ها. پشتیبان‌گیری،
 تنظیمات تلگرام و رمز پنل در بخش **Settings** است.
 
-روی سرور **ایران** اجرایش کن، همان‌جا که از آن نظارت می‌کنی. تونل نمی‌سازد و
-تغییر نمی‌دهد — آن کارِ CLI است.
+روی سرور **ایران** اجرایش کن. در Add Tunnel می‌توانی حالت **Manual / Local**
+را برای ساخت یک سمت یا حالت **Managed / Paired** را برای ساخت هر دو سمت با Agent
+انتخاب کنی. حالت دستی حتی بدون Node مدیریت‌شده در دسترس است.
 
 **ورود دو مرحله‌ای:** پنل روی این سرور root است و به‌صورت پیش‌فرض فقط یک رمز
 جلوی آن است. از `Settings → Security → Two-factor sign-in` می‌توانی کد یک‌بارمصرف
@@ -103,7 +105,7 @@ the same Security pane if that matters.
 
 **ورود:** لینک و کد ورود در CLI زیر گزینهٔ **Web Panel** نشان داده می‌شود (پورت،
 رمز و گواهی پنل هم همان‌جا تنظیم می‌شود). اول پورت را باز کن:
-`sudo ufw allow 7777`.
+`sudo ufw allow 7654`.
 
 </div>
 

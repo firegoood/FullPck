@@ -81,6 +81,7 @@ func TestEnrollmentPinsSelfSignedControllerTLS(t *testing.T) {
 	if cfg.TLSPinSHA256 == "" {
 		t.Fatal("the Agent lost its TLS pin")
 	}
+	AgentConfigPath = filepath.Join(dir, "wrong-pin-agent.json")
 	wrong := sha256.Sum256([]byte("different certificate"))
 	badCode, err := CreateEnrollmentPinned("wrong-pin", srv.URL,
 		base64.RawURLEncoding.EncodeToString(wrong[:]), time.Minute)

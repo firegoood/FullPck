@@ -18,11 +18,15 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/firegoood/FullPck/internal/app"
@@ -53,6 +57,15 @@ type enrollmentRecord struct {
 	Used          bool   `json:"used,omitempty"`
 }
 
+// A retry must reuse the credential that was offered to the controller. This
+// intent is written on the node before the first network request, so losing a
+// response cannot cause a new credential to be offered for the same code.
+type pendingEnrollment struct {
+	CodeHash   string `json:"code_hash"`
+	NodeID     string `json:"node_id"`
+	Credential string `json:"credential"`
+}
+
 var enrollmentMu sync.Mutex
 
 // EnrollmentStorePath can be overridden by package tests.
@@ -72,15 +85,15 @@ func CreateEnrollmentPinned(name, controllerURL, tlsPin string, ttl time.Duratio
 		ttl = defaultEnrollTTL
 	}
 	name = strings.TrimSpace(name)
-	controllerURL = strings.TrimRight(strings.TrimSpace(controllerURL), "/")
+	var err error
+	controllerURL, err = ValidateControllerURL(controllerURL)
+	if err != nil {
+		return "", err
+	}
 	if err := validName(name); err != nil {
 		return "", err
 	}
-	u, err := url.Parse(controllerURL)
-	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") ||
-		u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", errors.New("the controller URL must start with http:// or https://")
-	}
+	u, _ := url.Parse(controllerURL)
 	if tlsPin != "" {
 		pin, pinErr := base64.RawURLEncoding.DecodeString(tlsPin)
 		if u.Scheme != "https" || pinErr != nil || len(pin) != sha256.Size {
@@ -110,7 +123,7 @@ func CreateEnrollmentPinned(name, controllerURL, tlsPin string, ttl time.Duratio
 	// the controller store. An outstanding code reserves the chosen name.
 	active := items[:0]
 	for _, item := range items {
-		if item.Used || item.Expires <= time.Now().Unix() {
+		if item.Used || (item.Expires <= time.Now().Unix() && !enrollmentProvisioned(item.NodeID)) {
 			continue
 		}
 		if strings.EqualFold(item.Name, name) {
@@ -136,6 +149,42 @@ func randomToken(n int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
+// ValidateControllerURL accepts only an origin with an explicit port. Agent
+// paths are fixed and browser path prefixes must never enter this endpoint.
+func ValidateControllerURL(raw string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") ||
+		u.User != nil || u.Opaque != "" || u.RawQuery != "" || u.Fragment != "" ||
+		(u.Path != "" && u.Path != "/") || u.RawPath != "" {
+		return "", errors.New("controller URL must be an http(s) origin with an explicit port")
+	}
+	host, portText, err := net.SplitHostPort(u.Host)
+	if err != nil || host == "" {
+		return "", errors.New("controller URL needs a valid host and port")
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 1 || port > 65535 {
+		return "", errors.New("controller URL has an invalid port")
+	}
+	if net.ParseIP(host) == nil {
+		if len(host) > 253 || strings.Contains(host, "..") {
+			return "", errors.New("controller URL has an invalid host")
+		}
+		for _, label := range strings.Split(host, ".") {
+			if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+				return "", errors.New("controller URL has an invalid host")
+			}
+			for _, c := range label {
+				if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+					(c >= '0' && c <= '9') || c == '-') {
+					return "", errors.New("controller URL has an invalid host")
+				}
+			}
+		}
+	}
+	return u.Scheme + "://" + net.JoinHostPort(host, portText), nil
+}
+
 func parseEnrollment(code string) (enrollmentCode, error) {
 	var out enrollmentCode
 	code = strings.TrimSpace(code)
@@ -153,11 +202,12 @@ func parseEnrollment(code string) (enrollmentCode, error) {
 	}
 	id, idErr := base64.RawURLEncoding.DecodeString(out.NodeID)
 	token, tokenErr := base64.RawURLEncoding.DecodeString(out.Token)
-	u, urlErr := url.Parse(out.ControllerURL)
+	_, urlErr := ValidateControllerURL(out.ControllerURL)
 	if idErr != nil || len(id) != 16 || tokenErr != nil || len(token) != 32 ||
-		urlErr != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil {
+		urlErr != nil {
 		return enrollmentCode{}, errors.New("invalid enrollment code")
 	}
+	u, _ := url.Parse(out.ControllerURL)
 	if out.TLSPinSHA256 != "" {
 		pin, err := base64.RawURLEncoding.DecodeString(out.TLSPinSHA256)
 		if err != nil || len(pin) != sha256.Size || u.Scheme != "https" {
@@ -185,14 +235,18 @@ func CertificatePin(path string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(sum[:]), nil
 }
 
-// CompleteEnrollment validates and consumes a code, stores the permanent
-// credential on the controller, and returns the node's stable identity.
+// CompleteEnrollment is the direct completion helper. The WebSocket join uses
+// the provision/ack steps separately because the node must save its config
+// before the controller consumes the bootstrap credential.
 func CompleteEnrollment(code, credential string) (AgentConfig, error) {
 	e, err := parseEnrollment(code)
 	if err != nil {
 		return AgentConfig{}, err
 	}
 	cfg, err := completeEnrollmentRecord(e.NodeID, HashCredential(e.Token), credential)
+	if err == nil {
+		err = finishEnrollment(e.NodeID, credential)
+	}
 	cfg.TLSPinSHA256 = e.TLSPinSHA256
 	return cfg, err
 }
@@ -218,20 +272,61 @@ func completeEnrollmentRecord(nodeID, tokenHash, credential string) (AgentConfig
 			break
 		}
 	}
-	if found == nil || found.Used || found.Expires <= time.Now().Unix() ||
+	if found == nil || found.Used ||
 		subtle.ConstantTimeCompare([]byte(found.TokenHash), []byte(tokenHash)) != 1 {
 		return AgentConfig{}, errors.New("enrollment code is invalid, expired or already used")
 	}
-	// AddManaged seals the permanent credential through the controller's normal
-	// registry writer. The enrollment token itself never enters that registry.
-	found.Used = true
-	if err := saveEnrollments(items); err != nil {
-		return AgentConfig{}, err
+	// The registry's atomic write is the Provisioned commit. If it already
+	// contains this identity, a lost response (or a crash after the commit)
+	// returns the same result. A different credential is never allowed to rotate
+	// that identity through a retry.
+	if existing, ok := findByID(nodeID); ok {
+		if existing.Revoked || existing.Name != found.Name || existing.ControllerURL != found.ControllerURL ||
+			subtle.ConstantTimeCompare([]byte(existing.Credential), []byte(credential)) != 1 {
+			return AgentConfig{}, errors.New("enrollment already provisioned with a different credential")
+		}
+		return AgentConfig{NodeID: found.NodeID, Name: found.Name, ControllerURL: found.ControllerURL, Credential: credential}, nil
 	}
+	if found.Expires <= time.Now().Unix() {
+		return AgentConfig{}, errors.New("enrollment code has expired")
+	}
+	// An unsuccessful registry write leaves the token pending. The only writer
+	// seals credentials and atomically replaces nodes.json.
 	if _, err := AddManaged(found.Name, found.ControllerURL, found.NodeID, credential); err != nil {
 		return AgentConfig{}, err
 	}
 	return AgentConfig{NodeID: found.NodeID, Name: found.Name, ControllerURL: found.ControllerURL, Credential: credential}, nil
+}
+
+func enrollmentProvisioned(id string) bool {
+	n, ok := findByID(id)
+	return ok && !n.Revoked && n.Credential != ""
+}
+
+// Completed is recorded only after the node has saved its config, or after it
+// proves the permanent credential on the ordinary Agent channel. A failed
+// completion write leaves the same Provisioned identity safely retryable.
+func finishEnrollment(nodeID, credential string) error {
+	enrollmentMu.Lock()
+	defer enrollmentMu.Unlock()
+	n, ok := findByID(nodeID)
+	if !ok || n.Revoked || subtle.ConstantTimeCompare([]byte(n.Credential), []byte(credential)) != 1 {
+		return errors.New("enrollment identity is unavailable")
+	}
+	items, err := loadEnrollments()
+	if err != nil {
+		return err
+	}
+	for i := range items {
+		if items[i].NodeID == nodeID {
+			if items[i].Used {
+				return nil
+			}
+			items[i].Used = true
+			return saveEnrollments(items)
+		}
+	}
+	return nil
 }
 
 func loadEnrollments() ([]enrollmentRecord, error) {
@@ -257,8 +352,10 @@ func saveEnrollments(items []enrollmentRecord) error {
 	if err != nil {
 		return err
 	}
-	return writePrivateFile(EnrollmentStorePath, b)
+	return writeEnrollmentFile(EnrollmentStorePath, b)
 }
+
+var writeEnrollmentFile = writePrivateFile
 
 // Small indirections keep enrollment tests independent from the host OS and
 // let the normal implementation stay with the standard library.
@@ -272,6 +369,7 @@ type enrollmentMessage struct {
 	NodeID     string `json:"node_id"`
 	Credential string `json:"credential"`
 	Error      string `json:"error,omitempty"`
+	Ack        bool   `json:"ack,omitempty"`
 }
 
 // JoinWithEnrollment completes a join from the operator-provided code. The
@@ -283,9 +381,57 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	if err != nil {
 		return AgentConfig{}, err
 	}
-	credential, err := GenerateCredential()
+	unlock, err := lockJoin()
 	if err != nil {
 		return AgentConfig{}, err
+	}
+	defer unlock()
+	// A pending intent lets an interrupted join resume with the exact same
+	// secret. Check the config separately: a write can report failure after
+	// rename, leaving a complete file that still needs confirmation.
+	_, configErr := os.Stat(AgentConfigPath)
+	configExists := configErr == nil
+	if configErr != nil && !errors.Is(configErr, os.ErrNotExist) {
+		return AgentConfig{}, configErr
+	}
+	pendingPath := AgentConfigPath + ".pending"
+	var pending pendingEnrollment
+	if b, readErr := os.ReadFile(pendingPath); readErr == nil {
+		if json.Unmarshal(b, &pending) != nil || pending.CodeHash != HashCredential(code) || pending.NodeID != e.NodeID {
+			return AgentConfig{}, errors.New("a different enrollment is pending on this node")
+		}
+	} else if !errors.Is(readErr, os.ErrNotExist) {
+		return AgentConfig{}, readErr
+	} else {
+		if configExists {
+			return AgentConfig{}, errors.New("this node already has an Agent configuration")
+		}
+		credential, genErr := GenerateCredential()
+		if genErr != nil {
+			return AgentConfig{}, genErr
+		}
+		pending = pendingEnrollment{CodeHash: HashCredential(code), NodeID: e.NodeID, Credential: credential}
+		b, _ := json.Marshal(pending)
+		if err := writePrivateFile(pendingPath, b); err != nil {
+			return AgentConfig{}, fmt.Errorf("saving retryable enrollment intent: %w", err)
+		}
+	}
+	credential := pending.Credential
+	if raw, decodeErr := base64.RawURLEncoding.DecodeString(credential); decodeErr != nil || len(raw) != 32 {
+		return AgentConfig{}, errors.New("pending enrollment credential is invalid")
+	}
+	if configExists {
+		cfg := AgentConfig{NodeID: e.NodeID, Name: e.Name, ControllerURL: e.ControllerURL,
+			Credential: credential, TLSPinSHA256: e.TLSPinSHA256}
+		current, err := LoadAgentConfig()
+		if err != nil || current != cfg {
+			return AgentConfig{}, errors.New("existing Agent configuration conflicts with pending enrollment")
+		}
+		if err := saveAgentConfigForJoin(cfg); err != nil {
+			return AgentConfig{}, fmt.Errorf("saving Agent configuration (retry node join with the same code): %w", err)
+		}
+		_ = os.Remove(pendingPath)
+		return cfg, nil
 	}
 	u, err := url.Parse(e.ControllerURL)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
@@ -314,8 +460,23 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	ws, _, err := dialer.DialContext(ctx, u.String(), nil)
+	ws, response, err := dialer.DialContext(ctx, u.String(), nil)
 	if err != nil {
+		if response != nil {
+			if response.Body != nil {
+				defer response.Body.Close()
+			}
+			switch response.StatusCode {
+			case http.StatusConflict:
+				return AgentConfig{}, errors.New("enrollment code was already completed")
+			case http.StatusGone:
+				return AgentConfig{}, errors.New("enrollment code has expired")
+			case http.StatusForbidden:
+				return AgentConfig{}, errors.New("enrollment was revoked")
+			case http.StatusUnauthorized:
+				return AgentConfig{}, errors.New("enrollment code is invalid")
+			}
+		}
 		return AgentConfig{}, fmt.Errorf("controller enrollment failed: %w", err)
 	}
 	defer ws.Close()
@@ -366,11 +527,51 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	}
 	cfg := AgentConfig{NodeID: e.NodeID, Name: e.Name, ControllerURL: e.ControllerURL,
 		Credential: credential, TLSPinSHA256: e.TLSPinSHA256}
-	if err := SaveAgentConfig(cfg); err != nil {
-		return AgentConfig{}, err
+	if err := saveAgentConfigForJoin(cfg); err != nil {
+		return AgentConfig{}, fmt.Errorf("saving Agent configuration (retry node join with the same code): %w", err)
+	}
+	// The permanent config now owns the credential. The retry intent has served
+	// its purpose even if the final acknowledgement is lost; the ordinary Agent
+	// connection will complete the Controller record in that case.
+	_ = os.Remove(pendingPath)
+	// The config is durable before acknowledgement. If the acknowledgement is
+	// lost, the normal authenticated Agent connection also completes enrollment.
+	ack, _ := json.Marshal(enrollmentMessage{Version: EnrollmentVersion, NodeID: e.NodeID, Ack: true})
+	if sealedAck, sealErr := send.Encrypt(nil, nil, ack); sealErr == nil {
+		if ws.WriteMessage(websocket.BinaryMessage, sealedAck) == nil {
+			// Give the Controller a chance to commit completion before returning.
+			// Its response can be lost; the durable Agent config remains usable.
+			_, _, _ = ws.ReadMessage()
+		}
 	}
 	return cfg, nil
 }
+
+// The CLI can be invoked twice in separate processes. Keep the local retry
+// intent and Agent config a single transaction even in that case. flock is
+// released by the kernel if the process crashes; the small lock file can stay.
+func lockJoin() (func(), error) {
+	path := AgentConfigPath + ".join.lock"
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		return nil, errors.New("another node join is already in progress")
+	}
+	return func() {
+		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		_ = f.Close()
+	}, nil
+}
+
+// The join's final write is injectable so a disk failure after controller
+// provisioning can be tested without weakening production persistence.
+var saveAgentConfigForJoin = SaveAgentConfig
 
 // HandleEnrollmentHTTP is mounted on the same WebUI listener as the Agent
 // gateway. It accepts only the narrow Noise-encrypted enrollment exchange,
@@ -399,8 +600,20 @@ func HandleEnrollmentHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	if stored.Expires <= time.Now().Unix() || stored.Used || stored.TokenHash == "" {
-		http.Error(w, "enrollment unavailable", http.StatusUnauthorized)
+	if stored.TokenHash == "" {
+		http.Error(w, "invalid enrollment", http.StatusUnauthorized)
+		return
+	}
+	if n, ok := findByID(id); ok && n.Revoked {
+		http.Error(w, "revoked enrollment", http.StatusForbidden)
+		return
+	}
+	if stored.Used {
+		http.Error(w, "completed enrollment", http.StatusConflict)
+		return
+	}
+	if stored.Expires <= time.Now().Unix() && !enrollmentProvisioned(id) {
+		http.Error(w, "expired enrollment", http.StatusGone)
 		return
 	}
 	// Machine clients have no meaningful browser Origin. Noise PSK0 is the
@@ -448,11 +661,34 @@ func HandleEnrollmentHTTP(w http.ResponseWriter, r *http.Request) {
 	_, err = completeEnrollmentRecord(id, stored.TokenHash, request.Credential)
 	answer := enrollmentMessage{Version: EnrollmentVersion, NodeID: id}
 	if err != nil {
-		answer.Error = "invalid, expired or used enrollment"
+		answer.Error = err.Error()
 	}
 	b, _ := json.Marshal(answer)
 	sealed, sealErr := cs1.Encrypt(nil, nil, b)
 	if sealErr == nil {
 		_ = ws.WriteMessage(websocket.BinaryMessage, sealed)
+	}
+	if err != nil || sealErr != nil {
+		return
+	}
+	_, encryptedAck, err := ws.ReadMessage()
+	if err != nil {
+		return
+	}
+	plainAck, err := cs0.Decrypt(nil, nil, encryptedAck)
+	if err != nil {
+		return
+	}
+	var ack enrollmentMessage
+	if json.Unmarshal(plainAck, &ack) != nil || !ack.Ack || ack.Version != EnrollmentVersion || ack.NodeID != id {
+		return
+	}
+	answer = enrollmentMessage{Version: EnrollmentVersion, NodeID: id, Ack: true}
+	if finishEnrollment(id, request.Credential) != nil {
+		answer.Error = "enrollment confirmation could not be saved"
+	}
+	b, _ = json.Marshal(answer)
+	if reply, sealErr := cs1.Encrypt(nil, nil, b); sealErr == nil {
+		_ = ws.WriteMessage(websocket.BinaryMessage, reply)
 	}
 }

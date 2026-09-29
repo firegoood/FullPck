@@ -414,17 +414,13 @@ svg.x{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke
   .dlg.add .fadein{animation:none}
 }
 
-/* Held back until the wizard knows its own shape.
- *
- * Whether this panel manages any servers decides how many steps there are and
- * what the first one is, and that answer arrives just after the dialog opens.
- * Hiding it from JavaScript was a frame too late — the markup is on screen
- * before the view runs, so the old first step showed and then rearranged
- * itself under the operator. Hidden here, revealed by the view. */
-.dlg.add .steps,
-.dlg.add .body5{visibility:hidden}
-.dlg.add.ready .steps,
-.dlg.add.ready .body5{visibility:visible}
+/* The operator chooses the creation mode; Node discovery never rewrites the
+ * manual wizard beneath the operator. */
+.dlg.add .creation-mode{display:flex;gap:8px;padding:12px 19px;border-bottom:1px solid var(--ln)}
+.dlg.add .mode-choice{flex:1;border:1px solid var(--ln2);border-radius:10px;padding:10px 12px;
+  background:var(--sunk);color:var(--tx2);font:inherit;font-size:12px;font-weight:620;cursor:pointer}
+.dlg.add .mode-choice.on{background:var(--tx);border-color:var(--tx);color:var(--bg)}
+.dlg.add .mode-choice:disabled{opacity:.45;cursor:not-allowed}
 
 /* The drawer menus.
  *

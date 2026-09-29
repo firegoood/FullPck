@@ -29,6 +29,11 @@ const fleetKeyName = "node.key"
 // bootstrap PSK. It expires quickly and must never travel with backups.
 const enrollmentName = "node-enrollment.json"
 
+// A node-side retry intent contains the permanent credential before join
+// finishes. It is local recovery state, never part of a portable archive.
+const pendingAgentName = "node-agent.json.pending"
+const agentJoinLockName = "node-agent.json.join.lock"
+
 // backupMeta is the sidecar metadata embedded in every backup archive.
 type backupMeta struct {
 	Version          string `json:"version"`
@@ -135,7 +140,8 @@ func writeBackupEntries(tw *tar.Writer, root string) error {
 		// the credentials. Pending one-time enrollment data is also excluded.
 		// The install role is local to this host, like install_path: importing
 		// a Kharej role on an Iran Controller would disable its WebUI.
-		if rel == fleetKeyName || rel == enrollmentName || rel == filepath.Base(app.RoleFile) {
+		if rel == fleetKeyName || rel == enrollmentName || rel == pendingAgentName ||
+			rel == agentJoinLockName || rel == filepath.Base(app.RoleFile) {
 			return nil
 		}
 

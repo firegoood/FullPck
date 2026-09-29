@@ -16,6 +16,7 @@ import * as store from '../store.js';
 import { openScreen } from '../ui/screen.js';
 import { oops, toast } from '../ui/toast.js';
 import { go } from '../router.js';
+import { createTunnelForMode } from '../lib/addmode.js';
 
 export function addView(ctx) {
   openScreen('add', {
@@ -426,9 +427,8 @@ export function addView(ctx) {
           // its own settings when the operator switched away and back.
           if (wrong) g.classList.remove('open');
         });
-        // The token and the far end's address are the panel's business now.
+        // Managed mode hides the token and address fields it supplies itself.
         root.querySelectorAll('.tokgone, .addrgone').forEach(n => { n.hidden = true; });
-        paintRail();
 
         /* The spoof settings belong to the spoof carrier. They used to hang off
            a reverse transport that no longer exists, which left every one of
@@ -449,31 +449,15 @@ export function addView(ctx) {
         if (!direct) { applyFields(); applyPresets(); }
       }
 
-      /* The last step is not a summary.
-         A reverse tunnel is set up on Iran first and finished on kharej; a
-         direct one waits on kharej and is finished from Iran. On the side that
-         finishes it there is nothing left to copy anywhere — what you want to
-         know is whether it came up. So that side watches it come up, and the
-         side that still has work to do gets the handoff instead. */
-      /* The last step is not a summary.
-         A reverse tunnel is set up on Iran first and finished on kharej; a
-         direct one waits on kharej and is finished from Iran. On the side that
-         finishes it there is nothing left to carry anywhere — the only question
-         is whether it came up, so that side watches it come up. The side that
-         still has work to do gets the handoff instead. */
+      /* The result reports one local end for Manual mode and both ends for a
+         Managed pair. Manual mode keeps the token/port handoff below. */
       function finish() {
         const steps = [...root.querySelectorAll('.step[data-s]')];
         const step = steps[steps.length - 1];
         if (!step) return;
 
-        /* One shape, because there is only one way to make a tunnel here now.
-         *
-         * This step used to have two: a pane that watched the tunnel come up,
-         * and a pane that handed the operator a setup link and four values to
-         * type into a second panel on the other server. The second one is gone.
-         * The panel writes both ends through the authenticated Agent, so there is nothing to carry
-         * anywhere and nothing to type twice — and a form that still offered to
-         * would be offering a way to build half a tunnel. */
+        /* One result pane handles both modes. The manual handoff is rendered
+         * from the local create response; Managed shows paired status. */
         const hand = step.querySelector('.handpane');
         const conn = step.querySelector('.connpane');
         if (hand) hand.remove();
@@ -504,9 +488,10 @@ export function addView(ctx) {
         const sub = conn.querySelector('#connSub');
         const result = conn.querySelector('#connResult');
         const spin = conn.querySelector('.spin');
-        const onNode = nodeSel?.value || '';
+        const onNode = creationMode === 'managed' ? (nodeSel?.value || '') : '';
         const direct = chosen.direction === 'direct';
         const t0 = Date.now();
+        if (!onNode) { rows[2]?.remove(); rows[3]?.remove(); }
 
         const labels = [
           'Writing the configuration on this server',
@@ -570,9 +555,6 @@ export function addView(ctx) {
           await pause(200);
           start(3); await pause(200);
           settle(3, !partial && r.active !== false && r.peer?.active !== false);
-        } else {
-          rows[2]?.remove();
-          rows[3]?.remove();
         }
 
         spin?.setAttribute('hidden', '');
@@ -615,15 +597,9 @@ export function addView(ctx) {
         building = false;
       }
 
-      /* The single-ended flow, unchanged: nothing is created here, the tunnel
-         already exists, and this only waits to see it come up. */
-
-      /* The numbered header moved with the step in the preview; it is wired to
-         the same event the Back and Continue buttons raise. */
+      /* The numbered header follows the Back and Continue buttons. */
       root.addEventListener('step', ev => {
         const { at, of } = ev.detail;
-        if (skipEmpty(at)) return;
-        lastStep = at;
         root.querySelectorAll('.steps .st2').forEach(x =>
           x.classList.toggle('on', Number(x.dataset.s) === at));
         const back = root.querySelector('#backb');
@@ -734,12 +710,23 @@ export function addView(ctx) {
           catch (e) { toast(line); }
         }));
 
-      /* Neither the setup link nor the pane that pasted one back is here any
-         more. Both existed for a second panel on the other server, typing the
-         same values in again; the panel writes that end itself now. */
+      /* Manual setup keeps a copyable token and port in the result pane.
+         Managed setup sends paired values over the authenticated Agent. */
 
       const nodeSel = root.querySelector('#anode');
       const nodeGrp = root.querySelector('#nodeGrp');
+      let creationMode = 'manual';
+      let managedAvailable = false;
+      let manualSide = chosen.side;
+      let manualPeerAddrs = [];
+      const originalLede = root.querySelector('.step[data-s="0"] .lede2')?.innerHTML || '';
+      const originalSubtitle = root.querySelector('.dh small, .ttl small')?.textContent || '';
+      const modeBar = el('div', { class: 'creation-mode', role: 'group', 'aria-label': 'Tunnel creation mode' }, [
+        el('button', { type: 'button', class: 'mode-choice on', text: 'Manual / Local' }),
+        el('button', { type: 'button', class: 'mode-choice', text: 'Managed / Paired', disabled: true }),
+      ]);
+      root.querySelector('.steps')?.before(modeBar);
+      const [manualButton, managedButton] = modeBar.querySelectorAll('button');
       /* The form in three parts, which is what it has always been without
        * saying so.
        *
@@ -771,7 +758,7 @@ export function addView(ctx) {
             : local.length === 0 ? 'both servers'
             : '';
           if (!chip) return;
-          label.append(el('span', { class: 'sidechip', text: chip }));
+          label.append(el('span', { class: 'sidechip managed-chip', text: chip }));
         });
       }
 
@@ -788,6 +775,7 @@ export function addView(ctx) {
        * The fields are the existing ones, moved and renamed — peerConn.* rather
        * than conn.*, so the submit puts them on the far end instead of this one.
        */
+      const movedPeerFields = [];
       function buildPeerGroup(root) {
         const rev = root.querySelector('.step3rev');
         if (!rev || rev.querySelector('#peerGrp')) return;
@@ -815,13 +803,14 @@ export function addView(ctx) {
           // moving into answers that now, so the marker goes and the field is
           // taken out of the hidden state it was left in. What must survive is
           // the transport rule, and that lives in applyFields.
+          movedPeerFields.push({ row: f, parent: f.parentElement, next: f.nextSibling,
+            when: f.getAttribute('data-when'), name: f.querySelector('[name]').name });
           f.removeAttribute('data-when');
           f.hidden = false;
           const input = f.querySelector('[name]');
           input.name = 'peerConn.' + input.name.slice('conn.'.length);
           // The labels said "kharej only" when this side was the one being set
           // up. Under a heading that names the server, that is now noise.
-          f.querySelectorAll('.sidechip').forEach(c => c.remove());
           grid.append(f);
         });
         const grp = el('div', { class: 'grp3', id: 'peerGrp' }, [
@@ -830,8 +819,19 @@ export function addView(ctx) {
           ]),
           grid,
         ]);
-        rev.append(grp);
+        root.querySelector('.step[data-s="1"]')?.append(grp);
         applyFields();
+      }
+
+      function restorePeerGroup() {
+        for (const item of [...movedPeerFields].reverse()) {
+          item.row.querySelector('[name]').name = item.name;
+          if (item.when !== null) item.row.setAttribute('data-when', item.when);
+          item.parent.insertBefore(item.row, item.next);
+        }
+        movedPeerFields.length = 0;
+        root.querySelector('#peerGrp')?.remove();
+        root.querySelectorAll('.managed-chip').forEach(c => c.remove());
       }
 
       /* No token to read, so no token to type.
@@ -876,145 +876,58 @@ export function addView(ctx) {
           .catch(() => { /* the create will say the token is missing */ });
       }
 
-      /* Five steps, in the order the work happens.
-       *
-       * The wizard was built around doing this twice: pick a side, fill it in,
-       * then carry the paired values to the other machine. With a managed
-       * server there is one pass and it covers both ends, so the steps are the
-       * parts of the tunnel rather than the halves of the job — this server,
-       * that server, how fast, what else, and then what happened.
-       *
-       * The panes are the existing ones, moved. Nothing here re-renders a field
-       * or re-implements a drawer; the groups keep their markup, their names and
-       * their bindings, and only their parent changes.
-       */
-      const STAGES = ['Iran side', 'Kharej side', 'Performance', 'Optional', 'Done'];
-
-      function restage(root) {
-        const body = root.querySelector('.body5');
-        const details = root.querySelector('.step[data-s="1"]');
-        if (!body || !details || root.dataset.staged) return;
-        root.dataset.staged = '1';
-
-        /* A group is about to leave the container that decided whether it is
-           shown, so it takes that decision with it.
-           
-           The drawers are tagged too, and they need it more: Fine Tune,
-           Connectivity and the packet carrier fill tune.*, conn.* and pck.*,
-           and a direct tunnel has none of those. Left visible, opening one on a
-           direct tunnel put keys in the payload that the create handler refuses
-           by name — so the whole submission failed because a drawer was open. */
-        root.querySelectorAll('.step3rev .grp3, .step3rev .dr2b')
-          .forEach(g => { g.dataset.mode = 'rev'; });
-        root.querySelectorAll('.step3direct .grp3, .step3direct .dr2b')
-          .forEach(g => { g.dataset.mode = 'dir'; });
-
-        const pane = () => el('div', { class: 'step', hidden: true });
-        const kharej = pane(), perf = pane(), opt = pane();
-
-        const take = (label, into) => {
-          root.querySelectorAll('.grp3').forEach(g => {
-            const head = g.querySelector('.gl3')?.childNodes[0]?.textContent?.trim();
-            if (head === label) into.append(g);
-          });
-        };
-        take('Performance', perf);
-        take('Optional', opt);
-        const peer = root.querySelector('#peerGrp');
-        if (peer) kharej.append(peer);
-
-        // The side question is gone, not hidden: with a managed server there is
-        // no second machine to go and set up, so there is nothing to ask.
-        root.querySelector('.step[data-s="0"]')?.remove();
-
-        details.after(kharej);
-        kharej.after(perf);
-        perf.after(opt);
-
-        [...body.querySelectorAll('.step')].forEach((el2, i) => {
-          el2.dataset.s = String(i);
-          el2.hidden = i !== 0;
-        });
-
-        const rail = root.querySelector('.steps');
-        if (rail) {
-          rail.innerHTML = '';
-          STAGES.forEach((lb, i) => {
-            if (i) rail.append(el('span', { class: 'bar4' }));
-            rail.append(el('span', { class: 'st2' + (i ? '' : ' on'), dataset: { s: String(i) } }, [
-              el('span', { class: 'n3', text: String(i + 1) }),
-              el('span', { class: 'lb4', text: lb }),
-            ]));
-          });
+      function selectCreationMode(mode) {
+        if (mode === 'managed' && !managedAvailable) return;
+        if (mode === creationMode) return;
+        creationMode = mode;
+        manualButton.classList.toggle('on', mode === 'manual');
+        managedButton.classList.toggle('on', mode === 'managed');
+        const managed = mode === 'managed';
+        const kharej = root.querySelector('[data-fn="setSide"][data-args*="client"]');
+        const iran = root.querySelector('[data-fn="setSide"][data-args*="server"]');
+        const lede = root.querySelector('.step[data-s="0"] .lede2');
+        const subtitle = root.querySelector('.dh small, .ttl small');
+        const addrs = [...root.querySelectorAll('[name="peerAddr"], [name="serverAddr"]')];
+        if (managed) {
+          manualSide = chosen.side;
+          manualPeerAddrs = addrs.map(n => n.value);
+          chosen.side = 'server';
+          markGroup('setSide', 'server');
+          if (kharej) kharej.hidden = true;
+          if (lede) lede.innerHTML = 'This panel writes the Iran side and the selected managed server together.';
+          if (subtitle) subtitle.textContent = 'Both ends are written from here';
+          nodeGrp.hidden = false;
+          nodeSel.options[0].textContent = 'Choose an online managed server';
+          markSides(root);
+          buildPeerGroup(root);
+          autoToken(root);
+          if (!nodeSel.value && nodeSel.options.length === 2) nodeSel.value = nodeSel.options[1].value;
+        } else {
+          restorePeerGroup();
+          if (kharej) kharej.hidden = false;
+          chosen.side = manualSide;
+          markGroup('setSide', manualSide);
+          if (lede) lede.innerHTML = originalLede;
+          if (subtitle) subtitle.textContent = originalSubtitle;
+          nodeGrp.hidden = true;
+          nodeSel.value = '';
+          peerIP = '';
+          addrs.forEach((n, i) => { n.value = manualPeerAddrs[i] || ''; });
+          root.querySelectorAll('.tokgone, .addrgone').forEach(n => n.classList.remove('tokgone', 'addrgone'));
         }
-        const back = root.querySelector('#backb');
-        if (back) back.disabled = true;
-        paintNav(0);
+        nodeSel.dispatchEvent(new Event('change'));
+        applyShape();
+        paintNav(Number(root.querySelector('.step:not([hidden])')?.dataset.s || 0));
       }
+      manualButton.addEventListener('click', () => selectCreationMode('manual'));
+      managedButton.addEventListener('click', () => selectCreationMode('managed'));
 
-      /* A step with nothing in it is not a step.
-       *
-       * The five are the parts of a reverse tunnel. A direct one has no
-       * connectivity drawer for the far end and no Optional group at all, so
-       * two of the panes hold groups that are all hidden for it — and pressing
-       * Continue landed on a blank screen with a Continue button, twice.
-       *
-       * Rather than build filler for them, the wizard skips what is empty and
-       * says so in the rail: the steps that exist are the ones that have
-       * something to ask. It is recomputed on every change because the answer
-       * depends on the mode and the transport, not on the shape of the form.
-       */
-      const paneList = () => [...root.querySelectorAll('.step[data-s]')];
-
-      function paneEmpty(pane, i, of) {
-        // The last one is the result, which is not made of groups.
-        if (i === of - 1) return false;
-        return ![...pane.querySelectorAll('.grp3, .dr2b')].some(g => !g.hidden);
-      }
-
-      function paintRail() {
-        if (!root.dataset.staged) return;
-        const panes = paneList();
-        const rail = root.querySelector('.steps');
-        if (!rail) return;
-        let n = 0;
-        panes.forEach((pane, i) => {
-          const entry = rail.querySelector(`.st2[data-s="${i}"]`);
-          if (!entry) return;
-          const skip = paneEmpty(pane, i, panes.length);
-          entry.hidden = skip;
-          const bar = entry.nextElementSibling;
-          if (bar && bar.classList.contains('bar4')) bar.hidden = skip;
-          if (!skip) {
-            n += 1;
-            const num = entry.querySelector('.n3');
-            if (num) num.textContent = String(n);
-          }
-        });
-      }
-
-      /* Travelling on from a step that has nothing to show, in the direction
-         the operator was already going. */
-      let lastStep = 0;
-      function skipEmpty(at) {
-        const panes = paneList();
-        if (!root.dataset.staged || !panes[at]) return false;
-        if (!paneEmpty(panes[at], at, panes.length)) return false;
-        const dir = at >= lastStep ? 1 : -1;
-        const to = at + dir;
-        if (to < 0 || to >= panes.length) return false;
-        panes.forEach((x, i) => { x.hidden = i !== to; });
-        root.dispatchEvent(new CustomEvent('step', { detail: { at: to, of: panes.length } }));
-        return true;
-      }
-
-      /* The footer says what the next press does. On the step before the last
-         one it is not "continue" — it is the moment the tunnel gets built, and a
-         button that does something irreversible should say so. */
+      // Both creation modes use the same three-step form. The explicit mode
+      // controls only the fields and the API that receives the submission.
       function paintNav(at) {
         const next = root.querySelector('#nextb');
         const note = root.querySelector('#note4');
-        if (!next || !root.dataset.staged) return;
+        if (!next) return;
         const last = root.querySelectorAll('.step[data-s]').length - 1;
         if (at === last) {
           next.textContent = 'Close';
@@ -1025,95 +938,29 @@ export function addView(ctx) {
           next.onclick = null;
         }
         if (note) note.textContent = at === last - 1
-          ? 'Both ends are written when you press this.' : '';
+          ? (creationMode === 'managed' ? 'Both ends are written when you press this.'
+             : 'This end is written when you press this.') : '';
       }
-
-      /* The wizard is held back until the fleet has answered.
-       *
-       * Whether there are managed servers decides how many steps there are and
-       * what the first one is, and that answer arrives a moment after the
-       * dialog opens. Showing the old first step and then rearranging it under
-       * the operator is worse than showing nothing for that moment — they were
-       * reading it. The hiding is in add.css, because the markup is on screen
-       * before this runs.
-       */
-      const reveal = () => root.classList.add('ready');
-      // Never left hidden by a request that hangs.
-      setTimeout(reveal, 2500);
+      paintNav(0);
 
       const nodeMsg = root.querySelector('#nodeMsg');
       const nodeAddr = new Map();   // name -> the address it reported
       let peerIP = '';               // the one for the server that was picked
       api.nodes().then(state => {
         const live = (state.nodes || []).filter(n => n.online);
-        /* No managed server, no tunnel from here.
-         *
-         * This form writes both ends. Without a server to write the other one
-         * on it could only ever build half a tunnel and then ask the operator
-         * to go and finish it somewhere else — which is the two-pass flow the
-         * fleet exists to remove, and the source of most of what went wrong
-         * with it: two forms, filled in twice, agreeing by hand.
-         *
-         * So it says what is missing and where the other route is. Tunnels can
-         * still be made from the CLI on each machine; the panel shows their
-         * cards and manages them like any other. */
-        if (!live.length || !nodeSel || !nodeGrp) {
-          reveal();
-          return;
-        }
         live.forEach(n => {
           nodeSel.append(el('option', { value: n.name, text: n.name }));
           const ip = n.info?.ipv4;
           if (ip && ip !== '-') nodeAddr.set(n.name, ip);
         });
-        nodeGrp.hidden = false;
+        managedAvailable = live.length > 0;
+        managedButton.disabled = !managedAvailable;
+        managedButton.title = managedAvailable ? 'Configure both ends through the Agent'
+          : 'No managed server is online';
+      }).catch(() => {
+        managedButton.title = 'Managed servers are unavailable';
+      });
 
-        /* With a managed server there is no second pass, so the form stops
-         * offering one.
-         *
-         * "Which machine are you setting up" is a question that only exists
-         * because the operator used to have to answer it twice — once here and
-         * once over there. A server that is managed from this panel is written
-         * from this panel, so this side is Iran and the other side is that
-         * server; asking which of the two you are in front of would be asking
-         * about a step that no longer happens.
-         *
-         * The choice comes back the moment it means something again: it is
-         * hidden, not removed, and a panel with no managed servers is the form
-         * exactly as it was.
-         */
-        const kharej = root.querySelector('[data-fn="setSide"][data-args*="client"]');
-        const iran = root.querySelector('[data-fn="setSide"][data-args*="server"]');
-        if (kharej) kharej.hidden = true;
-        if (iran) { chosen.side = 'server'; markGroup('setSide', 'server'); }
-        const lede = root.querySelector('.step[data-s="0"] .lede2');
-        if (lede) {
-          lede.innerHTML = 'This panel is the <b>Iran</b> side. The other end is written on the '
-            + 'server you pick in the next step — you do not set it up again over there.';
-        }
-        markSides(root);
-        buildPeerGroup(root);
-        autoToken(root);
-        restage(root);
-
-        // The last step hands the settings over to be typed in somewhere else.
-        // Nothing is handed over here.
-        const sub = root.querySelector('.dh small, .ttl small');
-        if (sub) sub.textContent = sub.textContent.split('·')[0].trim()
-          + ' · both ends are written from here';
-
-        // One server is not a choice worth making; it is preselected and can
-        // still be changed if another comes along.
-        if (live.length === 1) {
-          nodeSel.value = live[0].name;
-          nodeSel.dispatchEvent(new Event('change'));
-        }
-        applyShape();
-
-      }).catch(() => reveal());
-
-      /* Picking a server and pasting a link from one are the same job done two
-         ways, so only one of them is ever on screen. */
       nodeSel?.addEventListener('change', () => {
 
         /* The address is not asked for, because it is already known.
@@ -1185,7 +1032,7 @@ export function addView(ctx) {
         }
         if (chosen.preset) payload.preset = chosen.preset;
 
-        const onNode = nodeSel?.value || '';
+        const onNode = creationMode === 'managed' ? (nodeSel?.value || '') : '';
         const direct = chosen.direction === 'direct';
         // Collected by name like everything else, then lifted out: it describes
         // the other machine and must not be written onto this one.
@@ -1197,15 +1044,7 @@ export function addView(ctx) {
         if (onNode && autoTok) payload.token = autoTok;
         if (onNode && peerIP && direct) payload.peerAddr ||= peerIP;
 
-        const r = onNode
-          ? await api.nodePair({
-              node: onNode,
-              kind: direct ? 'direct' : 'reverse',
-              [direct ? 'direct' : 'tunnel']: payload,
-              ...(peerConn ? { peerConn } : {}),
-            })
-          : direct ? await api.directCreate(payload)
-                   : await api.tunnelCreate(payload);
+        const r = await createTunnelForMode(api, creationMode, onNode, direct, payload, peerConn);
         return { r, onNode, name: payload.name, payload };
       }
 

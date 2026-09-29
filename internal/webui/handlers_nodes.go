@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -189,7 +190,26 @@ func (s *server) nodeAction(w http.ResponseWriter, r *http.Request) {
 		}
 		name := strings.TrimSpace(r.FormValue("name"))
 		cfg := Load()
-		controllerURL := cfg.Scheme() + "://" + r.Host
+		controllerURL := strings.TrimSpace(r.FormValue("controller_url"))
+		if controllerURL == "" {
+			// Only an explicit operator endpoint or a configured TLS name may
+			// become permanent Agent configuration. HTTP Host is untrusted.
+			host := cfg.TLSDomain
+			if host == "" {
+				host = cfg.TLSSelfHost
+			}
+			if host == "" {
+				http.Error(w, "controller_url is required", http.StatusBadRequest)
+				return
+			}
+			controllerURL = cfg.Scheme() + "://" + net.JoinHostPort(host, strconv.Itoa(cfg.Port))
+		}
+		var urlErr error
+		controllerURL, urlErr = node.ValidateControllerURL(controllerURL)
+		if urlErr != nil {
+			http.Error(w, urlErr.Error(), http.StatusBadRequest)
+			return
+		}
 		pin := ""
 		if cfg.HTTPS {
 			certFile := cfg.TLSCertFile

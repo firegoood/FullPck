@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +43,7 @@ func newFleetServer() *server { return newServer() }
 
 // fakeRunner stands in for a fleet of real machines.
 //
-// The transport is SSH now, so a test that wanted a live node would need a
+// The transport is an authenticated outbound Agent session, so a test that wanted a live node would need a
 // second computer. What the panel's own behaviour depends on is narrower than
 // that: whether a server answers, and what it says — so that is what is
 // substituted, and every path through the handlers is exercised for real.
@@ -142,7 +143,7 @@ func TestAddingAServerUsesOneTimeAgentEnrollment(t *testing.T) {
 	defer srv.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/nodes",
-		strings.NewReader("action=add&name=kharej"))
+		strings.NewReader("action=add&name=kharej&controller_url="+url.QueryEscape(srv.URL)))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := srv.Client().Do(req)
 	if err != nil {
@@ -185,6 +186,26 @@ func TestAddingAServerUsesOneTimeAgentEnrollment(t *testing.T) {
 	}
 	if w := post(t, s, "action=add&name=kharej"); w.Code == http.StatusOK {
 		t.Fatal("an already enrolled name was reused")
+	}
+}
+
+func TestEnrollmentEndpointRejectsUntrustedHostAndMalformedControllerURL(t *testing.T) {
+	isolateFleet(t)
+	useConfigFile(t, Config{})
+	s := newFleetServer()
+	t.Cleanup(s.nodes.Stop)
+	for _, form := range []string{
+		"action=add&name=kharej",
+		"action=add&name=kharej&controller_url=http%3A%2F%2Fevil.example%3A7654%2Fother",
+	} {
+		r := httptest.NewRequest(http.MethodPost, "/api/nodes", strings.NewReader(form))
+		r.Host = "injected.example:9999"
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		s.handleNodes(w, r)
+		if w.Code != http.StatusBadRequest || len(node.List()) != 0 {
+			t.Fatalf("untrusted Controller endpoint accepted: %d %s", w.Code, w.Body.String())
+		}
 	}
 }
 

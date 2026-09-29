@@ -157,6 +157,9 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.closeWith(ErrAgentRevoked)
 		return
 	}
+	// A saved Agent config proves possession of the permanent credential. This
+	// closes the enrollment if its final acknowledgement was lost in transit.
+	_ = finishEnrollment(id, credential)
 	noteConnection(id, r.RemoteAddr, "", true)
 	<-s.done
 	h.remove(id, s)

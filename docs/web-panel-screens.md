@@ -32,7 +32,7 @@ be bookmarked or linked to.
 
 Addresses in this page are relative to the panel's secret base path, which is
 random per installation: the real URL of the Overview is
-`https://your-server:7777/<base>/#/`.
+`https://your-server:7654/<base>/#/`.
 
 ## The three sections
 
@@ -86,7 +86,7 @@ These belong to the machine rather than to one tunnel.
 
 | Screen | Address | What it is | CLI |
 | --- | --- | --- | --- |
-| Add tunnel | `#/add` | Pick the side, then the transport family, then the transport, then the settings that side actually has. The families, presets and all direct carriers (including route-tested `spoof` and `sni`) are served rather than written into the page, so the WebUI follows the CLI list. | 1 Setup Iran, 2 Setup Kharej |
+| Add tunnel | `#/add` | Choose Manual / Local or Managed / Paired explicitly. Manual stays available with zero or many online Nodes; Managed writes both ends through the Agent. Pick reverse/direct, side, transport and advanced settings. Families, presets and direct carriers (including `spoof` and `sni`) come from the same option APIs as the CLI. | 1 Setup Iran, 2 Setup Kharej |
 | Settings | `#/settings` | Panel access, security, the Telegram bot, and the release channel. | 5 Web Panel, 7 Telegram Bot, 8 Update → Release channel |
 | Alerts | `#/alerts` | The alert history: what fired, when, and about which tunnel. | The alert history |
 | Health check | `#/health` | The machine-level checks — the same list the CLI runs, with the same fixes offered. Reached from the warning bar as well as directly. | Manage → Health Check |

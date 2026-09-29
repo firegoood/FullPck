@@ -341,3 +341,10 @@ func withPath(r *http.Request, path string) *http.Request {
 	r2.URL = &u
 	return &r2
 }
+
+func TestFreshPanelDefaultsToPort7654(t *testing.T) {
+	useConfigFile(t, Config{})
+	if got := Load().Port; got != 7654 {
+		t.Fatalf("fresh WebUI port = %d, want 7654", got)
+	}
+}

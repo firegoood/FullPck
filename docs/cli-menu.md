@@ -81,7 +81,7 @@ server pastes. The Iran questions, in order:
 | **How Should The Packets Travel?** | **xDi**, **PCK**, **UDP**, **Quic**, **IP Spoofing**, **SNI Spoofing**, in that order; both ends choose the same one |
 | **Kharej IP Or Domain** | Iran dials out, so it needs no inbound port of its own |
 | **Tunnel Port** `[9000]` | what kharej binds and Iran reaches |
-| **Forwarded Ports (Blank For TUN)** | optional. Blank is a plain private network that routes what it is given. A port something here already listens on (the panel's `7777`) is refused |
+| **Forwarded Ports (Blank For TUN)** | optional. Blank is a plain private network that routes what it is given. A port something here already listens on (the panel's `7654`) is refused |
 | **Tunnel Name** | names the service and the config file |
 | **Security Token** | generated here — press Enter. The setup link carries it to kharej |
 | **Carry UDP As Well As TCP On Those Ports** `[y/N]` | only when ports were given |
@@ -229,7 +229,7 @@ the URL, the login code and the state.
 
 | Option | Notes |
 |---|---|
-| **Change panel port** | default 7777 |
+| **Change panel port** | default 7654 |
 | **Regenerate login code** | a new random 8-digit code |
 | **Set a custom password** | replaces the login code with your own |
 | **Certificate** | serve the panel over HTTPS |
