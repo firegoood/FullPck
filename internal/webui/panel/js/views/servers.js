@@ -116,7 +116,7 @@ const SHELL = `
         <label class="f1"><span>Name</span>
           <input name="name" placeholder="kharej" autocomplete="off" required></label>
          <label class="f1"><span>Controller endpoint reachable from the foreign server (include the WebUI port)</span>
-           <input name="controller_url" type="url" placeholder="https://iran.example:7777" required></label>
+           <input name="controller_url" type="url" placeholder="https://iran.example:7654" required></label>
       </div>
 
       <div class="asv-f">
