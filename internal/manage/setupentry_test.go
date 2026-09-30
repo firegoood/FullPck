@@ -104,7 +104,7 @@ func TestOnlyIranSuggestsAToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	body := strings.ReplaceAll(string(src), "\r\n", "\n")
+	body := string(src)
 
 	fn := body[strings.Index(body, "func askSharedToken"):]
 	fn = fn[:strings.Index(fn, "\n}\n")]
@@ -232,20 +232,39 @@ func TestSpoofingCarriersAreSetUpByTheSetupLink(t *testing.T) {
 		t.Fatal("the spoofing carriers still leave for the classic wizard")
 	}
 
-	classic, err := os.ReadFile("directsetup_classic.go")
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	c := strings.ReplaceAll(string(classic), "\r\n", "\n")
-	tok := c[strings.Index(c, "func askSharedTokenClassic"):]
-	kharej, iran, _ := strings.Cut(tok, "\n\t\treturn token, true\n\t}\n")
-	if !strings.Contains(kharej, "if side == sideKharej") || !strings.Contains(kharej, "randomToken(64)") {
-		t.Fatal("the classic wizard no longer has kharej suggest the token")
-	}
-	if !strings.Contains(iran, `tui.Prompt("Token from the kharej server: ")`) {
-		t.Fatal("the classic wizard no longer asks Iran for the kharej server's token")
-	}
-	if strings.Contains(c, "pendingShareLink") || strings.Contains(c, "Setup Link") {
-		t.Fatal("the classic wizard shows the setup link, which the spoofing carriers were to be left without")
+	for _, carrier := range []string{"spoof", "sni"} {
+		iran := l3Spec{Name: "l3-iran-9000", Side: sideIran, Carrier: carrier, Encap: "gre",
+			Addr: "5.6.7.8:9000", Token: randomToken(64), Iface: "bp0",
+			LocalIP: "10.10.0.1/30", PeerIP: "10.10.0.2", MTU: 1400}
+		findL3Preset("").apply(&iran)
+		switch carrier {
+		case "sni":
+			iran.SNIDomain = "www.example.ir"
+		case "spoof":
+			iran.Spoof.SpoofProfile = "tcp"
+			iran.Spoof.SpoofSrcIP = "10.10.10.10"
+			iran.Spoof.SpoofPeerIP = "5.6.7.8"
+			applySpoofStealth(&iran.Spoof)
+		}
+		raw := pendingShareLinkFrom(iran, "1.2.3.4", linkExtras{})
+		link, err := DecodeShareLink(raw)
+		if err != nil {
+			t.Fatalf("%s: %v", carrier, err)
+		}
+		form := MirrorForPeer(link)
+		if form.Side != "kharej" || form.Carrier != carrier {
+			t.Errorf("%s: the link builds a %s %s end", carrier, form.Side, form.Carrier)
+		}
+		switch carrier {
+		case "sni":
+			if form.SNIDomain != "www.example.ir" {
+				t.Errorf("sni: the kharej would announce %q", form.SNIDomain)
+			}
+		case "spoof":
+			if form.Spoof == nil || form.Spoof.Profile != "tcp" || form.Spoof.PeerSrcIP != "10.10.10.10" ||
+				!form.Stealth || form.SpoofPeerIP != "1.2.3.4" {
+				t.Errorf("spoof: the kharej form lacks what the link must carry: %+v spoof=%+v", form, form.Spoof)
+			}
+		}
 	}
 }
