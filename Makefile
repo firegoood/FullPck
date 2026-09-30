@@ -22,27 +22,19 @@ vendor:
 	go mod tidy
 	go mod vendor
 
-# Cross-compile static Linux binaries (no libc / no Go needed to run).
-#
-# The three 32-bit ARM variants are built and named apart because they are not
-# interchangeable: a v7 binary on a v5 board is an illegal instruction, not a
-# slow one. Every ARM build reports GOARCH=arm at runtime whatever it was
-# compiled for, so the variant is stamped in here — app.GOARM — and that is what
-# lets a running binary ask for its own successor rather than a sibling that
-# will not execute. See app.AssetName.
-ARCHES := amd64 arm64 386 s390x
-ARMS   := 5 6 7
+# Publish static Linux binaries only for the supported release targets.
+ARCHES := amd64 arm64
 
 release-linux:
 	mkdir -p dist
 	@for a in $(ARCHES); do 	  echo "  building linux/$$a"; 	  CGO_ENABLED=0 GOOS=linux GOARCH=$$a 	    go build -trimpath -ldflags "$(LDFLAGS)" -o dist/fullpack-linux-$$a . || exit 1; 	done
-	@for v in $(ARMS); do 	  echo "  building linux/armv$$v"; 	  CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=$$v 	    go build -trimpath -ldflags "$(LDFLAGS) -X github.com/firegoood/FullPck/internal/app.GOARM=$$v" 	    -o dist/fullpack-linux-armv$$v . || exit 1; 	done
 
 # GitHub release assets: fullpack_linux_<arch>.tar.gz, each containing a single
 # `fullpack` binary. These are what install.sh and the in-app updater download.
 release: version release-linux
 	mkdir -p release
-	@for a in $(ARCHES) $(addprefix armv,$(ARMS)); do 	  cp dist/fullpack-linux-$$a dist/fullpack && 	  tar -czf release/fullpack_linux_$$a.tar.gz -C dist fullpack && 	  rm dist/fullpack || exit 1; 	done
+	@rm -f release/fullpack_linux_*.tar.gz
+	@for a in $(ARCHES); do 	  cp dist/fullpack-linux-$$a dist/fullpack && 	  tar -czf release/fullpack_linux_$$a.tar.gz -C dist fullpack && 	  rm dist/fullpack || exit 1; 	done
 	@# A checksum file published beside the assets is what lets the installer and
 	@# the updater prove that a mirror handed them the real binary. Users on
 	@# restricted networks fetch these through third-party proxies, so this is

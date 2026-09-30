@@ -15,8 +15,7 @@ written down, so a release made in a hurry is the same release.
 - [ ] `VERSION` and `internal/app` agree with the tag. CI checks this before it
       builds, deliberately, because a mismatch is only discovered by an operator
       otherwise.
-- [ ] `README.md` **and `README_FA.md`** are both current. They drift apart, and
-      the Persian one is the one most users read.
+- [ ] `README.md` and the installation instructions are current.
 - [ ] `go.mod`'s Go version and `install.sh`'s `GO_VERSION` / `GO_SHA_VERSION`
       agree. The installer refuses to run if they do not, and says so.
 - [ ] The full suite is green, with `-race`, and so are `staticcheck` and
@@ -39,12 +38,16 @@ written down, so a release made in a hurry is the same release.
 ## Tagging
 
 ```
-git tag -a v1.8.7 -m "v1.8.7"
-git push fullpack v1.8.7
+tag="$(cat VERSION)"
+git tag -a "$tag" -m "$tag"
+git push fullpack "$tag"
 ```
 
-The release workflow builds every architecture, writes `SHA256SUMS`, signs it
-with the repository secret, and publishes.
+Starting with the release after v1.8.7, the workflow builds and publishes only
+Linux `amd64` and `arm64`. It writes `SHA256SUMS` for those two archives, signs
+the list with the repository secret, and publishes it with the installer and
+SBOM. Other architectures may still be built from source; no prebuilt update
+asset is promised for them.
 
 What is signed is the **tag and the list together** (`fullpack release <tag>`,
 a newline, then `SHA256SUMS`), not the list alone. The list names archives,

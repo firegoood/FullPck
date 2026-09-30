@@ -260,6 +260,12 @@ install_release() {
   done
 
   # 2) The latest GitHub release.
+  # New releases after v1.8.7 provide only amd64 and arm64 binaries. Older
+  # architectures may still use a local legacy archive or build from source.
+  case "$ARCH" in
+    amd64|arm64) ;;
+    *) warn "No prebuilt release for ${ARCH}; building from source instead."; return 1 ;;
+  esac
   fetch "https://github.com/${REPO}/releases/latest/download/${ASSET}" "$INSTALL_DIR/$ASSET" || return 1
 
   # 3) Verify against the checksums published with the same release. An archive

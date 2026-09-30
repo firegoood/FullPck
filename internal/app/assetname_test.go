@@ -7,14 +7,15 @@ import (
 	"testing"
 )
 
-// A build has to be able to name its own successor.
+// Legacy 32-bit ARM builds still name their own variant. New releases after
+// v1.8.7 publish only amd64 and arm64; this behavior remains for source builds
+// and older installations.
 //
 // runtime.GOARCH is "arm" for every 32-bit ARM build, whichever variant it was
 // compiled for, and the three are not interchangeable: a v7 binary on a v5
-// board is an illegal instruction, not a slow one. So the releases name them
-// apart, and a running binary that asked for "fullpack_linux_arm.tar.gz" would
-// be asking for something no release publishes — the update would 404 on every
-// ARM machine there is.
+// board is an illegal instruction, not a slow one. Releases through v1.8.7
+// named them apart; a source build also needs to preserve that distinction
+// when looking up an older archive.
 func TestAnARMBuildAsksForItsOwnVariant(t *testing.T) {
 	saved := GOARM
 	t.Cleanup(func() { GOARM = saved })
@@ -55,24 +56,19 @@ func TestEveryArchitectureBuiltIsAlsoPublished(t *testing.T) {
 	}
 	src := string(mk)
 
-	for _, want := range []string{
-		"ARCHES := amd64 arm64 386 s390x",
-		"ARMS   := 5 6 7",
-	} {
-		if !strings.Contains(src, want) {
-			t.Errorf("the release build no longer declares %q", want)
-		}
+	if !strings.Contains(strings.ReplaceAll(src, "\r\n", "\n"), "ARCHES := amd64 arm64\n") {
+		t.Error("future releases must build only Linux amd64 and arm64")
 	}
-	// The stamp, at the path the linker actually resolves. A wrong symbol path
-	// is ignored in silence, so every ARM build would ship unstamped and ask
-	// for an asset that does not exist.
-	if !strings.Contains(src, "github.com/firegoood/FullPck/internal/app.GOARM=$$v") {
-		t.Error("the ARM builds are not stamped with their variant, so each would " +
-			"ask for fullpack_linux_arm.tar.gz, which no release publishes")
+	if strings.Contains(src, "ARMS   :=") || strings.Contains(src, "GOARCH=arm ") {
+		t.Error("the release build still includes 32-bit ARM variants")
 	}
-	// Both loops name the archive the same way the binary will.
+	// Only the two listed binaries are packaged, and stale archives are removed
+	// before checksums are written so a repeated local build cannot publish more.
 	if !strings.Contains(src, "release/fullpack_linux_$$a.tar.gz") {
 		t.Error("the archives are not named after the architectures that were built")
+	}
+	if !strings.Contains(src, "rm -f release/fullpack_linux_*.tar.gz") {
+		t.Error("old release archives can leak into the next SHA256SUMS")
 	}
 }
 
@@ -84,7 +80,7 @@ func TestTheInstallerKnowsEveryPublishedArchitecture(t *testing.T) {
 	}
 	src := string(sh)
 
-	for _, want := range []string{"amd64", "arm64", "386", "s390x", "armv$(arm_variant)"} {
+	for _, want := range []string{"amd64", "arm64"} {
 		if !strings.Contains(src, want) {
 			t.Errorf("install.sh cannot resolve %q, so that release asset is "+
 				"published and unreachable", want)
@@ -99,19 +95,20 @@ func TestTheInstallerKnowsEveryPublishedArchitecture(t *testing.T) {
 
 // What is built has to be what is published.
 //
-// The workflow listed the two archives it knew about by name. When the build
-// learned five more, nothing failed: they were produced, and then left behind
-// on the runner. An update on any of those machines would 404 on an asset the
-// release page never carried.
+// The workflow must publish exactly the two supported release archives.
 func TestTheWorkflowPublishesEverythingTheBuildProduces(t *testing.T) {
 	wf, err := os.ReadFile("../../.github/workflows/release.yml")
 	if err != nil {
 		t.Skipf("no workflow here: %v", err)
 	}
 	src := string(wf)
-	if !strings.Contains(src, "release/fullpack_linux_*.tar.gz") {
-		t.Error("the workflow names its assets one by one, so an architecture added " +
-			"to the build is published only if somebody remembers to add it here too")
+	for _, want := range []string{"release/fullpack_linux_amd64.tar.gz", "release/fullpack_linux_arm64.tar.gz"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("the workflow omits %s", want)
+		}
+	}
+	if strings.Contains(src, "release/fullpack_linux_*.tar.gz") {
+		t.Error("the workflow wildcard could publish an unsupported archive")
 	}
 	if !strings.Contains(src, "release/SHA256SUMS") {
 		t.Error("the checksums are not published, and the updater refuses an archive " +

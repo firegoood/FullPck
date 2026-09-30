@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-On the Iran server (Ubuntu amd64), install as Controller. Enter your sudo password if prompted; the interactive menu opens after installation:
+On the Iran server (Ubuntu amd64 or arm64), install as Controller. Enter your sudo password if prompted; the interactive menu opens after installation:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role iran

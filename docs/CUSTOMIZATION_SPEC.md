@@ -10,6 +10,8 @@ Last verified against FullPack v1.8.7.
 
 قید صریح کاربر: Telegram نباید پورت محلی 443 را اشغال کند. اتصال `api.telegram.org:443` فقط اتصال خروجی به مقصد خارجی است. IPC باید Unix socket محلی باشد و fallback تونل از پورت بلند روی `127.0.0.1` استفاده کند. نگاشت قدیمی مخصوص Telegram روی پورت محلی 443 باید به پورت بلند منتقل شود.
 
+از انتشارهای بعد از `v1.8.7` فقط بسته‌های آمادهٔ Linux برای `amd64` و `arm64` ساخته و منتشر شوند. معماری‌های دیگر در صورت نیاز می‌توانند از سورس ساخته شوند؛ بستهٔ آماده و به‌روزرسانی خودکار برای آن‌ها تضمین نمی‌شود.
+
 </div>
 
 ---
@@ -55,6 +57,8 @@ Do not ask for confirmation between implementation phases.
 # 0. DEPLOYMENT ASSUMPTION — FRESH INSTALLS ONLY
 
 This deployment is for FRESH INSTALLS.
+
+Release artifact policy after v1.8.7: publish only Linux amd64 and arm64 archives, plus the installer, checksums, signature, and SBOM. Keep the release build, workflow upload list, and checksum contents aligned. Do not add another prebuilt architecture without an explicit user request.
 
 There is NO requirement to migrate existing SSH-managed Fleet entries.
 

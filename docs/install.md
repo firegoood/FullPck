@@ -12,6 +12,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/insta
 bash <(curl -fsSL https://raw.githubusercontent.com/firegoood/FullPck/main/install.sh) --role kharej
 ```
 
+From the release after v1.8.7 onward, prebuilt archives are provided only for
+Linux amd64 and arm64. On other recognized architectures the installer can
+build from source, but no prebuilt update archive is promised.
+
 If a prebuilt release exists, the installer downloads the archive for your
 architecture (amd64/arm64) into `/root/FullPack`, **verifies it against the
 checksum published with the release**, and installs the binary. Until the first
