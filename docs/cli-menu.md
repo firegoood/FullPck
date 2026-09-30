@@ -455,4 +455,4 @@ FEC؛ و zero-copy (فقط روی tcp ساده).
 
 ---
 
-*Last verified against FullPack v1.8.5.*
+*Last verified against FullPack v1.8.6.*

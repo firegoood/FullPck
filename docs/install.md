@@ -135,4 +135,4 @@ amd64 و `aarch64` یعنی arm64. بهترین راه این است که `insta
 
 ---
 
-*Last verified against FullPack v1.8.5.*
+*Last verified against FullPack v1.8.6.*

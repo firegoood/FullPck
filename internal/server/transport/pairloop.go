@@ -124,8 +124,7 @@ func (p pairing[T]) run() {
 // place in this file that does either, which is what makes "was the slot
 // released" a question with one answer rather than seven.
 func (p pairing[T]) abandon() {
-	p.local.conn.Close()
-	p.limits.release()
+	p.local.closeAndRelease(p.limits)
 }
 
 func (p pairing[T]) askForAnother() {
@@ -138,7 +137,7 @@ func (p pairing[T]) askForAnother() {
 // worth pairing at all. Checked before a pairing is started, so a connection
 // that sat in the queue past its deadline is not given a fresh timer.
 func expired(local LocalTCPConn) bool {
-	return nowMillis()-local.timeCreated > pairingTimeout.Milliseconds()
+	return !local.claim() || nowMillis()-local.timeCreated > pairingTimeout.Milliseconds()
 }
 
 // drop is what a transport does with a local connection that is already too
@@ -146,6 +145,5 @@ func expired(local LocalTCPConn) bool {
 // disagree about whether the release belongs there.
 func drop(local LocalTCPConn, limits *limiter, log *logrus.Logger) {
 	log.Debugf("timeouted local connection: %d ms", nowMillis()-local.timeCreated)
-	local.conn.Close()
-	limits.release()
+	local.closeAndRelease(limits)
 }

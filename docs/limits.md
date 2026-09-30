@@ -31,4 +31,4 @@ share one link and you want to stop any one of them from taking it all.
 
 ---
 
-*Last verified against FullPack v1.8.5.*
+*Last verified against FullPack v1.8.6.*

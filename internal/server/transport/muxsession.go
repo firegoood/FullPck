@@ -98,16 +98,15 @@ func (m muxSession) run(session *smux.Session) {
 			return
 
 		case incomingConn := <-m.local:
-			if nowMillis()-incomingConn.timeCreated > pairingTimeout.Milliseconds() {
+			if !incomingConn.claim() || nowMillis()-incomingConn.timeCreated > pairingTimeout.Milliseconds() {
 				m.log.Debugf("timeouted local connection: %d ms", nowMillis()-incomingConn.timeCreated)
-				incomingConn.conn.Close()
 
 				// Free the slot this connection took on accept. It is otherwise
 				// released only by the handler goroutine, which never runs for a
 				// connection that timed out waiting to be paired — so a tunnel
 				// with max_connections set loses a slot to every timeout and
 				// eventually refuses everything.
-				m.limits.release()
+				incomingConn.closeAndRelease(m.limits)
 
 				atomic.AddInt32(m.streams, -1)
 				<-counter
@@ -147,7 +146,7 @@ func (m muxSession) run(session *smux.Session) {
 			go func() {
 				// Free the connection slot once the transfer ends, or the
 				// limit would fill up permanently.
-				defer m.limits.release()
+				defer incomingConn.closeAndRelease(m.limits)
 				handlers.TCPConnectionHandler(m.ctx, m.proxyProtocol && !isUDPFlow(incomingConn.conn),
 					incomingConn.conn, metrics.CountedConn(stream), m.log, m.usage,
 					localForwardPort(incomingConn.conn), m.sniffer)

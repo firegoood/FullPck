@@ -39,8 +39,8 @@ written down, so a release made in a hurry is the same release.
 ## Tagging
 
 ```
-git tag -a v1.8.5 -m "v1.8.5"
-git push fullpack v1.8.5
+git tag -a v1.8.6 -m "v1.8.6"
+git push fullpack v1.8.6
 ```
 
 The release workflow builds every architecture, writes `SHA256SUMS`, signs it
@@ -151,4 +151,4 @@ during the incident.
 
 ---
 
-*Last verified against FullPack v1.8.5.*
+*Last verified against FullPack v1.8.6.*

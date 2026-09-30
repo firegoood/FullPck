@@ -153,9 +153,10 @@ func (f portForwarder) accept(listener net.Listener, remoteAddr string) {
 			continue
 		}
 		wrapped := f.limits.wrap(f.ctx, conn)
+		local := newLocalTCPConn(wrapped, remoteAddr, f.limits)
 
 		select {
-		case f.queue <- LocalTCPConn{conn: wrapped, remoteAddr: remoteAddr, timeCreated: time.Now().UnixMilli()}:
+		case f.queue <- local:
 			f.log.Debugf("forwarded port: accepted a client from %s", tcpConn.RemoteAddr().String())
 			if f.queued != nil {
 				f.queued()
@@ -165,8 +166,7 @@ func (f portForwarder) accept(listener net.Listener, remoteAddr string) {
 			// connection open longer only delays the user's retry.
 			f.log.Warnf("forwarded port %s: the queue is full, dropping a client from %s",
 				listener.Addr().String(), tcpConn.RemoteAddr().String())
-			f.limits.release()
-			conn.Close()
+			local.closeAndRelease(f.limits)
 		}
 	}
 }
@@ -177,14 +177,15 @@ func (f portForwarder) admitUDP(conn net.Conn, target string) bool {
 	if !f.limits.acquire() {
 		return false
 	}
+	local := newLocalTCPConn(f.limits.wrap(f.ctx, conn), target, f.limits)
 	select {
-	case f.queue <- LocalTCPConn{conn: f.limits.wrap(f.ctx, conn), remoteAddr: target, timeCreated: time.Now().UnixMilli()}:
+	case f.queue <- local:
 		if f.queued != nil {
 			f.queued()
 		}
 		return true
 	default:
-		f.limits.release()
+		local.closeAndRelease(f.limits)
 		return false
 	}
 }

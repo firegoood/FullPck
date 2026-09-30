@@ -60,15 +60,15 @@ func nowMillis() int64 { return time.Now().UnixMilli() }
 // full. Dropping one client is the cost; the alternative is dropping all of
 // them until somebody restarts the service.
 func requeueLocal(ch chan LocalTCPConn, conn LocalTCPConn, lim *limiter, logger *logrus.Logger) bool {
+	conn.requeue()
 	select {
 	case ch <- conn:
 		return true
 	default:
 		if conn.conn != nil {
 			logger.Warnf("the local queue is full, dropping a client from %s", conn.conn.RemoteAddr())
-			conn.conn.Close()
 		}
-		lim.release()
+		conn.closeAndRelease(lim)
 		return false
 	}
 }
@@ -88,10 +88,7 @@ func drainOnEnd(ctx context.Context, queue <-chan LocalTCPConn, limits *limiter)
 	sweepAfterEnd(ctx, func() bool {
 		select {
 		case c := <-queue:
-			if c.conn != nil {
-				c.conn.Close()
-			}
-			limits.release()
+			c.closeAndRelease(limits)
 			return true
 		default:
 			return false

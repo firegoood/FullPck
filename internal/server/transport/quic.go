@@ -537,7 +537,7 @@ func (s *QuicTransport) handleLoop(g *quicGen) {
 					go func() {
 						// Free the connection slot once the transfer ends, or
 						// the limit would fill up permanently.
-						defer s.limits.release()
+						defer local.closeAndRelease(s.limits)
 						handlers.TCPConnectionHandler(g.ctx,
 							s.config.ProxyProtocol && !isUDPFlow(local.conn),
 							local.conn, metrics.CountedConn(st), s.logger,

@@ -378,7 +378,7 @@ func (s *WsTransport) handleLoop(g *wsGen) {
 					go func() {
 						// Free the connection slot once the transfer ends, or
 						// the limit would fill up permanently.
-						defer s.limits.release()
+						defer local.closeAndRelease(s.limits)
 						handlers.WSConnectionHandler(g.ctx, c.conn, local.conn,
 							s.logger, g.usageMonitor, localForwardPort(local.conn), s.config.Sniffer)
 					}()
