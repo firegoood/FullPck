@@ -90,4 +90,4 @@ Reference pages: what each part of FullPack **is**, and every setting it has.
 
 ---
 
-*Last verified against FullPack v1.8.6.*
+*Last verified against FullPack v1.8.7.*

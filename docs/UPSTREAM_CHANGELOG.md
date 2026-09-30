@@ -2,6 +2,16 @@
 
 This file preserves the upstream release history for reference. FullPack releases are recorded in [CHANGELOG.md](../CHANGELOG.md).
 
+<div dir="rtl">
+
+## خلاصهٔ فارسی
+
+این سند تاریخچهٔ نسخه‌های پروژهٔ اصلی BackPack را برای بررسی به‌روزرسانی‌های آینده نگه می‌دارد. دستورها و قابلیت‌های نوشته‌شده در این بخش لزوماً در FullPack وجود ندارند؛ تاریخچهٔ نسخه‌های FullPack در [CHANGELOG اصلی](../CHANGELOG.md) ثبت شده است.
+
+</div>
+
+*Last verified against FullPack v1.8.7.*
+
 ## v1.8.5 — 2026-09-30
 
 ### Added

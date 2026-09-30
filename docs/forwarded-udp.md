@@ -185,4 +185,4 @@ forward‌های TCP گرسنه می‌مانند — سایت نصفه لود �
 
 ---
 
-*Last verified against FullPack v1.8.6.*
+*Last verified against FullPack v1.8.7.*

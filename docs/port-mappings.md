@@ -208,4 +208,4 @@ host روی تونل معکوس و مستقیم یعنی `127.0.0.1` خارج، 
 
 ---
 
-*Last verified against FullPack v1.8.6.*
+*Last verified against FullPack v1.8.7.*
