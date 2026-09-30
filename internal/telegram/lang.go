@@ -92,8 +92,8 @@ var fa = map[string]string{
 	"No log output.":                "لاگی ثبت نشده است.",
 
 	// Health details, as the health checker words them
-	"peer connected":                                "طرف مقابل متصل است",
-	"service is not running":                        "سرویس در حال اجرا نیست",
+	"peer connected":         "طرف مقابل متصل است",
+	"service is not running": "سرویس در حال اجرا نیست",
 	"no systemd unit — the tunnel is not installed": "یونیت systemd وجود ندارد — تونل نصب نشده است",
 	"running, but no client is connected yet":       "در حال اجراست، ولی هنوز کلاینتی وصل نشده",
 	"running, but not connected to the server":      "در حال اجراست، ولی به سرور وصل نیست",
