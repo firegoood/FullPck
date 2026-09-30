@@ -44,4 +44,4 @@ is not running.
 
 ---
 
-*Last verified against FullPack v1.8.8.*
+*Last verified against FullPack v1.8.9.*

@@ -115,4 +115,4 @@ for the full picture.
 
 ---
 
-*Last verified against FullPack v1.8.8.*
+*Last verified against FullPack v1.8.9.*

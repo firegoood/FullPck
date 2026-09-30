@@ -122,17 +122,15 @@
 .panel .asv-h span{display:block;font-size:11.5px;color:var(--mu);margin-top:3px;
   line-height:1.5;max-width:52ch}
 
-/* Address and password get the room; the port and the username are usually
-   22 and root and are filled in already, so they take a quarter each. */
+/* Name and Controller endpoint must occupy separate cells. Both labels once
+   used f1, so the endpoint covered the required name input. */
 .panel .asv-g{display:grid;gap:10px;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  grid-template-areas:"n n h h" "p u w w"}
+  grid-template-columns:minmax(0,1fr) minmax(0,2fr);
+  grid-template-areas:"n h"}
 .panel .asv-g .f1{grid-area:n} .panel .asv-g .f2{grid-area:h}
-.panel .asv-g .f3{grid-area:p} .panel .asv-g .f4{grid-area:u}
-.panel .asv-g .f5{grid-area:w}
 @container pg (max-width:640px){
-  .panel .asv-g{grid-template-columns:repeat(2,minmax(0,1fr));
-    grid-template-areas:"n n" "h h" "p u" "w w"}
+  .panel .asv-g{grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"n" "h"}
 }
 
 .panel .asv-g label{display:block;min-width:0}

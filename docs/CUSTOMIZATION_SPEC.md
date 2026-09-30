@@ -1,6 +1,6 @@
 # مشخصات شخصی‌سازی FullPack
 
-Last verified against FullPack v1.8.8.
+Last verified against FullPack v1.8.9.
 
 <div dir="rtl">
 
