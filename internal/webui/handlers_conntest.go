@@ -228,7 +228,7 @@ func (s *server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "a connection test is already running — stop it first", http.StatusConflict)
 				return
 			}
-			host := strings.Trim(strings.TrimSpace(r.FormValue("host")), "[]")
+			host := strings.TrimSpace(r.FormValue("host"))
 			if host == "" {
 				host = manage.ConnTestHost()
 			}

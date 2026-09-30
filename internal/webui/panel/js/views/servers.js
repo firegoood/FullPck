@@ -99,6 +99,7 @@ const SHELL = `
   </div>
 
   <pre class="rollout7" id="ndrift" hidden></pre>
+  <p class="hint" id="fleet-update" role="status" hidden></p>
 
   <form class="addsv" id="addform" hidden autocomplete="off">
     <div class="asv-map">${MAP_SVG}</div>
@@ -165,6 +166,8 @@ export function serversView(ctx) {
   const enrollCode = $('#enroll-code', root);
   const enrollCopy = $('#enroll-copy', root);
   const enrollCopyNote = $('#enroll-copy-note', root);
+  const updateNote = $('#fleet-update', root);
+  let alive = true;
 
   enrollCode.addEventListener('click', () => enrollCode.select());
   enrollCopy.addEventListener('click', async () => {
@@ -207,6 +210,7 @@ export function serversView(ctx) {
 
   /* ---- painting ---- */
   function paint(state) {
+    if (!alive) return;
     const nodes = state.nodes || [];
     $('#nempty', root).hidden = !!(nodes.length || !form.hidden || !enrollResult.hidden);
     $('#nCount', root).textContent = String(nodes.length);
@@ -677,16 +681,27 @@ export function serversView(ctx) {
    */
   let timer = null;
   const tick = async () => {
-    try { paint(await api.nodes()); } catch (e) { /* the page keeps what it has */ }
+    if (!alive) return;
+    try {
+      const state = await api.nodes();
+      if (!alive) return;
+      paint(state);
+      updateNote.hidden = true;
+    } catch (e) {
+      if (!alive) return;
+      updateNote.hidden = false;
+      updateNote.textContent = 'Status update failed; the cards show the last answer. Retrying automatically…';
+    } finally {
+      if (alive) timer = setTimeout(tick, 6000);
+    }
   };
 
   (async () => {
     try { paint(await api.nodesCached()); } catch (e) { /* the live pass follows */ }
-    tick();
+    if (alive) tick();
   })();
 
-  timer = setInterval(tick, 6000);
-  ctx.setTeardown(() => clearInterval(timer));
+  ctx.setTeardown(() => { alive = false; clearTimeout(timer); });
 }
 
 /* Offering the pairings a new server made possible.

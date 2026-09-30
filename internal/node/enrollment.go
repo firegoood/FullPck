@@ -65,10 +65,11 @@ type enrollmentRecord struct {
 // intent is written on the node before the first network request, so losing a
 // response cannot cause a new credential to be offered for the same code.
 type pendingEnrollment struct {
-	CodeHash   string `json:"code_hash"`
-	NodeID     string `json:"node_id"`
-	Credential string `json:"credential"`
-	Created    int64  `json:"created"`
+	CodeHash      string `json:"code_hash"`
+	NodeID        string `json:"node_id"`
+	Credential    string `json:"credential"`
+	Created       int64  `json:"created"`
+	ControllerURL string `json:"controller_url,omitempty"`
 }
 
 var enrollmentMu sync.Mutex
@@ -421,29 +422,47 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	// A pending intent lets an interrupted join resume with the exact same
 	// secret. Check the config separately: a write can report failure after
 	// rename, leaving a complete file that still needs confirmation.
-	_, configErr := os.Stat(AgentConfigPath)
-	configExists := configErr == nil
-	if configErr != nil && !errors.Is(configErr, os.ErrNotExist) {
-		return AgentConfig{}, configErr
+	key, err := controllerIdentity(e.ControllerURL)
+	if err != nil {
+		return AgentConfig{}, err
 	}
-	pendingPath := AgentConfigPath + ".pending"
+	configs, err := LoadAgentConfigs()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return AgentConfig{}, err
+	}
+	var current AgentConfig
+	configExists := false
+	for _, cfg := range configs {
+		cfgKey, _ := controllerIdentity(cfg.ControllerURL)
+		if cfgKey == key {
+			current, configExists = cfg, true
+			break
+		}
+	}
+	if !configExists && len(configs) >= maxAgentControllers {
+		return AgentConfig{}, errors.New("too many Agent Controllers")
+	}
+	pendingPath, err := pendingPathForEnrollment(e, code, len(configs) != 0)
+	if err != nil {
+		return AgentConfig{}, err
+	}
 	var pending pendingEnrollment
 	if b, readErr := os.ReadFile(pendingPath); readErr == nil {
 		if json.Unmarshal(b, &pending) != nil || pending.CodeHash != HashCredential(code) || pending.NodeID != e.NodeID {
-			return AgentConfig{}, errors.New("a different enrollment is pending on this node")
+			return AgentConfig{}, errors.New("a different enrollment is pending for this Controller; retry its original code")
 		}
 	} else if !errors.Is(readErr, os.ErrNotExist) {
 		return AgentConfig{}, readErr
 	} else {
 		if configExists {
-			return AgentConfig{}, errors.New("this node already has an Agent configuration")
+			return AgentConfig{}, errors.New("this node already has an Agent configuration for this Controller")
 		}
 		credential, genErr := GenerateCredential()
 		if genErr != nil {
 			return AgentConfig{}, genErr
 		}
 		pending = pendingEnrollment{CodeHash: HashCredential(code), NodeID: e.NodeID,
-			Credential: credential, Created: enrollmentNow().Unix()}
+			Credential: credential, Created: enrollmentNow().Unix(), ControllerURL: e.ControllerURL}
 		b, _ := json.Marshal(pending)
 		if err := writePrivateFile(pendingPath, b); err != nil {
 			return AgentConfig{}, fmt.Errorf("saving retryable enrollment intent: %w", err)
@@ -467,8 +486,7 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	if configExists {
 		cfg := AgentConfig{NodeID: e.NodeID, Name: e.Name, ControllerURL: e.ControllerURL,
 			Credential: credential, TLSPinSHA256: e.TLSPinSHA256}
-		current, err := LoadAgentConfig()
-		if err != nil || current != cfg {
+		if current != cfg {
 			return AgentConfig{}, errors.New("existing Agent configuration conflicts with pending enrollment")
 		}
 		if err := saveAgentConfigForJoin(cfg); err != nil {
@@ -590,6 +608,38 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 		}
 	}
 	return cfg, nil
+}
+
+// Retry state belongs to a Controller, not to the whole foreign machine.
+// Keep a matching old intent recoverable; never replace another Controller's
+// pending credential just because the operator supplies a different code.
+func pendingPathForEnrollment(e enrollmentCode, code string, hasConfigs bool) (string, error) {
+	legacy := AgentConfigPath + ".pending"
+	b, err := os.ReadFile(legacy)
+	if err == nil {
+		var old pendingEnrollment
+		if json.Unmarshal(b, &old) != nil {
+			return "", errors.New("pending enrollment intent is invalid")
+		}
+		if old.CodeHash == HashCredential(code) && old.NodeID == e.NodeID {
+			return legacy, nil
+		}
+		oldKey, _ := controllerIdentity(old.ControllerURL)
+		key, _ := controllerIdentity(e.ControllerURL)
+		if oldKey != "" && oldKey == key {
+			return legacy, nil
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	} else if !hasConfigs {
+		return legacy, nil
+	}
+	key, err := controllerIdentity(e.ControllerURL)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte(key))
+	return filepath.Join(AgentConfigPath+".pending.d", fmt.Sprintf("%x.json", sum)), nil
 }
 
 // The CLI can be invoked twice in separate processes. Keep the local retry

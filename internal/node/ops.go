@@ -269,11 +269,10 @@ func LocalInfo() Info {
 		MemUsed:    m.MemUsed,
 		MemTotal:   m.MemTotal,
 	}
-	// Where this machine is, looked up here rather than by the panel. geo
-	// caches for six hours, so the poll behind this costs one request a
-	// quarter-day and the rest are memory.
+	// Geolocation is optional metadata. A blocked provider must never hold
+	// the Agent hello or a fleet status request waiting on the Internet.
 	if v4 != "" {
-		if g := geo.Lookup(v4); g != nil {
+		if g := geo.Peek(v4); g != nil {
 			i.Country, i.City, i.ISP = g.Code, g.City, g.ISP
 		}
 	}

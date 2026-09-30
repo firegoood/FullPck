@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -337,9 +338,9 @@ const (
 // StartConnTestIran starts the Iran end of every tunnel under test and the
 // coordinator, and returns the link to give the kharej.
 func StartConnTestIran(o ConnTestOptions) (*ConnTestIran, string, error) {
-	host := strings.Trim(strings.TrimSpace(o.Host), "[]")
-	if host == "" {
-		return nil, "", fmt.Errorf("this server's address is needed: it is what the kharej dials")
+	host, err := normalizeConnTestHost(o.Host)
+	if err != nil {
+		return nil, "", err
 	}
 	dir, err := os.MkdirTemp("", "fullpack-conntest-")
 	if err != nil {
@@ -471,6 +472,45 @@ func StartConnTestIran(o ConnTestOptions) (*ConnTestIran, string, error) {
 
 	s.coord.setConfig(ctConfig(s.link))
 	return s, s.link.Short(), nil
+}
+
+// Operators may paste the panel's URL. Only the Iran host belongs in a test
+// link: the test uses its own temporary data/coordinator ports.
+func normalizeConnTestHost(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("this server's address is needed: it is what the kharej dials")
+	}
+	if ip := net.ParseIP(strings.Trim(raw, "[]")); ip != nil {
+		if ip.IsUnspecified() {
+			return "", errors.New("use the Iran server's reachable address, not a wildcard")
+		}
+		return ip.String(), nil
+	}
+	fullURL := strings.Contains(raw, "://")
+	if !fullURL {
+		raw = "http://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+		return "", errors.New("use the Iran server's IP, hostname or HTTP(S) panel URL")
+	}
+	if !fullURL && (u.Path != "" || u.RawQuery != "" || u.Fragment != "") {
+		return "", errors.New("use an IP or hostname, or paste a complete HTTP(S) panel URL")
+	}
+	host := u.Hostname()
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsUnspecified() {
+			return "", errors.New("use the Iran server's reachable address, not a wildcard")
+		}
+		return ip.String(), nil
+	}
+	for _, c := range host {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-') {
+			return "", errors.New("invalid Iran server hostname")
+		}
+	}
+	return host, nil
 }
 
 // Joined is closed once the kharej has checked in.

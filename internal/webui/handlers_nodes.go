@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net"
 	"net/http"
@@ -55,11 +56,8 @@ type nodeView struct {
 	// trip, measured here. See nodeprobe.go.
 	Net control.NetHealth `json:"net"`
 
-	// Pending says this row was answered from what was already written down and
-	// the server has not been contacted for it. The first paint of the fleet
-	// page is served this way so the cards appear at once; the poll behind it
-	// replaces them with rows that were actually asked. A card drawn from a
-	// pending row must not claim the server is up: what is stored is a memory.
+	// Pending means live session state is unavailable. Cached metadata alone
+	// never establishes Online; the authenticated Agent registry does.
 	Pending bool `json:"pending,omitempty"`
 
 	// Tunnels are the ones this panel built there. It is what this panel
@@ -109,12 +107,11 @@ func (s *server) writeNodeState(w http.ResponseWriter) { s.writeNodeStateWith(w,
 // as the slowest of them took — four or five seconds — for information most of
 // which was already on disk. This is what the page draws immediately.
 //
-// Every row is marked pending, and none of them claims the server is up. What
-// is stored is a memory of the last answer, and a green light drawn from a
-// memory is exactly the kind of confident wrong thing this panel should not
-// show. The normal poll follows a moment later with rows that were asked.
+// Metadata is cached, but Online is read from the current authenticated Agent
+// registry. Reading that registry does not contact the foreign machine.
 func (s *server) writeNodeStateCached(w http.ResponseWriter) {
 	list := node.List()
+	run := s.nodes.Runner()
 	rows := make([]nodeView, len(list))
 	for i, n := range list {
 		rows[i] = nodeView{
@@ -128,6 +125,10 @@ func (s *server) writeNodeStateCached(w http.ResponseWriter) {
 			Net:     s.net.Health(n.Name),
 			Pending: true,
 		}
+		if run != nil {
+			rows[i].Online, rows[i].Why = run.Reachable(n.Name)
+			rows[i].Pending = false
+		}
 	}
 	writeJSON(w, map[string]any{"nodes": rows})
 }
@@ -137,10 +138,8 @@ func (s *server) writeNodeStateCached(w http.ResponseWriter) {
 func (s *server) writeNodeStateWith(w http.ResponseWriter, extra map[string]any) {
 	run := s.nodes.Runner()
 
-	// Every card asks whether its server is up, and asking means a connection.
-	// Doing that one after another would make the page take as long as the
-	// slowest server times the number of them, so they are asked together and
-	// the runner's own short memory keeps a poll from costing anything at all.
+	// Online is read from the authenticated session registry. Stale metadata
+	// is refreshed concurrently with a short deadline for each Agent call.
 	list := node.List()
 	rows := make([]nodeView, len(list))
 	var wg sync.WaitGroup
@@ -494,6 +493,16 @@ func (s *server) pushPeerEnd(run node.Runner, nodeName, tunnel string, peerConn 
 		return nil, err
 	}
 	form := manage.MirrorForPeer(parsed)
+	// The foreign machine may serve several Iran Controllers. New pairs get
+	// a stable per-enrollment name so equal local names cannot overwrite one
+	// another there. Existing/adopted pairs retain their recorded peer name.
+	if pair, ok := manage.PairFor(tunnel); ok && pair.Node == nodeName {
+		if pair.PeerName != "" {
+			form.Name = pair.PeerName
+		}
+	} else if n, ok := node.Find(nodeName); ok {
+		form.Name = managedPeerName(form.Name, n.ID)
+	}
 
 	req := node.ApplyRequest{Kind: form.Kind}
 	if form.Kind == "direct" {
@@ -549,6 +558,15 @@ func (s *server) pushPeerEnd(run node.Runner, nodeName, tunnel string, peerConn 
 		"note":     form.Note,
 		"peerName": form.Name,
 	}, nil
+}
+
+func managedPeerName(localName, nodeID string) string {
+	sum := sha256.Sum256([]byte(nodeID + "\x00" + localName))
+	prefix := localName
+	if len(prefix) > 27 {
+		prefix = prefix[:27]
+	}
+	return fmt.Sprintf("%s-%x", prefix, sum[:6])
 }
 
 // peerRole and peerTunnelPort read back the two facts that identify the far end

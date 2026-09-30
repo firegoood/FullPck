@@ -410,8 +410,14 @@ export function addView(ctx) {
 
       function applyShape() {
         const direct = chosen.direction === 'direct';
+        const directionNote = root.querySelector('#dirnote');
+        if (directionNote) directionNote.textContent = direct
+          ? 'Direct — Iran dials the foreign server on the tunnel port.'
+          : 'Reverse — the foreign server dials Iran on the tunnel port.';
         show('.step3rev', !direct);
         show('.step3direct', direct);
+        const peerGroup = root.querySelector('#peerGrp');
+        if (peerGroup) peerGroup.hidden = direct;
         if (direct) suggestDirect(chosen.side);
 
         /* "server" is the Iran side, "client" the kharej side — the words the
@@ -504,10 +510,9 @@ export function addView(ctx) {
         const onNode = creationMode === 'managed' ? (nodeSel?.value || '') : '';
         const direct = chosen.direction === 'direct';
         const t0 = Date.now();
-        if (!onNode) { rows[2]?.remove(); rows[3]?.remove(); }
-
-        rows.slice(2).forEach(r => r.remove());
-        ['Writing the configuration', 'Starting it here'].forEach((lb, i) => {
+        rows.slice(2).forEach(r => { r.hidden = !onNode; });
+        ['Writing the configuration', 'Starting it here',
+          `Writing on ${onNode}`, `Starting on ${onNode}`].forEach((lb, i) => {
           const tx = rows[i]?.querySelector('.tx6');
           if (tx) tx.textContent = lb;
           rows[i]?.classList.remove('done', 'doing', 'failed');
@@ -566,17 +571,17 @@ export function addView(ctx) {
         spin?.setAttribute('hidden', '');
         store.refresh();
 
-        const good = !partial && r.active !== false;
+        const good = !partial && r.active !== false && (!onNode || r.peer?.active !== false);
         if (title) title.textContent = !onNode ? 'This end was created'
-          : good ? 'Both ends are up' : partial ? 'Only this end was built' : 'Created, not up yet';
+          : good ? 'Both services started' : partial ? 'Only this end was built' : 'Created, not up yet';
         if (sub) {
           sub.textContent = !onNode
             ? 'Set up the other machine with the same port, transport and token.'
             : good
-            ? 'Nothing else to do on either server.'
+            ? 'Check the tunnel card for the connection between the two servers.'
             : partial
               ? `This server has it. ${onNode} does not.`
-              : 'The config is written and the service is running, but the tunnel has not come up.';
+              : 'The config is written, but one of the services has not started.';
         }
         if (result) {
           result.innerHTML = !onNode
@@ -588,7 +593,7 @@ export function addView(ctx) {
                </div></div>`
             : good
             ? `<div class="doneline"><span class="tick">✓</span><div>
-                 <b id="doneName">${esc(name || 'The tunnel')} is running on both servers</b>
+                 <b id="doneName">${esc(name || 'The tunnel')}: both services started</b>
                  <span>Written here and on ${esc(onNode)}.</span>
                </div></div>`
             : `<div class="doneline warn"><span class="tick">!</span><div>
@@ -790,16 +795,20 @@ export function addView(ctx) {
       const nodeSel = root.querySelector('#anode');
       const nodeGrp = root.querySelector('#nodeGrp');
       let creationMode = 'manual';
-      let managedAvailable = false;
       let manualSide = chosen.side;
       let manualPeerAddrs = [];
       const originalLede = root.querySelector('.step[data-s="0"] .lede2')?.innerHTML || '';
       const originalSubtitle = root.querySelector('.dh small, .ttl small')?.textContent || '';
       const modeBar = el('div', { class: 'creation-mode', role: 'group', 'aria-label': 'Tunnel creation mode' }, [
         el('button', { type: 'button', class: 'mode-choice on', text: 'Manual / Local' }),
-        el('button', { type: 'button', class: 'mode-choice', text: 'Managed / Paired', disabled: true }),
+        el('button', { type: 'button', class: 'mode-choice', text: 'Managed / Paired' }),
       ]);
       root.querySelector('.steps')?.before(modeBar);
+      modeBar.after(nodeGrp);
+      nodeGrp.querySelector('label').textContent = 'Foreign managed server (required)';
+      const nodeStatus = el('div', { class: 'hint', role: 'status', text: 'Checking managed servers…' });
+      const nodeRefresh = el('button', { type: 'button', class: 'nb', text: 'Refresh servers' });
+      nodeGrp.append(nodeStatus, nodeRefresh);
       const [manualButton, managedButton] = modeBar.querySelectorAll('button');
       /* The form in three parts, which is what it has always been without
        * saying so.
@@ -951,7 +960,6 @@ export function addView(ctx) {
       }
 
       function selectCreationMode(mode) {
-        if (mode === 'managed' && !managedAvailable) return;
         if (mode === creationMode) return;
         creationMode = mode;
         manualButton.classList.toggle('on', mode === 'manual');
@@ -975,7 +983,8 @@ export function addView(ctx) {
           markSides(root);
           buildPeerGroup(root);
           autoToken(root);
-          if (!nodeSel.value && nodeSel.options.length === 2) nodeSel.value = nodeSel.options[1].value;
+          const available = [...nodeSel.options].filter(o => o.value && !o.disabled);
+          if (!nodeSel.value && available.length === 1) nodeSel.value = available[0].value;
         } else {
           restorePeerGroup();
           if (kharej) kharej.hidden = false;
@@ -1020,20 +1029,44 @@ export function addView(ctx) {
       const nodeMsg = root.querySelector('#nodeMsg');
       const nodeAddr = new Map();   // name -> the address it reported
       let peerIP = '';               // the one for the server that was picked
-      api.nodes().then(state => {
-        const live = (state.nodes || []).filter(n => n.online);
-        live.forEach(n => {
-          nodeSel.append(el('option', { value: n.name, text: n.name }));
-          const ip = n.info?.ipv4;
-          if (ip && ip !== '-') nodeAddr.set(n.name, ip);
-        });
-        managedAvailable = live.length > 0;
-        managedButton.disabled = !managedAvailable;
-        managedButton.title = managedAvailable ? 'Configure both ends through the Agent'
-          : 'No managed server is online';
-      }).catch(() => {
-        managedButton.title = 'Managed servers are unavailable';
-      });
+      let nodeTimer = null;
+      let checkingNodes = false;
+      async function refreshNodes() {
+        if (checkingNodes || !root.isConnected) return;
+        clearTimeout(nodeTimer);
+        checkingNodes = true;
+        nodeRefresh.disabled = true;
+        try {
+          const state = await api.nodesCached();
+          if (!root.isConnected) return;
+          const selected = nodeSel.value;
+          const nodes = state.nodes || [];
+          const live = nodes.filter(n => n.online && !n.revoked);
+          nodeAddr.clear();
+          nodeSel.replaceChildren(el('option', { value: '', text: 'Choose an online managed server' }));
+          for (const n of nodes) {
+            const online = n.online && !n.revoked;
+            nodeSel.append(el('option', { value: n.name,
+              text: `${n.name} — ${online ? 'Online' : n.revoked ? 'Revoked' : 'Offline'}`, disabled: !online }));
+            const ip = n.info?.ipv4;
+            if (online && ip && ip !== '-') nodeAddr.set(n.name, ip);
+          }
+          if (live.some(n => n.name === selected)) nodeSel.value = selected;
+          else if (creationMode === 'managed' && live.length === 1) nodeSel.value = live[0].name;
+          nodeStatus.textContent = live.length ? `${live.length} managed server(s) online.`
+            : nodes.length ? 'No server is online. Check the foreign monitor service; this list refreshes automatically.'
+              : 'No managed servers enrolled. Add one under Servers and run fullpack node join on it.';
+          nodeSel.dispatchEvent(new Event('change'));
+        } catch (e) {
+          if (root.isConnected) nodeStatus.textContent = 'Could not update server status. Retrying automatically…';
+        } finally {
+          checkingNodes = false;
+          nodeRefresh.disabled = false;
+          if (root.isConnected) nodeTimer = setTimeout(refreshNodes, 6000);
+        }
+      }
+      nodeRefresh.addEventListener('click', refreshNodes);
+      refreshNodes();
 
       nodeSel?.addEventListener('change', () => {
 
@@ -1047,10 +1080,11 @@ export function addView(ctx) {
          * payload, and it is shown here as a fact rather than a question.
          */
         peerIP = nodeAddr.get(nodeSel.value) || '';
-        const addr = root.querySelector('[name="peerAddr"], [name="serverAddr"]');
-        const box = addr?.closest('.f3');
-        if (box) box.classList.toggle('addrgone', !!nodeSel.value && !!peerIP);
-        if (addr && peerIP) addr.value = peerIP;
+        root.querySelectorAll('[name="peerAddr"], [name="serverAddr"]').forEach(addr => {
+          const box = addr.closest('.f3');
+          if (box) box.classList.toggle('addrgone', creationMode === 'managed' && !!nodeSel.value && !!peerIP);
+          if (creationMode === 'managed' && peerIP) addr.value = peerIP;
+        });
         applyShape();
 
         if (nodeMsg) {
@@ -1129,7 +1163,7 @@ export function addView(ctx) {
         return { r, onNode, name: payload.name, payload };
       }
 
-      ctx.setTeardown(close);
+      ctx.setTeardown(() => { clearTimeout(nodeTimer); close(); });
     },
   }).catch(oops);
 }

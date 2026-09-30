@@ -62,6 +62,8 @@ const samples = {
   restartAll: [[]], tunnelSettings: [['t1']], tunnelEdit: [[{}]], tunnelOptions: [[]],
   nodes: [[]], fleetDrift: [[]], nodesCached: [[]],
   nodeRemove: [['n1']], nodeAdd: [[node]], nodeRevoke: [['n1']], nodeRefresh: [['n1']],
+  nodePair: [[{ node: 'n1', kind: 'reverse', tunnel: { name: 'paired', role: 'server', transport: 'tcp', tunnelPort: '8976', ports: '443' } }],
+             [{ node: 'n1', kind: 'direct', direct: { name: 'paired-direct', side: 'iran', carrier: 'udp', tunnelPort: '8977', ports: '443' } }]],
 
   tunnelDefaults: [[{ preset: 'balanced', role: 'server', transport: 'tcp' }]],
   tunnelToken: [[]], tunnelSuggest: [[]],

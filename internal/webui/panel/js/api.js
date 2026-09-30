@@ -37,10 +37,14 @@ async function refusal(r) {
   return e;
 }
 
-async function get(path) {
-  const r = await fetch(at(path), { cache: 'no-store' });
-  if (!r.ok) throw await refusal(r);
-  return r.json();
+async function get(path, timeout = 0) {
+  const controller = timeout ? new AbortController() : null;
+  const timer = timeout ? setTimeout(() => controller.abort(), timeout) : null;
+  try {
+    const r = await fetch(at(path), { cache: 'no-store', ...(controller ? { signal: controller.signal } : {}) });
+    if (!r.ok) throw await refusal(r);
+    return await r.json();
+  } finally { clearTimeout(timer); }
 }
 
 async function post(path, body) {
@@ -93,7 +97,7 @@ export const tunnelOptions = () => get('/api/tunnel/options');
 /* Managed servers. The four actions share one endpoint because they are one
    thing — the fleet — and each returns the state that follows, so the screen
    never has to guess what changed. */
-export const nodes = () => get('/api/nodes');
+export const nodes = () => get('/api/nodes', 10000);
 
 /* What the fleet is supposed to be running, against what it is.
  *
@@ -106,11 +110,12 @@ export const fleetDrift = () => get('/api/fleet/drift');
    server. The fleet page draws this first — otherwise the page stands empty
    until the slowest machine in the fleet has answered — and then replaces it
    with the live listing above. */
-export const nodesCached = () => get('/api/nodes?cached=1');
+export const nodesCached = () => get('/api/nodes?cached=1', 10000);
 const nodePost = form => post('/api/nodes', new URLSearchParams(form));
 export const nodeRemove = name => nodePost({ action: 'remove', name });
 /* Adding issues an enrollment code; the Node joins from its own terminal. */
 export const nodeAdd = fields => nodePost({ action: 'add', ...fields });
+export const nodePair = payload => post('/api/node/pair', payload);
 export const nodeRevoke = name => nodePost({ action: 'revoke', name });
 /* Ask one server again now, rather than waiting for its answer to go stale. */
 export const nodeRefresh = name => nodePost({ action: 'refresh', name });

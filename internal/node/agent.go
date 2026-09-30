@@ -19,7 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	mrand "math/rand/v2"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -133,23 +135,19 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.start()
-	// An authenticated handshake is necessary but not sufficient to show the
-	// node Online. Prove the typed operation channel works and cache its hello
-	// before replacing the old authoritative session.
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
-	var info Info
-	resp, err := s.call(ctx, Request{Op: OpHello})
+	// Prove the authenticated operation channel before showing the Node online.
+	// Optional host metadata must not delay or disconnect a working session.
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	resp, err := s.call(ctx, Request{Op: OpPing})
 	cancel()
-	if err != nil || !resp.OK || json.Unmarshal(resp.Body, &info) != nil {
+	if err != nil || !resp.OK {
 		if err == nil {
 			err = ErrAgentProtocol
 		}
 		s.closeWith(err)
 		return
 	}
-	if n, ok := findByID(id); ok && !n.Revoked {
-		_ = NoteInfo(n.Name, info)
-	} else {
+	if n, ok := findByID(id); !ok || n.Revoked {
 		s.closeWith(ErrAgentRevoked)
 		return
 	}
@@ -161,8 +159,26 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// closes the enrollment if its final acknowledgement was lost in transit.
 	_ = finishEnrollment(id, credential)
 	noteConnection(id, r.RemoteAddr, "", true)
+	go h.refreshSessionInfo(r.Context(), id, s)
 	<-s.done
 	h.remove(id, s)
+}
+
+func (h *Hub) refreshSessionInfo(parent context.Context, id string, s *agentSession) {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	defer cancel()
+	resp, err := s.call(ctx, Request{Op: OpHello})
+	var info Info
+	if err != nil || !resp.OK || json.Unmarshal(resp.Body, &info) != nil {
+		return
+	}
+	current, online := h.SessionFor(id)
+	if current != s || !online {
+		return
+	}
+	if n, ok := findByID(id); ok && !n.Revoked {
+		_ = NoteInfo(n.Name, info)
+	}
 }
 
 // CloseNode tears down the live connection immediately after revocation or
@@ -647,26 +663,95 @@ func IsManagedForeign() bool {
 	return err == nil && strings.EqualFold(strings.TrimSpace(string(b)), "kharej")
 }
 
-func LoadAgentConfig() (AgentConfig, error) {
-	var c AgentConfig
+// The primary entry retains the existing file shape. Additional Controllers
+// have independent Node IDs, credentials and TLS pins in the same private file.
+type agentConfigFile struct {
+	AgentConfig
+	Additional []AgentConfig `json:"additional_controllers,omitempty"`
+}
+
+const maxAgentControllers = 8
+
+var agentConfigMu sync.Mutex
+
+// controllerIdentity ignores the browser prefix: machine gateways use the
+// root of the configured listener. Different listeners remain independent.
+func controllerIdentity(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Hostname() == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return "", errors.New("invalid Controller URL")
+	}
+	port := u.Port()
+	if port == "" {
+		port = "80"
+		if u.Scheme == "https" {
+			port = "443"
+		}
+	}
+	return u.Scheme + "://" + net.JoinHostPort(strings.ToLower(u.Hostname()), port), nil
+}
+
+func LoadAgentConfigs() ([]AgentConfig, error) {
 	b, err := os.ReadFile(AgentConfigPath)
 	if err != nil {
-		return c, err
+		return nil, err
 	}
-	if err := json.Unmarshal(b, &c); err != nil {
-		return c, err
+	var file agentConfigFile
+	if err := json.Unmarshal(b, &file); err != nil {
+		return nil, err
 	}
-	if c.NodeID == "" || c.ControllerURL == "" || c.Credential == "" {
-		return c, errors.New("node Agent configuration is incomplete")
+	configs := append([]AgentConfig{file.AgentConfig}, file.Additional...)
+	if len(configs) > maxAgentControllers {
+		return nil, errors.New("too many Agent Controllers")
 	}
-	return c, nil
+	seen := make(map[string]bool)
+	for _, c := range configs {
+		key, err := controllerIdentity(c.ControllerURL)
+		if err != nil || c.NodeID == "" || c.Credential == "" {
+			return nil, errors.New("node Agent configuration is incomplete")
+		}
+		if seen[key] {
+			return nil, errors.New("duplicate Agent Controller")
+		}
+		seen[key] = true
+	}
+	return configs, nil
+}
+
+func LoadAgentConfig() (AgentConfig, error) {
+	configs, err := LoadAgentConfigs()
+	if err != nil {
+		return AgentConfig{}, err
+	}
+	return configs[0], nil
 }
 
 func SaveAgentConfig(c AgentConfig) error {
-	if c.NodeID == "" || c.ControllerURL == "" || c.Credential == "" {
+	key, err := controllerIdentity(c.ControllerURL)
+	if err != nil || c.NodeID == "" || c.Credential == "" {
 		return errors.New("node Agent configuration is incomplete")
 	}
-	b, err := json.MarshalIndent(c, "", "  ")
+	agentConfigMu.Lock()
+	defer agentConfigMu.Unlock()
+	configs, err := LoadAgentConfigs()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	updated := false
+	for i, old := range configs {
+		oldKey, _ := controllerIdentity(old.ControllerURL)
+		if oldKey == key {
+			configs[i], updated = c, true
+			break
+		}
+	}
+	if !updated {
+		if len(configs) >= maxAgentControllers {
+			return errors.New("too many Agent Controllers")
+		}
+		configs = append(configs, c)
+	}
+	b, err := json.MarshalIndent(agentConfigFile{AgentConfig: configs[0], Additional: configs[1:]}, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -684,17 +769,87 @@ func writePrivateFile(path string, data []byte) error {
 // node config stays idle; a foreign node reconnects with capped exponential
 // backoff and jitter instead of using panic supervision as reconnect logic.
 func RunConfiguredAgent(ctx context.Context) {
-	cfg, err := LoadAgentConfig()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			<-ctx.Done()
-		}
-		return
+	runConfiguredAgents(ctx, RunAgent, 3*time.Second)
+}
+
+// Only changed entries are restarted. Joining a second Controller does not
+// tear down the first session or restart the monitor's other jobs.
+func runConfiguredAgents(ctx context.Context, run func(context.Context, AgentConfig), interval time.Duration) {
+	type worker struct {
+		cfg    AgentConfig
+		cancel context.CancelFunc
 	}
-	RunAgent(ctx, cfg)
+	workers := make(map[string]worker)
+	var wg sync.WaitGroup
+	reload := func() {
+		configs, err := LoadAgentConfigs()
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			// A malformed/temporarily unreadable file must not drop healthy sessions.
+			return
+		}
+		keep := make(map[string]bool)
+		for _, cfg := range configs {
+			key, _ := controllerIdentity(cfg.ControllerURL)
+			keep[key] = true
+			if old, ok := workers[key]; ok {
+				if old.cfg == cfg {
+					continue
+				}
+				old.cancel()
+			}
+			workerCtx, cancel := context.WithCancel(ctx)
+			workers[key] = worker{cfg: cfg, cancel: cancel}
+			wg.Add(1)
+			go func(cfg AgentConfig) {
+				defer wg.Done()
+				for workerCtx.Err() == nil {
+					func() {
+						defer func() {
+							if recover() != nil {
+								log.Print("node Agent job failed; reconnecting")
+							}
+						}()
+						run(workerCtx, cfg)
+					}()
+					select {
+					case <-workerCtx.Done():
+						return
+					case <-time.After(time.Second):
+					}
+				}
+			}(cfg)
+		}
+		for key, old := range workers {
+			if !keep[key] {
+				old.cancel()
+				delete(workers, key)
+			}
+		}
+	}
+	reload()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			for _, w := range workers {
+				w.cancel()
+			}
+			wg.Wait()
+			return
+		case <-ticker.C:
+			reload()
+		}
+	}
 }
 
 func RunAgent(ctx context.Context, cfg AgentConfig) {
+	var active *agentSession
+	defer func() {
+		if active != nil {
+			active.closeWith(ErrAgentOffline)
+		}
+	}()
 	backoff := time.Second
 	for {
 		if ctx.Err() != nil {
@@ -704,15 +859,20 @@ func RunAgent(ctx context.Context, cfg AgentConfig) {
 		if err == nil {
 			s, serr := clientSession(ws, cfg)
 			if serr == nil {
+				active = s
 				s.start()
-				backoff = time.Second
+				connectedAt := time.Now()
 				select {
 				case <-ctx.Done():
 					s.closeWith(ctx.Err())
 					return
 				case <-s.done:
 				}
-				continue
+				// A rapidly dropped authenticated connection needs the same
+				// jittered backoff as a failed dial. Reset after a stable session.
+				if time.Since(connectedAt) >= agentPongTimeout {
+					backoff = time.Second
+				}
 			}
 			_ = ws.Close()
 		}

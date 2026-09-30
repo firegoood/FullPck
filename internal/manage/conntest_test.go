@@ -12,6 +12,27 @@ import (
 	"time"
 )
 
+func TestConnectionTestAcceptsPanelURLWithoutUsingItsManagementPort(t *testing.T) {
+	for raw, want := range map[string]string{
+		"203.0.113.7":                           "203.0.113.7",
+		"http://203.0.113.7:7654/private-panel": "203.0.113.7",
+		"iran.example:7654":                     "iran.example",
+		"https://iran.example:9876/panel/":      "iran.example",
+		"[::1]":                                 "::1", "[::1]:7654": "::1",
+		"https://[2001:db8::1]:9876/panel": "2001:db8::1",
+	} {
+		got, err := normalizeConnTestHost(raw)
+		if err != nil || got != want {
+			t.Errorf("%q: got %q, %v; want %q", raw, got, err, want)
+		}
+	}
+	for _, raw := range []string{"", "0.0.0.0", "[::]", "http://0.0.0.0:7654", "ssh://iran.example", "http://user:secret@iran.example", "bad host", "iran.example/panel"} {
+		if _, err := normalizeConnTestHost(raw); err == nil {
+			t.Errorf("accepted invalid host %q", raw)
+		}
+	}
+}
+
 // The link an operator copies is short: where the coordinator is and the
 // secret, nothing else.
 func TestATestLinkIsShortAndIsNotTakenForASetupLink(t *testing.T) {

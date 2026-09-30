@@ -32,6 +32,7 @@ const enrollmentName = "node-enrollment.json"
 // A node-side retry intent contains the permanent credential before join
 // finishes. It is local recovery state, never part of a portable archive.
 const pendingAgentName = "node-agent.json.pending"
+const pendingAgentDir = "node-agent.json.pending.d"
 const agentJoinLockName = "node-agent.json.join.lock"
 
 // backupMeta is the sidecar metadata embedded in every backup archive.
@@ -131,6 +132,9 @@ func writeBackupEntries(tw *tar.Writer, root string) error {
 		}
 		if rel == "." {
 			return nil
+		}
+		if rel == pendingAgentDir && info.IsDir() {
+			return filepath.SkipDir
 		}
 
 		// The fleet's sealing key is deliberately not in the archive.

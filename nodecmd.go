@@ -18,6 +18,8 @@ const nodeUsage = `fullpack node — the reverse Agent side of this server
   fullpack node join
         Read a one-time BPENROLL1 code interactively, provision a distinct
         permanent Agent credential, and save it under /etc/fullpack.
+        Repeat with each Iran Controller's code to connect this Node to more
+        than one Controller. Existing enrollments remain connected.
 
 The node dials the configured Controller over WebSocket from the existing
 fullpack-monitor.service. It does not open an inbound management listener.
@@ -64,9 +66,9 @@ func nodeJoin(args []string) {
 	}
 	// The join is the only place that needs to ensure the existing monitor
 	// service. No separate Agent unit is installed.
-	if err := core.RestartMonitorService(); err != nil {
+	if err := core.EnsureMonitorService(); err != nil {
 		fmt.Fprintln(os.Stderr, "Agent saved but monitor service could not be ensured:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Node %s enrolled. The outbound Agent will connect to the Controller.\n", cfg.Name)
+	fmt.Printf("Node %s enrolled. The outbound Agent will connect to %s.\n", cfg.Name, cfg.ControllerURL)
 }

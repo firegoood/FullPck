@@ -133,6 +133,53 @@ func TestAnEmptyFleetIsEmptyAndActsOnNothing(t *testing.T) {
 	}
 }
 
+func TestCachedFleetUsesLiveAgentStateWithoutHelloRPC(t *testing.T) {
+	isolateFleet(t)
+	s := newFleetServer()
+	t.Cleanup(s.nodes.Stop)
+	cred, _ := node.GenerateCredential()
+	if _, err := node.AddManaged("live-node", "http://controller:9876", "live-id", cred); err != nil {
+		t.Fatal(err)
+	}
+	f := newFake()
+	f.up["live-node"] = true
+	withFleet(s, f)
+	w := httptest.NewRecorder()
+	s.handleNodes(w, httptest.NewRequest("GET", "/api/nodes?cached=1", nil))
+	var state struct {
+		Nodes []nodeView `json:"nodes"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Nodes) != 1 || !state.Nodes[0].Online || state.Nodes[0].Pending {
+		t.Fatalf("live session appeared pending/offline: %s", w.Body)
+	}
+	if len(f.calls) != 0 {
+		t.Fatal("cached listing waited for remote metadata")
+	}
+	f.up["live-node"] = false
+	w = httptest.NewRecorder()
+	s.handleNodes(w, httptest.NewRequest("GET", "/api/nodes?cached=1", nil))
+	json.Unmarshal(w.Body.Bytes(), &state)
+	if state.Nodes[0].Online {
+		t.Fatal("cached metadata kept a disconnected Agent Online")
+	}
+}
+
+func TestManagedPeerNamesKeepControllersAndLongNamesDistinct(t *testing.T) {
+	a := managedPeerName("shared-tunnel", "controller-one-node")
+	b := managedPeerName("shared-tunnel", "controller-two-node")
+	if a == b || a != managedPeerName("shared-tunnel", "controller-one-node") {
+		t.Fatal("peer name is not stable and per Controller")
+	}
+	long := strings.Repeat("a", 40)
+	first, second := managedPeerName(long, "node"), managedPeerName(long[:39]+"b", "node")
+	if first == second || !manage.ValidName(first) || !manage.ValidName(second) {
+		t.Fatal("long names collide or exceed the tunnel name limit")
+	}
+}
+
 // Enrollment publishes a short-lived code. The node generates its own permanent
 // credential, joins through the existing WebUI listener, and only then enters
 // the fleet.

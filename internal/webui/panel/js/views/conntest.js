@@ -100,7 +100,8 @@ function startPane(v) {
       <span>About three minutes once the kharej joins. The test tunnels run on free ports and are
         removed when it ends — nothing is left behind on either server.</span></div>
     <label class="tl-f ct-field"><span>This server's address</span>
-      <input id="ctHost" type="text" value="${esc(host)}" placeholder="the IP the kharej dials" autocomplete="off" spellcheck="false"></label>
+      <input id="ctHost" type="text" value="${esc(host)}" placeholder="Iran IP, hostname or panel URL" autocomplete="off" spellcheck="false"></label>
+    <p class="tl-meta">Use the Iran server's address. The command generated here runs a temporary connection test; use Servers and fullpack node join to enroll a managed server.</p>
     <div class="tl-f ct-field"><span>Preset</span>
       <div class="tl-seg" id="ctPreset">${PRESETS.map(p =>
         `<button type="button" data-p="${p.v}" class="${p.v === preset ? 'on' : ''}">

@@ -96,6 +96,18 @@ test('every relative import resolves to a file that exists', () => {
   }
 });
 
+test('every imported namespace member is exported by its module', () => {
+  for (const [file, src] of sources) {
+    const code = src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
+    for (const m of src.matchAll(/import\s+\*\s+as\s+(\w+)\s+from\s+['"](\.[^'"]+)['"]/g)) {
+      const available = exportsOf(sources.get(resolve(dirname(file), m[2])));
+      for (const used of code.matchAll(new RegExp(`\\b${m[1]}\\.(\\w+)`, 'g'))) {
+        assert.ok(available.has(used[1]), `${relative(JS, file)} calls ${m[1]}.${used[1]}, which is not exported`);
+      }
+    }
+  }
+});
+
 /* A file may exist and still fail to parse. That prevents the entry module
  * from running at all, leaving the loading screen up forever. Import the real
  * entry graph and check that its first two reads start. */

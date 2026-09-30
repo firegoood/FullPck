@@ -59,7 +59,12 @@ func (r *AgentRunner) Call(name, op string, body, out any) error {
 	if op == OpHello && target == nil {
 		target = &hello
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	timeout := 60 * time.Second
+	if op == OpHello {
+		// Status metadata must not exhaust the WebUI's HTTP write deadline.
+		timeout = 5 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	if err := r.hub.Call(ctx, n.ID, op, body, target); err != nil {
 		return ErrOffline{Name: name, Why: err.Error(), Err: err}

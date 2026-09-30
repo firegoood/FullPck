@@ -33,6 +33,25 @@ test('managed mode requires a Node and carries paired settings', async () => {
   }]]);
 });
 
+test('managed reverse and direct creation use the real API and panel base path', async () => {
+  const oldDocument = globalThis.document, oldFetch = globalThis.fetch;
+  globalThis.document = { documentElement: { dataset: { base: '/secret-panel' } } };
+  const sent = [];
+  globalThis.fetch = async (url, options) => {
+    sent.push({ url, method: options.method, body: JSON.parse(options.body) });
+    return new Response(JSON.stringify({ status: 'ok' }));
+  };
+  try {
+    const api = await import('../panel/js/api.js');
+    await createTunnelForMode(api, 'managed', 'kharej', false, { name: 'rev', transport: 'tcp' });
+    await createTunnelForMode(api, 'managed', 'kharej', true, { name: 'dir', carrier: 'spoof' });
+    assert.deepEqual(sent, [
+      { url: '/secret-panel/api/node/pair', method: 'POST', body: { node: 'kharej', kind: 'reverse', tunnel: { name: 'rev', transport: 'tcp' } } },
+      { url: '/secret-panel/api/node/pair', method: 'POST', body: { node: 'kharej', kind: 'direct', direct: { name: 'dir', carrier: 'spoof' } } },
+    ]);
+  } finally { globalThis.document = oldDocument; globalThis.fetch = oldFetch; }
+});
+
 test('switching back to manual cannot send a paired request', async () => {
   const api = fakeAPI();
   await createTunnelForMode(api, 'managed', 'online-node', false, { name: 'first' });
