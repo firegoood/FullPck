@@ -20,6 +20,8 @@ are.
 | `fullpack --restart-all` / `--telegram-report` | one-shot jobs, run from cron |
 | `fullpack node join` | one-time interactive enrollment of a managed Node Agent |
 
+یک Node خارجی می‌تواند تا هشت کنترلر ایران را با هویت، اعتبارنامه و کانال خروجی مستقل داشته باشد. Agentها کارهای مستقل در همان monitor هستند؛ تغییر تنظیمات یک کنترلر فقط همان اتصال را راه‌اندازی می‌کند. Online پس از Noise و پاسخ معتبر `OpPing` تعیین می‌شود و Hello فقط برای اطلاعات جانبی است. هیچ listener مدیریتی جدیدی برای چندکنترلری اضافه نمی‌شود.
+
 Everything except engine mode is management. Engine mode is the product.
 
 **One process per tunnel.** Each tunnel is its own systemd unit running
@@ -255,4 +257,4 @@ context)، پورت‌های فوروارد (`forward.go`)، حلقهٔ کانا
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*

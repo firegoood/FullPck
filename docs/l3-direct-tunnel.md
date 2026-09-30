@@ -712,4 +712,4 @@ obfuscated به `CAP_NET_RAW` هم نیاز دارند). **هیچ‌وقت حا�
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*

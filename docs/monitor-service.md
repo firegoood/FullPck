@@ -15,6 +15,8 @@ it dies, and keeps working when the panel is stopped.
 
 ## Nothing to do by hand
 
+روی سرور خارج، Agent نیز یکی از کارهای مستقل همین سرویس است. یک Node می‌تواند تا هشت کنترلر ایران را با اتصال خروجی و اعتبارنامهٔ مستقل مدیریت کند؛ افزودن کنترلر با `fullpack node join` باعث restart اتصال‌های موجود یا کارهای دیگر monitor نمی‌شود. قطع مسیر یک کنترلر به بقیهٔ اتصال‌ها یا موتورهای تونل وابستگی ایجاد نمی‌کند.
+
 It is installed automatically — the CLI installs it on launch and the updater
 installs it as part of an update. [Health Check](health-check.md) reports if it
 is not running.
@@ -44,4 +46,4 @@ is not running.
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*

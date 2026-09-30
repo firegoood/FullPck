@@ -937,9 +937,10 @@ export function addView(ctx) {
       const bytes = new Uint8Array(32);
       crypto.getRandomValues(bytes);
       const suggestedToken = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+      autoTok = suggestedToken;
       const manualToken = root.querySelector('#atok');
       if (manualToken) manualToken.name = 'token';
-      root.querySelectorAll('#atok, .step3direct input[name="token"][value]').forEach(input => {
+      root.querySelectorAll('#atok, .step3direct [data-when="client"] input[name="token"]').forEach(input => {
         input.value = suggestedToken;
         input.closest('.withb')?.querySelector('button')?.addEventListener('click', () => {
           navigator.clipboard?.writeText(input.value).catch(oops);
@@ -955,8 +956,8 @@ export function addView(ctx) {
         });
         applyShape();
         api.tunnelToken()
-          .then(r => { autoTok = r.token || ''; })
-          .catch(() => { /* the create will say the token is missing */ });
+          .then(r => { autoTok = r.token || autoTok; })
+          .catch(() => { /* the cryptographically random local token remains usable */ });
       }
 
       function selectCreationMode(mode) {

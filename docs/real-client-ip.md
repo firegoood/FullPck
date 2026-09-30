@@ -46,4 +46,4 @@ VPN همهٔ کاربران را یک دستگاه می‌شمارد و محدو
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*

@@ -8,6 +8,8 @@ Run it on the **Iran** server. Add Tunnel offers an explicit **Manual / Local**
 choice for a single local end and **Managed / Paired** for both ends when an
 online Node is available. The CLI also remains available for manual setup.
 
+انتخاب سرور خارج در حالت Managed از مرحلهٔ اول فرم دیده می‌شود و وضعیت آن بدون بستن صفحه تازه می‌شود. Online از کانال احراز هویت‌شدهٔ Agent خوانده می‌شود؛ دریافت مشخصات جانبی شرط اتصال نیست. ساخته‌شدن سرویس‌های دو سمت نیز به‌تنهایی اثبات برقراری مسیر داده نیست؛ وضعیت واقعی اتصال را روی کارت تونل بررسی کنید.
+
 ## Getting in
 
 The link and login code are shown in the CLI under **Web Panel** (whose settings
@@ -130,4 +132,4 @@ that does the same job — is in
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*

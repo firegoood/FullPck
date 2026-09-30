@@ -8,6 +8,8 @@ from **Manage → File Locations** in the CLI.
 | `/root/FullPack` | The release bundle and downloaded archives. |
 | `/root/FullPack/backups` | [Backup](backup-restore.md) `.tar.gz` files. |
 | `/etc/fullpack` | Tunnel configs (one `.toml` per tunnel) and runtime state. |
+| `/etc/fullpack/node-agent.json` | تنظیمات خصوصی Agent خارج؛ کنترلر نخست و فهرست کنترلرهای اضافی، با مجوز `0600`. |
+| `/etc/fullpack/node-agent.json.pending.d/` | بازیابی ثبت‌نام‌های ناتمام برای کنترلرهای مستقل؛ از backup حذف می‌شود. |
 | `/usr/local/bin/fullpack` | The binary itself. |
 | `fullpack-<name>.service` | A systemd unit per tunnel. |
 | `fullpack-monitor.service` | The [monitor service](monitor-service.md). |
@@ -41,4 +43,4 @@ the uninstaller reads to know what to remove.
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*

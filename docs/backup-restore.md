@@ -11,6 +11,8 @@ Agents, but excludes the separate key (`node.key`) that decrypts them. The
 short-lived Controller enrollment file and the Node's unfinished join intent
 (`node-agent.json.pending`) are also excluded.
 
+در Node چندکنترلری، اعتبارنامه‌های دائمی همهٔ کنترلرها در فایل خصوصی `node-agent.json` همراه backup حفظ می‌شوند. پوشهٔ `node-agent.json.pending.d` شامل intentهای موقت ثبت‌نام است و وارد backup نمی‌شود. این فایل پشتیبان مانند تنظیمات تک‌کنترلری باید خصوصی بماند.
+
 Restoring onto the same machine is unaffected: the key is already there and the
 restore leaves it alone.
 
@@ -145,4 +147,4 @@ Run it after any change to what the machine holds, and once before you need it.
 
 ---
 
-*Last verified against FullPack v1.8.10.*
+*Last verified against FullPack v1.8.11.*
