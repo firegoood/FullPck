@@ -61,9 +61,7 @@ const samples = {
   adoptCandidates: [['t1', 'n1']], adoptTunnel: [['t1', 'n1', 'p1']], unlinkTunnel: [['t1']],
   restartAll: [[]], tunnelSettings: [['t1']], tunnelEdit: [[{}]], tunnelOptions: [[]],
   nodes: [[]], fleetDrift: [[]], nodesCached: [[]],
-  nodeRemove: [['n1']], nodeAdd: [[node]], nodeCredentials: [[node]],
-  nodeUpgrade: [['n1']], nodeRefresh: [['n1']], nodeRolloutPlan: [[]], nodeUpgradeAll: [[]],
-  nodeRolloutStatus: [[]], nodeRolloutCancel: [[]], nodePin: [['n1', 'soak']], nodeUnpin: [['n1']],
+  nodeRemove: [['n1']], nodeAdd: [[node]], nodeRevoke: [['n1']], nodeRefresh: [['n1']],
 
   tunnelDefaults: [[{ preset: 'balanced', role: 'server', transport: 'tcp' }]],
   tunnelToken: [[]], tunnelSuggest: [[]],

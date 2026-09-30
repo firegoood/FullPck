@@ -21,8 +21,9 @@ type WsMuxTransport struct {
 	// lifecycle.go.
 	lifecycle
 
-	config     *WsMuxConfig
-	smuxConfig *smux.Config
+	config       *WsMuxConfig
+	smuxConfig   *smux.Config
+	sessionSlots *sessionSlots
 }
 type WsMuxConfig struct {
 	RemoteAddr string
@@ -68,7 +69,8 @@ func NewWSMuxClient(parentCtx context.Context, config *WsMuxConfig, logger *logr
 			MaxReceiveBuffer:  config.MaxReceiveBuffer,
 			MaxStreamBuffer:   config.MaxStreamBuffer,
 		},
-		config: config,
+		config:       config,
+		sessionSlots: newSessionSlots(muxPoolLimit(config.ConnPoolSize, config.MaxReceiveBuffer)),
 	}
 
 	client.firstGeneration(parentCtx, logger, usageSpec{webPort: config.WebPort, snifferLog: config.SnifferLog, sniffer: config.Sniffer})
@@ -137,6 +139,7 @@ func (c *WsMuxTransport) poolMaintainer() {
 		ctx:        c.state.Ctx(),
 		log:        c.logger,
 		size:       c.config.ConnPoolSize,
+		maxSize:    c.sessionSlots.max(),
 		aggressive: c.config.AggressivePool,
 		open:       &c.poolConnections,
 		taken:      &c.loadConnections,
@@ -154,6 +157,10 @@ func (c *WsMuxTransport) control() controlLoop {
 }
 
 func (c *WsMuxTransport) tunnelDialer() {
+	if !c.sessionSlots.tryAcquire() {
+		return
+	}
+	defer c.sessionSlots.release()
 	c.logger.Debugf("initiating new %s tunnel connection to address %s", c.config.Mode, c.config.RemoteAddr)
 
 	// Dial to the tunnel server

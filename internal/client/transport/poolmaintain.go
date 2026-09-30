@@ -56,6 +56,9 @@ type poolSizer struct {
 	// size is the configured pool size — the floor the pool returns to, and
 	// the figure the panel shows beside what is actually open.
 	size int
+	// maxSize limits automatic growth when each multiplexed session reserves
+	// a large receive window. Zero uses the ordinary growth limit.
+	maxSize int
 	// aggressive selects the tighter factors: grow sooner, shrink later.
 	aggressive bool
 
@@ -73,6 +76,10 @@ type poolSizer struct {
 
 // maintain fills the pool and then keeps it the right size until ctx ends.
 func (p poolSizer) maintain() {
+	maxSize := p.maxSize
+	if maxSize == 0 {
+		maxSize = p.size * poolGrowthLimit
+	}
 	for i := 0; i < p.size; i++ { // initial pool filling
 		go p.dial()
 	}
@@ -131,8 +138,8 @@ func (p poolSizer) maintain() {
 			// carrying 240 Mbit/s" instead of leaving somebody to guess.
 			metrics.ReportPool(openAvg, newPoolSize, p.size, mbps)
 
-			grow := ((taken+a) > openAvg*b && poolCanGrow(newPoolSize, p.size)) ||
-				load.wantsMore(mbps, openAvg, newPoolSize, p.size)
+			grow := ((taken+a) > openAvg*b && poolCanGrowWithin(newPoolSize, maxSize)) ||
+				load.wantsMoreWithin(mbps, openAvg, newPoolSize, maxSize)
 
 			switch {
 			case grow:

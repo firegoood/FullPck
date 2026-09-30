@@ -19,7 +19,8 @@ func TestTheDirectEditFormPostsWhatTheServerReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	js := string(src)
-	if !strings.Contains(js, "direct: readDirect(root)") {
+	if !strings.Contains(js, "read(directRoot)") ||
+		!strings.Contains(js, "{ name, direct: values }") {
 		t.Fatal("the direct form no longer posts under \"direct\"")
 	}
 	start := strings.Index(js, "function directMarkup(")

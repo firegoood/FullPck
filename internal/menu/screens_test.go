@@ -241,7 +241,7 @@ func TestAnUpdateReopensTheMenuOnTheNewBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, after := range []string{`tui.Success("Done.")`, `tui.Success("FullPack updated successfully.")`,
-		`tui.Success("Rolled back to "`} {
+		`tui.Success("Rolled Back To "`} {
 		body := string(src)
 		i := strings.Index(body, after)
 		if i < 0 || !strings.Contains(body[i:i+200], "reopen()") {

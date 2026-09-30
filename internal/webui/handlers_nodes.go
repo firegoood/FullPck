@@ -72,19 +72,23 @@ type nodeView struct {
 func (s *server) handleNodes(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		// The fleet page's first paint asks for this. It contacts nothing, so
-		// the cards are on the screen in one round trip instead of after the
-		// slowest server in the fleet has answered. See writeNodeStateCached.
-		if r.URL.Query().Get("cached") == "1" {
-			s.writeNodeStateCached(w)
-			return
-		}
-		s.writeNodeState(w)
+		s.requireAuth(s.nodeList)(w, r)
 	case http.MethodPost:
-		s.nodeAction(w, r)
+		s.requireAdmin(s.nodeAction)(w, r)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *server) nodeList(w http.ResponseWriter, r *http.Request) {
+	// The fleet page's first paint asks for this. It contacts nothing, so
+	// the cards are on the screen in one round trip instead of after the
+	// slowest server in the fleet has answered. See writeNodeStateCached.
+	if r.URL.Query().Get("cached") == "1" {
+		s.writeNodeStateCached(w)
+		return
+	}
+	s.writeNodeState(w)
 }
 
 func (s *server) writeNodeState(w http.ResponseWriter) { s.writeNodeStateWith(w, nil) }

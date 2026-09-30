@@ -100,6 +100,8 @@ were on. `fr-relay` below is an example name.
 | Link test | `#/t/fr-relay/link` | Twelve TCP connects to the tunnel port, then the transport the measurement argues for. Same branch logic as the CLI's recommendation, in the same order. | Manage → Link Test |
 | Edit | `#/t/fr-relay/edit` | Every setting the tunnel has. Reverse transports are matched to their real family; legacy `[direct]` stream tunnels and `[l3]` carriers (including `spoof` and `sni`) use their own shape so the preview cannot show WebSocket defaults. | Manage → Manage Tunnels → Edit |
 | Undo | `#/t/fr-relay/undo` | The configuration history for this tunnel, and a restore back to any earlier version of it. | Manage → Manage Tunnels → Config history |
+| Quota | `#/t/fr-relay/quota` | Set or remove a traffic quota and inspect its use. | Manage → Tunnel quota |
+| Share | `#/t/fr-relay/share` | Copy the setup link and installation command for the other end. | Manage → Setup Link |
 
 ## Installation screens
 
@@ -142,7 +144,7 @@ it.
 
 **شکل پنل سه چیز است.** **نوار بالا** به هیچ صفحه‌ای تعلق ندارد: همین حالای این
 ماشین — پردازنده، حافظه، و آنچه همین ثانیه در حرکت است — و زیر دیالوگ هم به کارش
-ادامه می‌دهد. **پنج بخش** که از dock انتخاب می‌شوند: **Overview**، **Connection test**،
+ادامه می‌دهد. **چهار بخش** که از dock انتخاب می‌شوند: **Overview**، **Connection test**،
 **Tunnels** و **Manage**؛ فقط همین‌ها صفحه‌اند (Servers فعلاً از dock بیرون است). **دیالوگ‌ها** بقیهٔ چیزهایند: روی بخشی که در
 آن بودی باز می‌شوند و بستن‌شان دقیقاً به همان‌جا برمی‌گرداند — پس بازکردن Health
 check از Overview، موقع بستن تو را روی Tunnels نمی‌اندازد.

@@ -20,7 +20,8 @@ type TcpMuxTransport struct {
 	// lifecycle.go.
 	lifecycle
 
-	config *TcpMuxConfig
+	config       *TcpMuxConfig
+	sessionSlots *sessionSlots
 	// muxV1/muxV2 are both built up front so that adopting the server's
 	// version costs nothing per session; muxVersion is the one in force.
 	muxV1      *smux.Config
@@ -74,9 +75,10 @@ func NewMuxClient(parentCtx context.Context, config *TcpMuxConfig, logger *logru
 		MaxStreamBuffer:  config.MaxStreamBuffer,
 	}
 	client := &TcpMuxTransport{
-		muxV1:  network.SmuxConfig(1, muxSettings),
-		muxV2:  network.SmuxConfig(2, muxSettings),
-		config: config,
+		muxV1:        network.SmuxConfig(1, muxSettings),
+		muxV2:        network.SmuxConfig(2, muxSettings),
+		config:       config,
+		sessionSlots: newSessionSlots(muxPoolLimit(config.ConnPoolSize, config.MaxReceiveBuffer)),
 	}
 
 	client.firstGeneration(parentCtx, logger, usageSpec{webPort: config.WebPort, snifferLog: config.SnifferLog, sniffer: config.Sniffer})
@@ -216,6 +218,7 @@ func (c *TcpMuxTransport) poolMaintainer() {
 		ctx:        c.state.Ctx(),
 		log:        c.logger,
 		size:       c.config.ConnPoolSize,
+		maxSize:    c.sessionSlots.max(),
 		aggressive: c.config.AggressivePool,
 		open:       &c.poolConnections,
 		taken:      &c.loadConnections,
@@ -230,6 +233,10 @@ func (c *TcpMuxTransport) control() controlLoop {
 }
 
 func (c *TcpMuxTransport) tunnelDialer() {
+	if !c.sessionSlots.tryAcquire() {
+		return
+	}
+	defer c.sessionSlots.release()
 	c.logger.Debugf("initiating new tunnel connection to address %s", c.config.RemoteAddr)
 
 	// Dial to the tunnel server

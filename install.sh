@@ -61,17 +61,42 @@ if [[ -f "$SCRIPT_DIR/go.mod" ]]; then
   unset gomod_go
 fi
 
-# The optional role is explicit because a foreign node must not start a local
-# WebUI before it has an Agent config. The default remains the original
-# controller/manual-install behavior.
+# A role selects Controller or Node setup. A setup link can follow it and is
+# applied by the installed binary. The one-line setup command generated on Iran
+# does not specify a role, so applying a link defaults to the Kharej role and
+# keeps its local WebUI off.
 ROLE=""
-if [[ $# -gt 0 ]]; then
-  if [[ $# -eq 2 && "$1" == "--role" && ( "$2" == "iran" || "$2" == "kharej" ) ]]; then
-    ROLE="$2"
-  else
-    err "Usage: $0 [--role iran|kharej]"
-    exit 2
-  fi
+BP_ARGS=()
+INSTALL_ARGS=("$@")
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    fullpack)
+      shift
+      ;;
+    --role)
+      if [[ $# -lt 2 || ( "$2" != "iran" && "$2" != "kharej" ) || -n "$ROLE" ]]; then
+        err "Usage: $0 [--role iran|kharej] [link apply 'fullpack://…']"
+        exit 2
+      fi
+      ROLE="$2"
+      shift 2
+      ;;
+    link)
+      if [[ $# -lt 3 || "$2" != "apply" || "$3" != fullpack://* ]]; then
+        err "Usage: $0 [--role iran|kharej] [link apply 'fullpack://…']"
+        exit 2
+      fi
+      BP_ARGS=("$@")
+      break
+      ;;
+    *)
+      err "Usage: $0 [--role iran|kharej] [link apply 'fullpack://…']"
+      exit 2
+      ;;
+  esac
+done
+if [[ ${#BP_ARGS[@]} -gt 0 && -z "$ROLE" ]]; then
+  ROLE="kharej"
 fi
 
 # Process-substitution file descriptors are commonly closed by sudo. Download
@@ -86,7 +111,7 @@ if [[ $EUID -ne 0 ]]; then
     err "Could not download the FullPack installer from ${RAW_INSTALL_URL}."
     exit 1
   fi
-  sudo bash "$installer_tmp" "$@"
+  sudo bash "$installer_tmp" "${INSTALL_ARGS[@]}"
   exit $?
 fi
 
@@ -467,6 +492,14 @@ fi
 echo
 echo -e "${WHITE}Done!${NC}"
 
+# Apply a setup link before the Kharej-role exit below. That role keeps its
+# local WebUI off; manual tunnels still work without enrolling an Agent.
+if [[ ${#BP_ARGS[@]} -gt 0 ]]; then
+  echo
+  info "Setting up the tunnel from the setup link..."
+  exec "$BIN_PATH" "${BP_ARGS[@]}"
+fi
+
 if [[ "$ROLE" == "kharej" ]]; then
   echo -e "Foreign managed-node role selected; local WebUI was not started."
   echo -e "Add this node from the Iran panel, then run: ${RED}sudo fullpack node join${NC}"
@@ -478,14 +511,6 @@ fi
 # (curl ... | bash) has no tty on stdin, so it just prints the instruction. The
 # script already runs as root, so the binary is launched directly. `exec`
 # replaces this shell so the menu owns the terminal cleanly.
-# A setup link given on the command line is applied now, instead of opening the
-# menu: the binary builds the tunnel, starts it, and says whether it connected.
-if [[ ${#BP_ARGS[@]} -gt 0 ]]; then
-  echo
-  info "Setting up the tunnel from the setup link..."
-  exec "$BIN_PATH" "${BP_ARGS[@]}"
-fi
-
 if [ -t 0 ]; then
   echo -e "Starting the menu... ${GRAY}(next time, just run ${NC}${RED}sudo fullpack${GRAY})${NC}"
   echo

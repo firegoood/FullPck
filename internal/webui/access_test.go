@@ -492,7 +492,7 @@ func TestAWriteTokenCannotHandleFleetCredentials(t *testing.T) {
 		r := req("POST", "/api/nodes", secret)
 		r.Form = url.Values{"action": {action}, "name": {"de1"}, "host": {"198.51.100.66"}}
 		w := httptest.NewRecorder()
-		s.nodeAction(w, r)
+		s.handleNodes(w, r)
 		if w.Code != http.StatusForbidden {
 			t.Errorf("%s with a write token: status %d, want 403", action, w.Code)
 		}

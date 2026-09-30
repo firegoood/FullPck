@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/firegoood/FullPck/internal/metrics"
@@ -39,7 +40,48 @@ const (
 	// Both triggers respect it: growth was previously unbounded, so a burst of
 	// requests could keep adding connections with nothing to stop it.
 	poolGrowthLimit = 4
+
+	// A large SMUX receive window multiplied by a growing pool can exhaust
+	// memory before the ordinary pool-growth limit is reached.
+	smuxPoolMemoryBudget = 1024 * 1024 * 1024
 )
+
+type sessionSlots struct {
+	limit int32
+	used  atomic.Int32
+}
+
+func newSessionSlots(limit int) *sessionSlots { return &sessionSlots{limit: int32(limit)} }
+func (s *sessionSlots) max() int              { return int(s.limit) }
+func (s *sessionSlots) tryAcquire() bool {
+	for {
+		used := s.used.Load()
+		if used >= s.limit {
+			return false
+		}
+		if s.used.CompareAndSwap(used, used+1) {
+			return true
+		}
+	}
+}
+func (s *sessionSlots) release() { s.used.Add(-1) }
+
+func muxPoolLimit(configuredSize, receiveBuffer int) int {
+	if configuredSize <= 0 {
+		return 0
+	}
+	limit := configuredSize * poolGrowthLimit
+	if receiveBuffer > 0 {
+		budgetLimit := smuxPoolMemoryBudget / receiveBuffer
+		if budgetLimit < configuredSize {
+			budgetLimit = configuredSize
+		}
+		if budgetLimit < limit {
+			limit = budgetLimit
+		}
+	}
+	return limit
+}
 
 // poolLoad turns the tunnel's cumulative byte counters into a per-interval
 // throughput reading.
@@ -77,10 +119,14 @@ func (p *poolLoad) mbps() int {
 // dividing by it is what makes this a statement about how hard each connection
 // is working rather than about the tunnel's total speed.
 func (p *poolLoad) wantsMore(mbps, liveConns, poolSize, configuredSize int) bool {
+	return p.wantsMoreWithin(mbps, liveConns, poolSize, configuredSize*poolGrowthLimit)
+}
+
+func (p *poolLoad) wantsMoreWithin(mbps, liveConns, poolSize, maxSize int) bool {
 	if mbps <= 0 || liveConns <= 0 {
 		return false
 	}
-	if !poolCanGrow(poolSize, configuredSize) {
+	if !poolCanGrowWithin(poolSize, maxSize) {
 		return false
 	}
 	return mbps/liveConns >= poolScaleMbpsPerConn
@@ -88,8 +134,7 @@ func (p *poolLoad) wantsMore(mbps, liveConns, poolSize, configuredSize int) bool
 
 // poolCanGrow bounds the pool so neither trigger can grow it without limit.
 func poolCanGrow(poolSize, configuredSize int) bool {
-	if configuredSize <= 0 {
-		return false
-	}
-	return poolSize < configuredSize*poolGrowthLimit
+	return poolCanGrowWithin(poolSize, configuredSize*poolGrowthLimit)
 }
+
+func poolCanGrowWithin(poolSize, maxSize int) bool { return maxSize > 0 && poolSize < maxSize }

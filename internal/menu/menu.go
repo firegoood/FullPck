@@ -136,6 +136,7 @@ func printMenu() {
 
 func printMenuForRole(managedNode bool) {
 	fmt.Println()
+	menuItem(0, "Connection Test", "measure the path before choosing a tunnel")
 	menuItem(1, "Setup Iran", "the server your users connect to — it exposes the ports")
 	menuItem(2, "Setup Kharej", "the server abroad — it holds the real service")
 	menuItem(3, "Manage", "tunnels, ports, transport, status, health check")

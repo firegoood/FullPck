@@ -53,7 +53,7 @@ func TestShareLinkIsRecognisableAndCompact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(s, "fullpack://1.") {
+	if !strings.HasPrefix(s, shareScheme+shareVersion2+".") {
 		t.Errorf("the link does not announce its scheme and version: %q", s[:min(20, len(s))])
 	}
 	// A fully loaded spoof tunnel is the biggest this gets. If it grows past a

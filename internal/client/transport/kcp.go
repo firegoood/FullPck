@@ -24,9 +24,10 @@ type KcpTransport struct {
 	// lifecycle.go.
 	lifecycle
 
-	config      *KcpConfig
-	smuxConfig  *smux.Config
-	kcpSettings network.KCPSettings
+	config       *KcpConfig
+	smuxConfig   *smux.Config
+	kcpSettings  network.KCPSettings
+	sessionSlots *sessionSlots
 }
 
 type KcpConfig struct {
@@ -128,8 +129,9 @@ func NewKcpClient(parentCtx context.Context, config *KcpConfig, logger *logrus.L
 			MaxReceiveBuffer:  config.MaxReceiveBuffer,
 			MaxStreamBuffer:   config.MaxStreamBuffer,
 		},
-		config:      config,
-		kcpSettings: config.settings(),
+		config:       config,
+		kcpSettings:  config.settings(),
+		sessionSlots: newSessionSlots(muxPoolLimit(config.ConnPoolSize, config.MaxReceiveBuffer)),
 	}
 	// Surface the carrier's startup diagnostics (effective FEC/MTU, and for pck
 	// the discovered egress and RST-guard status) in the tunnel log, so a client
@@ -291,6 +293,7 @@ func (c *KcpTransport) poolMaintainer() {
 		ctx:        c.state.Ctx(),
 		log:        c.logger,
 		size:       c.config.ConnPoolSize,
+		maxSize:    c.sessionSlots.max(),
 		aggressive: c.config.AggressivePool,
 		open:       &c.poolConnections,
 		taken:      &c.loadConnections,
@@ -305,6 +308,10 @@ func (c *KcpTransport) control() controlLoop {
 }
 
 func (c *KcpTransport) tunnelDialer() {
+	if !c.sessionSlots.tryAcquire() {
+		return
+	}
+	defer c.sessionSlots.release()
 	addr := c.config.Endpoints.Next()
 	c.logger.Debugf("initiating new tunnel connection to address %s", addr)
 

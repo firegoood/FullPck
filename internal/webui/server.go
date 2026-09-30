@@ -413,7 +413,7 @@ func (s *server) routes() *http.ServeMux {
 	// Managed servers: the fleet, the login each one is reached with, and
 	// building both ends of a tunnel in a single submission. See
 	// handlers_nodes.go.
-	mux.HandleFunc("/api/nodes", s.requireAuth(s.handleNodes))
+	mux.HandleFunc("/api/nodes", s.handleNodes)
 	mux.HandleFunc("/api/fleet/drift", s.requireReadAuth(s.handleDrift))
 	mux.HandleFunc("/api/node/pair", s.requireAuth(s.handleNodePair))
 	// Linking a tunnel that already exists to the server holding its other
