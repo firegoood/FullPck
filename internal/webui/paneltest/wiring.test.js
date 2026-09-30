@@ -15,7 +15,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS = resolve(HERE, '../panel/js');
@@ -93,4 +94,34 @@ test('every relative import resolves to a file that exists', () => {
         `${relative(JS, file)} imports ${m[1]}, which is not a module in this panel`);
     }
   }
+});
+
+/* A file may exist and still fail to parse. That prevents the entry module
+ * from running at all, leaving the loading screen up forever. Import the real
+ * entry graph and check that its first two reads start. */
+test('the browser entry module evaluates and starts the initial reads', () => {
+  const entry = JSON.stringify(pathToFileURL(join(JS, 'main.js')).href);
+  const script = `
+    globalThis.matchMedia = () => ({ matches: false });
+    globalThis.document = {
+      documentElement: { dataset: { base: '' } },
+      getElementById: () => ({ classList: { add() {} }, style: {}, remove() {} }),
+      querySelector: () => ({ hidden: false, classList: { add() {} }, remove() {} }),
+      addEventListener() {},
+    };
+    const calls = [];
+    globalThis.fetch = async url => {
+      calls.push(url);
+      return { ok: true, json: async () => ({}) };
+    };
+    await import(${entry});
+    if (!calls.includes('/api/stats') || !calls.includes('/api/tunnels')) {
+      throw new Error('the initial panel reads did not start: ' + calls.join(', '));
+    }
+    process.exit(0);
+  `;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    encoding: 'utf8', timeout: 5000,
+  });
+  assert.equal(result.status, 0, result.stderr || String(result.error));
 });

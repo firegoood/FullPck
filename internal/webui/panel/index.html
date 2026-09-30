@@ -47,6 +47,13 @@
       if (a && a !== 'none') document.body.dataset.accent = a;
     });
   } catch (e) {}
+  /* Module load failures otherwise leave the static boot screen forever. */
+  setTimeout(function () {
+    var boot = document.getElementById('boot');
+    if (!boot || boot.classList.contains('gone')) return;
+    var message = document.getElementById('boot-sub');
+    if (message) message.textContent = 'Panel failed to start. Reload the page or update FullPack.';
+  }, 12000);
 </script>
 </head>
 

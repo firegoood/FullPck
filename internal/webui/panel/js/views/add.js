@@ -1037,115 +1037,31 @@ export function addView(ctx) {
 
       nodeSel?.addEventListener('change', () => {
 
-        root.querySelectorAll('.step3rev .grp3, .step3rev .dr2b')
-          .forEach(g => { g.dataset.mode = 'rev'; });
-        root.querySelectorAll('.step3direct .grp3, .step3direct .dr2b')
-          .forEach(g => { g.dataset.mode = 'dir'; });
-
-        /* This server is the Iran end.
+        /* The address is not asked for, because it is already known.
          *
-         * The panel runs where tunnels are started from, and that is Iran: the
-         * kharej end is made from the setup link at the end, with one line, and
-         * a kharej-side form here was a second way to do the same thing that
-         * nobody needed. The side question is gone; the side buttons stay in
-         * the markup, hidden, because the rest of the form listens to them. */
-        chosen.side = 'server';
-        root.querySelector('[data-fn="setSide"][data-args*="server"]')?.click();
-        side.querySelector('.choices')?.setAttribute('hidden', '');
-        const lede = side.querySelector('.lede2');
-        if (lede) lede.hidden = true;
-
-        /* Reverse or direct, in cards under that. It was a small switch above
-           the transport list, easy to miss and the one choice that changes
-           every field after it. The switch is kept, hidden, because it is what
-           the rest of the form listens to. */
-        const kind = el('div', { class: 'typegrp' });
-        kind.innerHTML = `<div class="here-card">
-            <span class="here-flag">🇮🇷</span>
-            <div><b>Iran — this server</b><small>This end is built here. The kharej is set up from the one line
-              you get at the end: paste it there and the tunnel comes up.</small></div>
-            <span class="here-pill"><i></i>this server</span></div>
-          <div class="lede2 kindq">How do the two servers reach each other?</div>
-          <div class="grp3 kindgrp"><div class="choices">
-            <button type="button" class="ch4" data-kind="rev">
-              <span class="ic4"><svg viewBox="0 0 24 24"><path d="M20 12H4"/><path d="M10 6l-6 6 6 6"/></svg></span>
-              <b>Reverse<span class="rec">usual</span></b>
-              <i>The kharej dials in to this server. Ten transports, from plain TCP to WebSocket behind a CDN — what to try first.</i>
-              <div class="diagram">🌍 kharej <b>→</b> 🇮🇷 Iran</div></button>
-            <button type="button" class="ch4" data-kind="dir">
-              <span class="ic4"><svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M14 6l6 6-6 6"/></svg></span>
-              <b>Direct</b>
-              <i>This server dials out to the kharej over a layer-3 carrier. For paths where reverse is filtered.</i>
-              <div class="diagram">🇮🇷 Iran <b>→</b> 🌍 kharej</div></button>
-          </div></div>`;
-        side.append(kind);
-        const swap = root.querySelector('.modeswap');
-        const markKind = () => kind.querySelectorAll('[data-kind]').forEach(b =>
-          b.classList.toggle('on', b.dataset.kind === (chosen.direction === 'direct' ? 'dir' : 'rev')));
-        kind.addEventListener('click', ev => {
-          const b = ev.target.closest('[data-kind]');
-          if (!b) return;
-          swap?.querySelector(`[data-args*="${b.dataset.kind}"]`)?.click();
-          markKind();
-        });
-        if (swap) swap.hidden = true;
-        markKind();
-        dressPresets();
-
-        const pane = () => el('div', { class: 'step', hidden: true });
-        const perf = pane(), opt = pane();
-        root.querySelectorAll('.grp3').forEach(g => {
-          const head = g.querySelector('.gl3')?.childNodes[0]?.textContent?.trim();
-          if (head === 'Performance') perf.append(g);
-          if (head === 'Optional') opt.append(g);
-        });
-        details.after(perf);
-        perf.after(opt);
-
-        [...body.querySelectorAll('.step')].forEach((x, i) => {
-          x.dataset.s = String(i);
-          x.hidden = i !== 0;
-        });
-        const rail = root.querySelector('.steps');
-        if (rail) {
-          rail.innerHTML = '';
-          SINGLE.forEach((lb, i) => {
-            if (i) rail.append(el('span', { class: 'bar4' }));
-            rail.append(el('span', { class: 'st2' + (i ? '' : ' on'), dataset: { s: String(i) } }, [
-              el('span', { class: 'n3', text: String(i + 1) }),
-              el('span', { class: 'lb4', text: lb }),
-            ]));
-          });
-        }
-        const back = root.querySelector('#backb');
-        if (back) back.disabled = true;
-        paintNav(0);
+         * A managed server dials this panel, and reports what it is when it
+         * gets there — hostname, version, addresses. This side of a direct
+         * tunnel needs that address, and it is a worse answer coming from a
+         * person: it can be mistyped, and it goes stale when the machine's
+         * address changes. So the field goes, the value is carried in the
+         * payload, and it is shown here as a fact rather than a question.
+         */
+        peerIP = nodeAddr.get(nodeSel.value) || '';
+        const addr = root.querySelector('[name="peerAddr"], [name="serverAddr"]');
+        const box = addr?.closest('.f3');
+        if (box) box.classList.toggle('addrgone', !!nodeSel.value && !!peerIP);
+        if (addr && peerIP) addr.value = peerIP;
         applyShape();
-      }
-      stageSingle();
-      reveal();
 
-      /* The token, made here.
-       *
-       * The form still has the two-pass wording: one side "creates" the secret
-       * with a Copy button and the other "pastes" it. With the setup link that
-       * split is gone — whichever end is built first makes the token and the
-       * link carries it to the other one. So every token field starts filled
-       * with a fresh one from the server and stays editable, for the case where
-       * the other end already exists and its token is the one to use. The
-       * creating field on the reverse side was drawn with no name at all, which
-       * is why a create from here used to be refused for having no token. */
-      const tokenFields = [...root.querySelectorAll('#atok, [name="token"]')];
-      tokenFields.forEach(i => {
-        i.name = 'token';
-        i.removeAttribute('data-unwired');
-        const hint = i.closest('.f3')?.querySelector('.hint');
-        if (hint) hint.textContent = 'Made for this tunnel — the setup link carries it to the other server. '
-          + 'If that server is already set up, paste its token here instead.';
+        if (nodeMsg) {
+          nodeMsg.hidden = !(nodeSel.value && peerIP);
+          if (!nodeMsg.hidden) {
+            nodeMsg.querySelector('span:last-child').textContent =
+              `${nodeSel.value} reports its address as ${peerIP}. Nothing else about it needs entering.`;
+          }
+        }
       });
-      api.tunnelToken()
-        .then(r => tokenFields.forEach(i => { if (!i.value || i.defaultValue === i.value) i.value = r.token || ''; }))
-        .catch(() => tokenFields.forEach(i => { i.value = ''; i.placeholder = 'type a long random token'; }));
+
 
       /* Building the tunnel.
        *

@@ -413,4 +413,4 @@ See `internal/tunnel/l3/bench_gate_test.go`.
 
 ---
 
-*Last verified against FullPack v1.8.7.*
+*Last verified against FullPack v1.8.8.*

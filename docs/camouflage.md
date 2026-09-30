@@ -119,4 +119,4 @@ to configure.
 
 ---
 
-*Last verified against FullPack v1.8.7.*
+*Last verified against FullPack v1.8.8.*
