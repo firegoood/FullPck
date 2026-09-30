@@ -165,4 +165,4 @@ hash همه‌جا درست reload می‌شود. هر صفحه‌ای در ای
 
 ---
 
-*Last verified against FullPack v1.8.9.*
+*Last verified against FullPack v1.8.10.*

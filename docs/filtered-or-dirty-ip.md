@@ -86,4 +86,4 @@ automatically, and can reach it through a CDN edge instead of the origin:
 
 ---
 
-*Last verified against FullPack v1.8.9.*
+*Last verified against FullPack v1.8.10.*

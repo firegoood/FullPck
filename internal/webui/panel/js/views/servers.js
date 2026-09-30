@@ -7,7 +7,7 @@
  * machine. Its Agent then connects outward to this panel.
  */
 
-import { $, el, esc } from '../lib/dom.js';
+import { $, el, esc, copyText, flashCopied } from '../lib/dom.js';
 import { toast, oops } from '../ui/toast.js';
 import { confirmBox } from '../ui/confirm.js';
 import * as api from '../api.js';
@@ -128,6 +128,18 @@ const SHELL = `
     </div>
   </form>
 
+  <section class="enroll7" id="enroll-result" hidden aria-labelledby="enroll-title">
+    <h3 id="enroll-title">One-time enrollment code</h3>
+    <p>On the foreign server, run <code>sudo fullpack node join</code> and paste this code
+       at the prompt. It expires after 15 minutes. Copy it before leaving this page.</p>
+    <textarea id="enroll-code" readonly spellcheck="false" rows="3"
+              aria-label="One-time enrollment code"></textarea>
+    <div class="enroll7-actions">
+      <button type="button" class="btn7 solid" id="enroll-copy">Copy code</button>
+      <span id="enroll-copy-note">You can also select the code and copy it manually.</span>
+    </div>
+  </section>
+
   <div id="fleet" class="grid3"></div>
 
   <div class="empty7" id="nempty" hidden>
@@ -149,6 +161,23 @@ export function serversView(ctx) {
   const fleet  = $('#fleet', root);
   const driftB  = $('#ndriftb', root);
   const driftOut = $('#ndrift', root);
+  const enrollResult = $('#enroll-result', root);
+  const enrollCode = $('#enroll-code', root);
+  const enrollCopy = $('#enroll-copy', root);
+  const enrollCopyNote = $('#enroll-copy-note', root);
+
+  enrollCode.addEventListener('click', () => enrollCode.select());
+  enrollCopy.addEventListener('click', async () => {
+    const ok = await copyText(enrollCode.value);
+    flashCopied(enrollCopy, ok);
+    if (!ok) {
+      enrollCode.focus();
+      enrollCode.select();
+      enrollCopyNote.textContent = 'Selected the code; press Ctrl+C to copy it.';
+    } else {
+      enrollCopyNote.textContent = 'Copied. Paste it at the prompt on the foreign server.';
+    }
+  });
 
   /* What the fleet is supposed to be running, against what it is.
    *
@@ -179,7 +208,7 @@ export function serversView(ctx) {
   /* ---- painting ---- */
   function paint(state) {
     const nodes = state.nodes || [];
-    $('#nempty', root).hidden = !!(nodes.length || !form.hidden);
+    $('#nempty', root).hidden = !!(nodes.length || !form.hidden || !enrollResult.hidden);
     $('#nCount', root).textContent = String(nodes.length);
 
     reconcile(nodes);
@@ -538,16 +567,21 @@ export function serversView(ctx) {
     note.textContent = 'Generating a one-time enrollment code…';
     try {
       const state = await api.nodeAdd(fields);
-       form.hidden = true; form.reset();
-       if (state.status === 'enrollment_created') {
-         note.textContent = `Run fullpack node join on the foreign Node, then paste this one-time code: ${state.enrollmentCode}`;
-         try { await navigator.clipboard?.writeText(state.enrollmentCode); } catch (_) {}
-         alert(`Enrollment code (copied when permitted):\n\n${state.enrollmentCode}`);
-         toast('Enrollment code created.');
-         return;
-       }
-       paint(state);
-       toast(`${fields.name} enrollment created.`);
+      if (state.status === 'enrollment_created') {
+        if (!state.enrollmentCode) throw new Error('The Controller returned no enrollment code.');
+        form.hidden = true;
+        form.reset();
+        enrollCode.value = state.enrollmentCode;
+        enrollCopyNote.textContent = 'You can also select the code and copy it manually.';
+        enrollResult.hidden = false;
+        enrollResult.scrollIntoView({ block: 'nearest' });
+        toast('Enrollment code created.');
+        return;
+      }
+      form.hidden = true;
+      form.reset();
+      paint(state);
+      toast(`${fields.name} enrollment created.`);
       /* A server joining the fleet often already holds the far end of tunnels
          this panel has been managing alone — every tunnel built before there
          was a fleet is in that position. The panel can demonstrate which ones,
@@ -561,7 +595,7 @@ export function serversView(ctx) {
     } finally {
       goB.disabled = false;
       goB.textContent = 'Add it';
-       note.textContent = 'The code expires shortly and is valid once.';
+      note.textContent = 'The code expires shortly and is valid once.';
     }
   });
 

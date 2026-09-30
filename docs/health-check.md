@@ -48,4 +48,4 @@ TLS و قدرت توکن.
 
 ---
 
-*Last verified against FullPack v1.8.9.*
+*Last verified against FullPack v1.8.10.*
