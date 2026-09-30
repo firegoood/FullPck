@@ -46,7 +46,7 @@ import (
 //   - a method other than GET is one it accepts, when it checks at all.
 //
 // It reads source rather than running the handlers, because the handlers
-// restart services, reach managed servers over SSH and install updates, and a
+// restart services, reach managed servers through Agent and install updates, and a
 // test that did any of that to find out whether a field is read would be worse
 // than the bug.
 func TestEveryPanelCallReachesAHandlerThatReadsWhatItSends(t *testing.T) {

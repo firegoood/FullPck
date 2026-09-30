@@ -92,16 +92,13 @@ function paintHeader(state) {
 }
 
 /* ---- routes -------------------------------------------------------------- */
-/* The four sections. Each renders into #view; the strip above them is chrome
+/* The five sections. Each renders into #view; the strip above them is chrome
    and belongs to no section. */
 router.route('/', overview);
+router.route('/servers', serversView);
 router.route('/conntest', connTestView);
 router.route('/tunnels', dashboard);
 router.route('/manage', manageView);
-/* Servers is out of the dock while the fleet is reworked. The route stays so a
-   bookmark or a link from an alert still opens something rather than bouncing
-   to the overview. */
-router.route('/servers', serversView);
 
 /* A screen that opens over the fleet keeps the fleet underneath: the route
    renders the dashboard first, then puts the dialog on top of it, so closing
@@ -248,9 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (appearOpen) toggleAppearance();
   });
 
-  /* The dock. Only the two sections light it up: a dialog opened over one of
-     them — Add tunnel, Settings — leaves the section underneath marked, because
-     that is still where you are. */
+  /* A dialog opened over a section leaves that section marked in the dock. */
   bind('#dock', 'click', ev => {
     const b = ev.target.closest('[data-dock]');
     if (b) router.go(b.dataset.dock);
@@ -259,9 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
     /* A dialog opened over a section leaves that section marked, because it is
        still where you are. Settings is one of those dialogs now: the overview
        has a button for it, so the dock does not carry a second door to it. */
-    const at = ['/conntest', '/tunnels', '/manage'].find(p => path.startsWith(p))
+    const at = ['/servers', '/conntest', '/tunnels', '/manage'].find(p => path.startsWith(p))
       || (path.startsWith('/t/') || path === '/add' ? '/tunnels'
-        : PAGES[router.getHome()] && router.getHome() !== '/servers' ? router.getHome() : '/');
+        : PAGES[router.getHome()] ? router.getHome() : '/');
     document.querySelectorAll('#dock [data-dock]').forEach(b => {
       const on = b.dataset.dock === at;
       b.classList.toggle('on', on);
@@ -273,11 +268,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (n) n.textContent = state.tunnels?.length ? String(state.tunnels.length) : '';
   });
 
-  /* The other half of the dock. The tunnels are already in the store; the fleet
-     is not, and asking for it once here is what stops the badge reading as
-     "no servers" until you happen to open the section. It is deliberately not
-     polled: a count that is one page-load stale is not worth a request every
-     few seconds, and the section itself is live while you are on it. */
+  /* The fleet count is loaded once; the Servers view refreshes it while open. */
+  api.nodes()
+    .then(state => {
+      const n = $('#dock-s');
+      if (n) n.textContent = state.nodes?.length ? String(state.nodes.length) : '';
+    })
+    .catch(() => {});
+
   /* The Connection Test's dot: a test runs for minutes, often while you look
      at something else, so the dock says one is going. Read once here and then
      by the section itself while it is open. */

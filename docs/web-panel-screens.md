@@ -6,7 +6,7 @@ which CLI menu entry does the same job. It exists because the panel is the part
 of FullPack hardest to describe in prose — there is no command to quote and no
 file to show.
 
-<p align="center"><img src="../img/panel-map.svg" alt="The panel's navigation: three sections in a dock — Overview, Servers, Tunnels — with dialogs opening over whichever section you were on." width="100%"></p>
+<p align="center"><img src="../img/panel-map.svg" alt="The panel's navigation: five sections in a dock — Overview, Servers, Connection test, Tunnels, Manage — with dialogs opening over whichever section you were on." width="100%"></p>
 
 ## How the panel is shaped
 
@@ -16,9 +16,8 @@ Three things, and it helps to know which is which before reading the list:
 right now: processor, memory, and what is moving this second. It keeps updating
 while a dialog is open.
 
-**Four sections**, chosen from the dock: **Overview**, **Connection test**,
-**Tunnels**, **Manage**. Only these are pages (Servers is out of
-the dock for now, and its address still works). Each renders into the same slot, and
+**Five sections**, chosen from the dock: **Overview**, **Servers**,
+**Connection test**, **Tunnels**, **Manage**. Each renders into the same slot, and
 switching between them is the only navigation that replaces what you are
 looking at.
 
@@ -51,7 +50,7 @@ them is a page that gets glanced at and trusted.
 
 ### Servers — `#/servers`
 
-Out of the dock for now; the address still opens it. The managed fleet: other machines this panel can build and run tunnels on.
+Open Servers from the dock to manage the fleet: other machines this panel can build and run tunnels on.
 
 Adding one generates a one-time code. Run `sudo fullpack node join` on the
 foreign server and enter that code. Its Agent connects outward to the panel's
@@ -144,8 +143,8 @@ it.
 
 **شکل پنل سه چیز است.** **نوار بالا** به هیچ صفحه‌ای تعلق ندارد: همین حالای این
 ماشین — پردازنده، حافظه، و آنچه همین ثانیه در حرکت است — و زیر دیالوگ هم به کارش
-ادامه می‌دهد. **چهار بخش** که از dock انتخاب می‌شوند: **Overview**، **Connection test**،
-**Tunnels** و **Manage**؛ فقط همین‌ها صفحه‌اند (Servers فعلاً از dock بیرون است). **دیالوگ‌ها** بقیهٔ چیزهایند: روی بخشی که در
+ادامه می‌دهد. **پنج بخش** که از dock انتخاب می‌شوند: **Overview**، **Servers**، **Connection test**،
+**Tunnels** و **Manage**. **دیالوگ‌ها** بقیهٔ چیزهایند: روی بخشی که در
 آن بودی باز می‌شوند و بستن‌شان دقیقاً به همان‌جا برمی‌گرداند — پس بازکردن Health
 check از Overview، موقع بستن تو را روی Tunnels نمی‌اندازد.
 
@@ -166,4 +165,4 @@ hash همه‌جا درست reload می‌شود. هر صفحه‌ای در ای
 
 ---
 
-*Last verified against FullPack v1.8.6.*
+*Last verified against FullPack v1.8.7.*

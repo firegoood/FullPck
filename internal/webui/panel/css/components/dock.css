@@ -9,7 +9,7 @@
  * everything below the dock is about what runs on it — the divide the dock
  * marks is the same one the page already has.
  *
- * Centred: four segments left-aligned under a full-width strip read as the
+ * Centred: five segments left-aligned under a full-width strip read as the
  * start of the content rather than as navigation for all of it.
  */
 
@@ -32,7 +32,7 @@
 
 /* On a narrow screen the two fill the width rather than huddling on the left:
    a segmented control that reaches both edges is one you can hit with a thumb. */
-/* Four segments do not fit a phone at this size, so the labels go and the
+/* Five segments do not fit a phone at this size, so the labels go and the
    icons carry it — with the current one keeping its word, because an icon row
    with nothing named is a row you have to learn. */
 @container pg (max-width:720px){

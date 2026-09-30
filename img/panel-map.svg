@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-labelledby="t d">
   <title id="t">The FullPack web panel's navigation</title>
-  <desc id="d">A strip across the top belongs to no screen. Below it a dock selects one of three sections: Overview at #/, Servers at #/servers, and Tunnels at #/tunnels. Seven per-tunnel dialogs — live log, metrics, history, link test, speed test, edit and undo — and seven installation dialogs — add tunnel, settings, alerts, health check, maintenance, support and star — open over whichever section was showing, and closing one returns to that section.</desc>
+  <desc id="d">A strip across the top belongs to no screen. Below it a dock selects one of five sections: Overview at #/, Servers at #/servers, Connection test at #/conntest, Tunnels at #/tunnels, and Manage at #/manage. Dialogs open over whichever section was showing, and closing one returns to that section.</desc>
 
   <style>
     :root { color-scheme: light dark; }
@@ -32,23 +32,31 @@
   <text class="note" x="600" y="54">belongs to no screen; keeps running under a dialog</text>
 
   <!-- the dock -->
-  <text class="head" x="40" y="108">THE DOCK — THREE SECTIONS, ONE AT A TIME</text>
+  <text class="head" x="40" y="108">THE DOCK — FIVE SECTIONS, ONE AT A TIME</text>
 
-  <rect class="sect" x="40" y="122" width="280" height="64" rx="10"/>
-  <text class="lbl" x="60" y="148">Overview</text>
-  <text class="sub"  x="60" y="170">#/</text>
+  <rect class="sect" x="40" y="122" width="160" height="64" rx="10"/>
+  <text class="lbl" x="56" y="148">Overview</text>
+  <text class="sub"  x="56" y="170">#/</text>
 
-  <rect class="sect" x="340" y="122" width="280" height="64" rx="10"/>
-  <text class="lbl" x="360" y="148">Servers</text>
-  <text class="sub"  x="360" y="170">#/servers</text>
+  <rect class="sect" x="220" y="122" width="160" height="64" rx="10"/>
+  <text class="lbl" x="236" y="148">Servers</text>
+  <text class="sub"  x="236" y="170">#/servers</text>
 
-  <rect class="sect" x="640" y="122" width="280" height="64" rx="10"/>
-  <text class="lbl" x="660" y="148">Tunnels</text>
-  <text class="sub"  x="660" y="170">#/tunnels</text>
+  <rect class="sect" x="400" y="122" width="160" height="64" rx="10"/>
+  <text class="lbl" x="416" y="148">Connection test</text>
+  <text class="sub"  x="416" y="170">#/conntest</text>
+
+  <rect class="sect" x="580" y="122" width="160" height="64" rx="10"/>
+  <text class="lbl" x="596" y="148">Tunnels</text>
+  <text class="sub"  x="596" y="170">#/tunnels</text>
+
+  <rect class="sect" x="760" y="122" width="160" height="64" rx="10"/>
+  <text class="lbl" x="776" y="148">Manage</text>
+  <text class="sub"  x="776" y="170">#/manage</text>
 
   <!-- the seam between sections and dialogs -->
-  <path class="link" d="M180 186 L180 214 M480 186 L480 214 M780 186 L780 214"/>
-  <path class="link" d="M180 214 L780 214"/>
+  <path class="link" d="M120 186 L120 214 M300 186 L300 214 M480 186 L480 214 M660 186 L660 214 M840 186 L840 214"/>
+  <path class="link" d="M120 214 L840 214"/>
   <path class="link" d="M480 214 L480 240"/>
   <text class="note" x="500" y="234">a dialog opens over the section you were on, and closing returns to it</text>
 
