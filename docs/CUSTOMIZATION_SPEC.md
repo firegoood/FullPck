@@ -1,6 +1,6 @@
 # مشخصات شخصی‌سازی FullPack
 
-Last verified against FullPack v1.8.6.
+Last verified against FullPack v1.8.7.
 
 <div dir="rtl">
 
@@ -948,6 +948,8 @@ No Agent/control-plane code may assume 7654 internally.
 # 28. MANAGED FLEET UI
 
 Refactor the current Servers/Fleet UI around Agent-managed Nodes.
+
+Keep Servers as a permanent, visible section in the WebUI dock. The path to Add Server, enrollment, and Node management must be discoverable even when no Nodes exist or all Nodes are Online. Upstream navigation changes must not hide this section.
 
 User should be able to see states such as:
 
