@@ -128,7 +128,9 @@ fullpack check -c /etc/fullpack/<name>.toml
 
 This validates the file without starting anything, and it catches the quiet one:
 a file describing two kinds of tunnel, where the engine runs the first and
-silently ignores the rest.
+silently ignores the rest. It also asks the engine itself, so a file it passes
+is one the engine starts on this machine — run it on the server the tunnel will
+run on, as the user it runs as.
 
 Then check, in this order:
 
@@ -251,6 +253,42 @@ a feature added on one side is not available until both have it.
 
 ---
 
+## Messages that refuse something on purpose
+
+These are not faults. Each is a check doing its job, and each says what it saw.
+
+- **`refusing a connection from <addr>: too many connections that have not
+  proved the token`** — someone holds more half-open connections to a tunnel
+  port than a real client ever does (128 from one host or /64, 1024 in all).
+  The real client is not affected once it has connected from its address, so a
+  tunnel that works while this scrolls past is being probed, not broken. If a
+  kharej that has *never* connected is refused, it gets in when the flood's
+  connections time out. Why it works this way:
+  [ADR 0004](adr/0004-what-an-unproven-peer-may-hold.md).
+- **`wss: the server did not prove it holds the tunnel token`** — on a `wss`
+  kharej. The Iran server answers every upgrade with a proof made from the
+  token and the TLS session; this one was missing or wrong. Either the tokens
+  differ, or something on the path is terminating the TLS and talking to the
+  kharej itself — a CDN in *proxied* mode set up for `ws` rather than `wss`, or
+  a box doing interception. The first case is a config fix; the second is what
+  the check is for. An Iran server on a build older than v1.8.5 sends no proof
+  and is accepted, unless it already answered once in this run.
+- **`<file> does not parse (…); it was kept as <file>.unreadable-<n> — starting
+  from an empty one`** — a state file (the fleet, the panel's settings, the
+  bot's) was damaged. Nothing was lost: the damaged file sits beside the new
+  one. Compare the two, and move the old one back once it is fixed, with the
+  service stopped. A file that parsed but had one value of the wrong type says
+  *the rest was read, and a copy was kept* instead.
+- **`socks: that destination is refused: it is this machine, or link-local`**
+  — the built-in proxy was asked for the server's own loopback, an unspecified
+  address, a link-local address (the cloud metadata service lives there) or a
+  multicast one. It refuses those on every server, with or without a password.
+- **`a new address for "<name>" needs its password entered again`** — in the
+  fleet. The stored password is not sent to an address it was not given for;
+  type it again with the new address.
+
+---
+
 ## Reading the logs
 
 ```
@@ -357,10 +395,11 @@ stall است؛ **هر دو یخ** یعنی تونل بیکار است، که خ�
 
 ### سرور مدیریت‌شده offline است
 
-پنل خودش SSH می‌زند و چیزی روی آن‌طرف باز نمی‌شود، پس offline یعنی یکی از سه چیز:
-ماشین خاموش است یا پورت SSH عوض شده؛ رمز عوض شده؛ یا host key عوض شده (پنل کلیدِ
-اولین‌بار را pin می‌کند و کلید دیگری را رد می‌کند — اگر سرور از نو ساخته شده،
-همین درست است: از ناوگان حذفش کن و دوباره اضافه کن). خود کارت می‌گوید کدام است.
+Node با Agent از طریق اتصال خروجی به آدرس Controller وصل می‌شود. اگر offline است،
+وضعیت `fullpack-monitor` و دسترسی Node به پورت WebUI کنترلر را بررسی کن. اگر
+گواهی یا تنظیمات اتصال تغییر کرده‌اند، لاگ `fullpack-monitor` روی Node و
+`fullpack-webui` روی Controller را ببین. برای Node بازسازی‌شده، ورودی قبلی را
+لغو و با کد یک‌بارمصرف جدید ثبت کن.
 
 ### بعد از آپدیت
 
@@ -369,6 +408,28 @@ stall است؛ **هر دو یخ** یعنی تونل بیکار است، که خ�
 دارد، نسخهٔ دو طرف را با `fullpack version` مقایسه کن — نسخهٔ جدید با قدیم کار
 می‌کند و در هر دو جهت تست شده، ولی قابلیتی که یک طرف اضافه کرده تا وقتی هر دو
 نداشته باشند در دسترس نیست.
+
+### پیام‌هایی که عمداً چیزی را رد می‌کنند
+
+این‌ها خطا نیستند؛ هر کدام یک بررسی است که کارش را می‌کند:
+
+- **`too many connections that have not proved the token`** — کسی بیش از حدِ یک
+  کلاینت واقعی اتصالِ نیمه‌باز نگه داشته (۱۲۸ از یک میزبان یا یک /64، ۱۰۲۴ در کل).
+  کلاینتی که یک بار از همان آدرس وصل شده رد نمی‌شود؛ تونلی که کار می‌کند و این پیام
+  را می‌بیند دارد اسکن می‌شود، خراب نیست. ([ADR 0004](adr/0004-what-an-unproven-peer-may-hold.md))
+- **`wss: the server did not prove it holds the tunnel token`** — روی خارجِ `wss`.
+  یا توکن‌ها فرق دارند، یا چیزی در مسیر TLS را باز می‌کند و خودش جواب می‌دهد (CDN
+  در حالت proxied که برای `ws` تنظیم شده، یا جعبهٔ شنود). سرور ایرانِ قدیمی‌تر از
+  v1.8.5 اثباتی نمی‌فرستد و پذیرفته می‌شود، مگر در همین اجرا یک بار جواب داده باشد.
+- **`… it was kept as <file>.unreadable-<n>`** — یک فایل وضعیت (ناوگان، تنظیمات
+  پنل، ربات) خراب بود. چیزی از دست نرفته: فایل خراب کنار فایل تازه مانده؛ درستش کن
+  و با سرویسِ خاموش سر جایش برگردان.
+- **`socks: that destination is refused`** — پراکسی داخلی به loopback، آدرس
+  link-local (سرویس metadata ابر همین‌جاست)، unspecified یا multicast خودِ سرور
+  وصل نمی‌شود؛ با رمز یا بی‌رمز.
+- **`a new address for "<name>" needs its password entered again`** — در ناوگان،
+  رمزِ ذخیره‌شده به آدرسی که برایش داده نشده فرستاده نمی‌شود؛ با آدرس تازه دوباره
+  واردش کن.
 
 ### خواندن لاگ
 

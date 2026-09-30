@@ -478,6 +478,14 @@ fi
 # (curl ... | bash) has no tty on stdin, so it just prints the instruction. The
 # script already runs as root, so the binary is launched directly. `exec`
 # replaces this shell so the menu owns the terminal cleanly.
+# A setup link given on the command line is applied now, instead of opening the
+# menu: the binary builds the tunnel, starts it, and says whether it connected.
+if [[ ${#BP_ARGS[@]} -gt 0 ]]; then
+  echo
+  info "Setting up the tunnel from the setup link..."
+  exec "$BIN_PATH" "${BP_ARGS[@]}"
+fi
+
 if [ -t 0 ]; then
   echo -e "Starting the menu... ${GRAY}(next time, just run ${NC}${RED}sudo fullpack${GRAY})${NC}"
   echo

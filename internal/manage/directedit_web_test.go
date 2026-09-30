@@ -18,7 +18,7 @@ func TestThePanelReadsADirectTunnelsSettings(t *testing.T) {
 		Addr: "203.0.113.9:9000", Token: "a-long-token", Iface: "bp0",
 		LocalIP: "10.10.0.1/30", PeerIP: "10.10.0.2", MTU: 1371,
 		Ports: []string{"443", "8080=80"}, AcceptUDP: true,
-	}.render()).L3
+	}.Render()).L3
 
 	set := directSettingsFrom("web-iran", iran)
 	if set.Side != "iran" || set.Carrier != "pck" {
@@ -41,7 +41,7 @@ func TestThePanelReadsADirectTunnelsSettings(t *testing.T) {
 		Name: "web-kharej", Side: sideKharej, Carrier: "pck", Encap: "gre",
 		Addr: "0.0.0.0:9000", Token: "a-long-token", Iface: "bp0",
 		LocalIP: "10.10.0.2/30", PeerIP: "10.10.0.1", MTU: 1371,
-	}.render()).L3
+	}.Render()).L3
 	if directSettingsFrom("web-kharej", kharej).HoldsPorts {
 		t.Error("the kharej side was reported as holding ports — the form would show a list it has none of")
 	}
@@ -76,7 +76,7 @@ func TestThePanelReadsLegacyStreamDirectSettings(t *testing.T) {
 	if len(updated.Ports) != 2 || updated.Ports[1] != "9090" || updated.Transport != "tcp" {
 		t.Fatalf("stream edit changed the wrong fields: %+v", updated)
 	}
-	round := decode(t, directSpecFromConfig("legacy", updated).render()).Direct
+	round := decode(t, directSpecFromConfig("legacy", updated).Render()).Direct
 	if round.Transport != "tcp" || len(round.Ports) != 2 || round.Ports[1] != "9090" {
 		t.Fatalf("stream render did not round-trip: %+v", round)
 	}
@@ -95,7 +95,7 @@ func TestAPanelEditLeavesUntouchedFieldsAlone(t *testing.T) {
 		Ports: []string{"443"}, AcceptUDP: true,
 		MaxConnections: 50, BandwidthMbps: 100, SockBuf: 8 << 20,
 		Spoof: config.SpoofConfig{SpoofPeerIP: "198.51.100.4", SpoofProfile: "tcp"},
-	}.render()).L3
+	}.Render()).L3
 
 	// Only the ports are sent.
 	ports := "443, 9090"
@@ -105,7 +105,7 @@ func TestAPanelEditLeavesUntouchedFieldsAlone(t *testing.T) {
 	}
 
 	// And the whole thing has to survive being written back out.
-	round := decode(t, directSpecFrom("keep", after).render()).L3
+	round := decode(t, directSpecFrom("keep", after).Render()).L3
 
 	if len(round.Ports) != 2 || round.Ports[1] != "9090" {
 		t.Errorf("the edit did not take: %v", round.Ports)

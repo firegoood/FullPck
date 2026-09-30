@@ -70,7 +70,7 @@ func setupL3Classic(side directSide, carrier string) {
 
 	// Same order as the reverse wizard: address, name, token, ports,
 	// carrier-specific extras, then optional tuning.
-	cfg.Name = uniqueName(tui.PromptDefault("Tunnel name", cfg.defaultName()))
+	cfg.Name = uniqueName(tui.PromptDefault("Tunnel name", cfg.DefaultName()))
 
 	token, ok := askSharedTokenClassic(side)
 	if !ok {
@@ -138,7 +138,7 @@ func setupL3Classic(side directSide, carrier string) {
 	if !tui.Confirm("Create this tunnel", true) {
 		return
 	}
-	if !createAndStart(cfg.Name, cfg.render()) {
+	if !createAndStart(cfg.Name, cfg.Render()) {
 		return
 	}
 	// Repeated after the tunnel exists, because this is the moment the

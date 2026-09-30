@@ -24,9 +24,7 @@ func backupMenu() {
 		tui.Clear()
 		tui.Title("Backup & Restore")
 		fmt.Println()
-		tui.Warn("A backup bundles every tunnel, the web-panel password, Telegram")
-		tui.Warn("settings, TLS certs and the auto-refresh schedule into one file.")
-		tui.Warn("Backups live in " + app.BackupDir)
+		tui.Warn("Every Tunnel And Setting In One File — " + app.BackupDir)
 		fmt.Println()
 
 		// Options and actions as parallel slices rather than a switch on the
@@ -34,10 +32,10 @@ func backupMenu() {
 		// be renumbered whenever one is inserted — and a missing case compiles
 		// perfectly and silently returns to the previous screen.
 		opts := []tui.Option{
-			{Title: "Create a backup file", Desc: "saved into " + app.BackupDir},
-			{Title: "Restore from a backup file", Desc: "pick one from the folder or enter a path"},
-			{Title: "Copy backups off this machine", Desc: "where the weekly backup is sent — " + offsiteLabel()},
-			{Title: "Test a restore", Desc: "prove a backup file would actually restore, changing nothing"},
+			{Title: "Create Backup", Desc: "into " + app.BackupDir},
+			{Title: "Restore Backup", Desc: "from the folder or a path"},
+			{Title: "Off-Site Copy", Desc: offsiteLabel()},
+			{Title: "Test A Restore", Desc: "changes nothing"},
 		}
 		actions := []func(){
 			createBackup,
@@ -49,12 +47,12 @@ func backupMenu() {
 		// servers has no sealed Agent credential and nothing to keep.
 		if node.HasSealedCredentials() {
 			opts = append(opts,
-				tui.Option{Title: "Show the fleet key", Desc: "needed to restore managed servers onto a DIFFERENT machine"},
-				tui.Option{Title: "Restore the fleet key", Desc: "paste a key kept from another machine"})
+				tui.Option{Title: "Show Fleet Key", Desc: "to restore managed servers elsewhere"},
+				tui.Option{Title: "Restore Fleet Key", Desc: "from another machine"})
 			actions = append(actions, showFleetKey, restoreFleetKey)
 		}
 
-		idx := tui.ChooseOpt("Choose:", opts)
+		idx := tui.ChooseOpt("Backup & Restore", opts)
 		if idx < 0 || idx >= len(actions) {
 			return
 		}
@@ -87,8 +85,7 @@ func showFleetKey() {
 // restoreFleetKey puts a previously kept key back on a machine that has none.
 func restoreFleetKey() {
 	fmt.Println()
-	tui.Info("Paste the fleet key from the machine this backup came from.")
-	key := tui.Prompt("Fleet key: ")
+	key := tui.Prompt("Fleet Key: ")
 	if strings.TrimSpace(key) == "" {
 		return
 	}
@@ -103,17 +100,17 @@ func restoreFleetKey() {
 
 // createBackup writes a timestamped archive to the backup folder.
 func createBackup() {
-	dir := tui.PromptDefault("Save the backup in which directory", app.BackupDir)
+	dir := tui.PromptDefault("Directory", app.BackupDir)
 	path, err := manage.BackupToFile(dir)
 	if err != nil {
 		tui.Error("Backup failed: " + err.Error())
 		tui.PressEnter()
 		return
 	}
-	tui.Success("Backup created:")
+	tui.Success("Backup Created:")
 	tui.Info("  " + path)
 	fmt.Println()
-	tui.Warn("Keep it private — it contains tokens and the panel password.")
+	tui.Warn("Keep It Private — It Holds Tokens And The Panel Password.")
 	tui.PressEnter()
 }
 
@@ -128,20 +125,20 @@ func restoreBackup() {
 		for _, a := range archives {
 			opts = append(opts, tui.Option{Title: filepath.Base(a), Desc: "in " + app.BackupDir})
 		}
-		opts = append(opts, tui.Option{Title: "Enter a custom path", Desc: "an archive somewhere else"})
+		opts = append(opts, tui.Option{Title: "Other Path", Desc: ""})
 		fmt.Println()
-		idx := tui.ChooseOpt("Restore which backup:", opts)
+		idx := tui.ChooseOpt("Restore", opts)
 		switch {
 		case idx < 0:
 			return
 		case idx < len(archives):
 			path = archives[idx]
 		default:
-			path = tui.Prompt("Path to the backup .tar.gz file: ")
+			path = tui.Prompt("Backup File (.tar.gz): ")
 		}
 	} else {
-		tui.Warn("No backups found in " + app.BackupDir + " — enter a path manually.")
-		path = tui.Prompt("Path to the backup .tar.gz file: ")
+		tui.Warn("None In " + app.BackupDir + ".")
+		path = tui.Prompt("Backup File (.tar.gz): ")
 	}
 	if path == "" {
 		return
@@ -155,8 +152,8 @@ func restoreBackup() {
 	}
 	defer f.Close()
 
-	tui.Warn("This overwrites existing tunnels/settings with the backup's contents.")
-	if !tui.Confirm("Restore now", false) {
+	tui.Warn("Overwrites Tunnels And Settings With The Backup.")
+	if !tui.Confirm("Restore", false) {
 		return
 	}
 
@@ -181,16 +178,16 @@ func restoreBackup() {
 		tui.Info("Web-panel settings were restored but the panel stays disabled on this managed foreign node.")
 	}
 
-	tui.Success(fmt.Sprintf("Restored %d file(s).", res.Files))
+	tui.Success(fmt.Sprintf("Restored %d File(s).", res.Files))
 	if len(res.Tunnels) > 0 {
-		tui.Info(fmt.Sprintf("Tunnels: %d re-registered, %d started, %d failed.",
+		tui.Info(fmt.Sprintf("Tunnels: %d Registered, %d Started, %d Failed.",
 			len(res.Tunnels), res.Started, res.Failed))
 	}
 	if res.AutoRefreshHours > 0 {
-		tui.Info(fmt.Sprintf("Auto-refresh restored: every %d hour(s).", res.AutoRefreshHours))
+		tui.Info(fmt.Sprintf("Auto Refresh: Every %d Hour(s).", res.AutoRefreshHours))
 	}
 	if res.WebUIConfig {
-		tui.Info("Web-panel password restored from the backup.")
+		tui.Info("Panel Password Restored.")
 	}
 	tui.PressEnter()
 }
@@ -215,11 +212,8 @@ func offsiteLabel() string {
 // is also the one that does not need a release to support a new destination.
 func configureOffsite() {
 	tui.Clear()
-	tui.Title("Copy backups off this machine")
+	tui.Title("Off-Site Copy")
 	fmt.Println()
-	tui.Warn("Backups are written to " + app.BackupDir + " — on the server they")
-	tui.Warn("describe. The case they exist for is the case where that server is")
-	tui.Warn("gone, so a copy somewhere else is the only one that will be there.")
 	fmt.Println()
 	tui.Info("Now: " + offsiteLabel())
 	fmt.Println()
@@ -228,9 +222,6 @@ func configureOffsite() {
 	tui.Warn("    scp {} backup@10.0.0.9:/srv/fullpack/")
 	tui.Warn("    restic backup {}")
 	fmt.Println()
-	tui.Warn("It is run directly, not through a shell, so a ';' or a '|' in it is")
-	tui.Warn("a word rather than syntax. For a pipeline write: sh -c '...'")
-	tui.Warn("Leave empty to stop copying them anywhere.")
 	fmt.Println()
 
 	cmd := strings.TrimSpace(tui.Prompt("Command: "))
@@ -240,7 +231,7 @@ func configureOffsite() {
 		return
 	}
 	if cmd == "" {
-		tui.Success("Backups will stay on this machine.")
+		tui.Success("Off-Site Copy Off.")
 		tui.PressEnter()
 		return
 	}
@@ -249,23 +240,21 @@ func configureOffsite() {
 	fmt.Println()
 	// Offered rather than assumed: it runs a command the operator just typed
 	// against a real file, and doing that without asking is a surprise.
-	if !tui.Confirm("Try it now with the newest backup", true) {
+	if !tui.Confirm("Try It With The Newest Backup", true) {
 		tui.PressEnter()
 		return
 	}
 	newest, err := manage.NewestBackup()
 	if err != nil {
-		tui.Warn("There is no backup to try it with yet — take one first.")
+		tui.Warn("No Backup Yet — Create One First.")
 		tui.PressEnter()
 		return
 	}
 	tui.Info("Sending " + filepath.Base(newest) + "...")
 	if err := manage.SendOffsite(newest); err != nil {
 		tui.Error("It did not work: " + err.Error())
-		tui.Warn("Fix the command or the destination; the weekly backup would have")
-		tui.Warn("failed the same way, and you would have found out much later.")
 	} else {
-		tui.Success("It arrived. The weekly backup will be copied there too.")
+		tui.Success("It Arrived — Weekly Backups Go There Too.")
 	}
 	tui.PressEnter()
 }
@@ -278,11 +267,9 @@ func configureOffsite() {
 // with whatever the backup turned out not to contain.
 func testRestore() {
 	tui.Clear()
-	tui.Title("Test a restore")
+	tui.Title("Test A Restore")
 	fmt.Println()
-	tui.Warn("This stages a backup exactly as a real restore would — the same")
-	tui.Warn("checks, the same refusals — into a scratch directory, reports what")
-	tui.Warn("it holds, and throws it away. Nothing on this machine changes.")
+	tui.Warn("Checks A Backup Like A Real Restore — Changes Nothing.")
 	fmt.Println()
 
 	path, err := manage.NewestBackup()
@@ -291,9 +278,9 @@ func testRestore() {
 		tui.PressEnter()
 		return
 	}
-	tui.Info("Newest backup: " + filepath.Base(path))
+	tui.Info("Newest: " + filepath.Base(path))
 	fmt.Println()
-	if other := strings.TrimSpace(tui.Prompt("Path to test (empty for the one above): ")); other != "" {
+	if other := strings.TrimSpace(tui.Prompt("Other File (Blank = Newest): ")); other != "" {
 		path = other
 	}
 
@@ -301,7 +288,6 @@ func testRestore() {
 	if err != nil {
 		tui.Error(err.Error())
 		fmt.Println()
-		tui.Warn("This is the answer you want *now* rather than during a recovery.")
 		tui.PressEnter()
 		return
 	}
@@ -310,9 +296,9 @@ func testRestore() {
 	fmt.Print(rep.Summary())
 	fmt.Println()
 	if len(rep.Warnings) == 0 {
-		tui.Success("This backup would restore cleanly.")
+		tui.Success("Would Restore Cleanly.")
 	} else {
-		tui.Warn("It would restore, with the caveats above.")
+		tui.Warn("Would Restore, With The Notes Above.")
 	}
 	tui.PressEnter()
 }

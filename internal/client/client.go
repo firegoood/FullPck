@@ -42,7 +42,7 @@ func NewClient(cfg *config.ClientConfig, parentCtx context.Context) *Client {
 	}
 }
 
-// Run starts the client and begins dialing the tunnel server
+// Start starts the client and begins dialing the tunnel server.
 func (c *Client) Start() {
 	// Profiling endpoint, off unless explicitly enabled in the config. Bound to
 	// loopback: pprof is unauthenticated and its heap dump would expose the
@@ -117,7 +117,7 @@ func (c *Client) Start() {
 		if r == nil {
 			return chain.Attempt{}
 		}
-		return chain.Attempt{Settled: r.Running, Stop: r.Shutdown}
+		return chain.Attempt{Settled: r.Running}
 	})
 
 	c.logger.Info("all workers stopped successfully")
@@ -157,15 +157,19 @@ func buildOutbound(cfg *config.ClientConfig) (*network.Outbound, error) {
 // runner is what a started transport gives the chain back: a way to ask
 // whether the control channel is up. Every transport already answers it — see
 // internal/client/transport/status.go.
-type runner interface {
-	Running() bool
-	Shutdown()
-}
+type runner interface{ Running() bool }
 
 // startTransport launches one transport under ctx and returns it. Cancelling
 // ctx tears it down; nothing else here reaches for c.ctx, so a chain can run
 // several of these one after another in the same process.
 func (c *Client) startTransport(ctx context.Context, tr config.TransportType, endpoints *network.Endpoints, outbound *network.Outbound) runner {
+	// Steering asks the tunnel port itself where it can, not only ping; which
+	// way depends on the transport running now. See SetReachProbe.
+	if tcpPortTransport(tr) {
+		endpoints.SetReachProbe(network.TCPReach(2 * time.Second))
+	} else {
+		endpoints.SetReachProbe(nil)
+	}
 	switch tr {
 	case config.TCP, config.STEALTH:
 		tcpConfig := &transport.TcpConfig{
@@ -190,7 +194,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Stealth: tr == config.STEALTH,
 		}
 		tcpClient := transport.NewTCPClient(ctx, tcpConfig, c.logger)
-		tcpClient.Start()
+		go tcpClient.Start()
 		return tcpClient
 
 	case config.TCPMUX:
@@ -217,7 +221,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Outbound:         outbound,
 		}
 		tcpMuxClient := transport.NewMuxClient(ctx, tcpMuxConfig, c.logger)
-		tcpMuxClient.Start()
+		go tcpMuxClient.Start()
 		return tcpMuxClient
 
 	case config.KCP, config.XDI, config.PCK:
@@ -258,7 +262,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			PckFlags:         c.config.PckFlags,
 		}
 		kcpClient := transport.NewKcpClient(ctx, kcpConfig, c.logger)
-		kcpClient.Start()
+		go kcpClient.Start()
 		return kcpClient
 
 	case config.QUIC:
@@ -278,7 +282,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			SO_SNDBUF:      c.config.SO_SNDBUF,
 		}
 		quicClient := transport.NewQuicClient(ctx, quicConfig, c.logger)
-		quicClient.Start()
+		go quicClient.Start()
 		return quicClient
 
 	case config.WS, config.WSS:
@@ -302,7 +306,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Outbound:       outbound,
 		}
 		WsClient := transport.NewWSClient(ctx, WsConfig, c.logger)
-		WsClient.Start()
+		go WsClient.Start()
 		return WsClient
 
 	case config.WSMUX, config.WSSMUX:
@@ -330,7 +334,7 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			Outbound:         outbound,
 		}
 		wsMuxClient := transport.NewWSMuxClient(ctx, wsMuxConfig, c.logger)
-		wsMuxClient.Start()
+		go wsMuxClient.Start()
 		return wsMuxClient
 
 	case config.UDP:
@@ -349,11 +353,21 @@ func (c *Client) startTransport(ctx context.Context, tr config.TransportType, en
 			SO_SNDBUF:      c.config.SO_SNDBUF,
 		}
 		udpClient := transport.NewUDPClient(ctx, udpConfig, c.logger)
-		udpClient.Start()
+		go udpClient.Start()
 		return udpClient
 
 	default:
 		c.logger.Fatal("invalid transport type: ", tr)
 		return nil
 	}
+}
+
+// tcpPortTransport reports whether a transport's tunnel port is TCP, so a
+// connection to it says whether it answers.
+func tcpPortTransport(tr config.TransportType) bool {
+	switch tr {
+	case config.TCP, config.TCPMUX, config.WS, config.WSS, config.WSMUX, config.WSSMUX, config.STEALTH:
+		return true
+	}
+	return false
 }

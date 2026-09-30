@@ -10,6 +10,8 @@ import (
 	"github.com/firegoood/FullPck/config"
 )
 
+const Unparsable = "the file does not parse"
+
 // ValidPort reports whether s is a valid TCP/UDP port number.
 func ValidPort(s string) bool {
 	n, err := strconv.Atoi(s)
@@ -163,7 +165,7 @@ func ValidateConfigFile(path string) []string {
 
 	var cfg config.Config
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
-		return []string{"the file does not parse: " + err.Error()}
+		return []string{Unparsable + ": " + err.Error()}
 	}
 
 	kinds := 0

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -32,8 +33,14 @@ func tunnelNameFromPath(configPath string) string {
 // startMetrics records what the tunnel carries so the CLI can show it later.
 // It is best-effort: a tunnel must never fail because diagnostics could not be
 // written.
-func startMetrics(ctx context.Context, configPath, transport, role string) {
-	startMetricsWithTraffic(ctx, configPath, transport, role, nil, nil)
+//
+// The function it returns stops the collector and waits for its last write.
+// Every engine calls it on the way out: a reload starts the next generation's
+// collector straight after, and that one takes its baseline from the file —
+// read before the last write is in, the traffic since the previous tick was
+// lost from the total.
+func startMetrics(ctx context.Context, configPath, transport, role string) (stop func()) {
+	return startMetricsWithTraffic(ctx, configPath, transport, role, nil, nil)
 }
 
 // startMetricsWithTraffic is the same, for an engine that counts its own
@@ -49,7 +56,7 @@ func startMetricsWithTraffic(
 	ctx context.Context,
 	configPath, transport, role string,
 	bytesIn, bytesOut func() uint64,
-) {
+) (stop func()) {
 	name := tunnelNameFromPath(configPath)
 
 	// The same three facts identify a line in a shipped log as identify a
@@ -60,15 +67,22 @@ func startMetricsWithTraffic(
 	utils.SetLogIdentity(utils.LogIdentity{Tunnel: name, Role: role, Transport: transport})
 
 	if name == "" {
-		return
+		return func() {}
 	}
 	c := metrics.NewCollector(filepath.Dir(configPath), name, transport, role, bytesIn, bytesOut)
+	liveCollector.Store(c)
+	ctx, cancel := context.WithCancel(ctx)
+	written := make(chan struct{})
 	go func() {
-		done := make(chan struct{})
-		go func() { <-ctx.Done(); close(done) }()
+		defer close(written)
 		_ = c.Write() // an immediate first reading, so the file exists right away
-		c.Run(done, 30*time.Second)
+		c.Run(ctx.Done(), 30*time.Second)
 	}()
+	return func() {
+		liveCollector.CompareAndSwap(c, nil)
+		cancel()
+		<-written
+	}
 }
 
 // Run keeps one tunnel running from a configuration file, restarting it in
@@ -102,6 +116,22 @@ func Run(configPath string, ctx context.Context) {
 	serveEngineControl(ctx, ctl)
 
 	for {
+		// A tunnel that has used its traffic limit up does not start until the
+		// limit is raised. The file may have changed while it waited, so it is
+		// read again rather than starting what was loaded before. See quota.go.
+		ok, waited := awaitQuota(ctx, configPath)
+		if !ok {
+			return
+		}
+		if waited {
+			if next, err := loadConfig(configPath); err == nil {
+				applyDefaults(next)
+				if validateConfig(next) == nil {
+					cfg = next
+				}
+			}
+		}
+
 		// The engine mutates the configuration it is given — the transports
 		// write their status back into it — so it gets its own copy and the
 		// pristine one is kept for comparing against the file.
@@ -122,6 +152,7 @@ func Run(configPath string, ctx context.Context) {
 			defer close(done)
 			runEngine(&running, runCtx, configPath, applyTuning)
 		}()
+		go watchQuota(runCtx, configPath, cancel)
 
 		next, why := awaitConfigChange(ctx, runCtx, configPath, cfg)
 		cancel()
@@ -132,6 +163,10 @@ func Run(configPath string, ctx context.Context) {
 			return
 
 		case wakeRestart:
+			if quotaReached(configPath) {
+				// Ended by its traffic limit; awaitQuota holds it at the top.
+				continue
+			}
 			// A restart asked for over the control socket. It is not a reload
 			// and is not reported as one: the same configuration starts again,
 			// after its ports come free.
@@ -179,7 +214,8 @@ func runEngine(cfg *config.Config, ctx context.Context, configPath string, apply
 			ApplyTCPTuning()
 		}
 
-		startMetrics(ctx, configPath, string(cfg.Server.Transport), "server")
+		stopMetrics := startMetrics(ctx, configPath, string(cfg.Server.Transport), "server")
+		defer stopMetrics()
 
 		srv := server.NewServer(&cfg.Server, ctx) // server
 		reportZeroCopy(ctx)
@@ -198,7 +234,8 @@ func runEngine(cfg *config.Config, ctx context.Context, configPath string, apply
 			ApplyTCPTuning()
 		}
 
-		startMetrics(ctx, configPath, string(cfg.Client.Transport), "client")
+		stopMetrics := startMetrics(ctx, configPath, string(cfg.Client.Transport), "client")
+		defer stopMetrics()
 
 		clnt := client.NewClient(&cfg.Client, ctx) // client
 		reportZeroCopy(ctx)
@@ -211,6 +248,26 @@ func runEngine(cfg *config.Config, ctx context.Context, configPath string, apply
 		logger.Fatalf("neither server nor client configuration is properly set.")
 
 	}
+}
+
+// CheckConfigFile is the load-time validation Run applies to a config file,
+// without starting anything: `fullpack check` asks it, so the question "would
+// this start?" has one answer, the engine's. See cli.EngineCheck.
+//
+// The engine logs to stdout, which is right under systemd and wrong here:
+// `fullpack check --json` owns stdout, and a warning ahead of the JSON breaks
+// whatever parses it. For the check, the log goes to stderr.
+func CheckConfigFile(path string) error {
+	out := logger.Out
+	logger.SetOutput(os.Stderr)
+	defer logger.SetOutput(out)
+
+	cfg, err := loadConfig(path)
+	if err != nil {
+		return err
+	}
+	applyDefaults(cfg)
+	return validateConfig(cfg)
 }
 
 // loadConfig loads and parses the TOML configuration file.

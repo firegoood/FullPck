@@ -14,7 +14,7 @@ import (
 // they do, and NOTICE exercises that: a modified version keeps the line in its
 // NOTICE and its README. The program itself — the TUI menu, the web panel, the
 // version output — does not show it.
-const attribution = "Based on BackPack by Amin Mohammadi (AminMGMT)"
+const attribution = "Based on FullPack by Amin Mohammadi (AminMGMT)"
 
 // repoRoot is two levels up from internal/app.
 func repoRoot(t *testing.T) string {
@@ -54,7 +54,7 @@ func TestTheProductDoesNotShowTheAttribution(t *testing.T) {
 		"internal/webui/assets/twofactor.html",
 		"internal/webui/panel/views/support.html",
 	} {
-		if strings.Contains(read(t, f), "Based on BackPack") {
+		if strings.Contains(read(t, f), "Based on FullPack") {
 			t.Errorf("%s shows the attribution line; it belongs in NOTICE and the README only", f)
 		}
 	}
@@ -99,7 +99,7 @@ func TestTheLicenceTextIsUnmodifiedAGPL(t *testing.T) {
 	if len(l) < 30000 {
 		t.Errorf("LICENSE is %d bytes; the AGPL-3.0 text is around 34,000", len(l))
 	}
-	if strings.Contains(l, "Based on BackPack") {
+	if strings.Contains(l, "Based on FullPack") {
 		t.Error("the attribution term has been written into LICENSE. It belongs in " +
 			"NOTICE: section 7 permits additional terms alongside the licence, not " +
 			"edits to it, and editing the text would make this a different licence")

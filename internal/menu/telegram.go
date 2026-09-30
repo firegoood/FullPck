@@ -20,22 +20,22 @@ func telegramMenu() {
 
 	cfg := telegram.Load()
 	if cfg.Token != "" {
-		tui.Info(fmt.Sprintf("Configured — reports every %d hour(s).", telegram.IntervalHours()))
-		tui.Info("Relay                 : " + telegram.RelayStatus())
-		tui.Info("Alerts                : " + alertSummaryLine(cfg.Alerts))
-		tui.Info(fmt.Sprintf("Admins                : %d", telegram.AdminCount(cfg)))
+		tui.Info(fmt.Sprintf("Configured — Reports Every %d Hour(s).", telegram.IntervalHours()))
+		tui.Info("Relay  : " + telegram.RelayStatus())
+		tui.Info("Alerts : " + alertSummaryLine(cfg.Alerts))
+		tui.Info(fmt.Sprintf("Admins : %d", telegram.AdminCount(cfg)))
 	} else {
-		tui.Info("Not configured yet.")
+		tui.Info("Not Configured.")
 	}
 	fmt.Println()
 
-	idx := tui.ChooseOpt("Choose:", []tui.Option{
-		{Title: "Configure / Update bot", Desc: "token, admin id, tunnel relay"},
-		{Title: "Alerts", Desc: "warn when CPU, memory, disk or a tunnel goes bad"},
-		{Title: "Admins", Desc: "who else may use the bot, and who may only look"},
-		{Title: "Diagnose relay", Desc: "find which hop is broken when messages fail"},
-		{Title: "Send a test report now", Desc: "verify the bot works"},
-		{Title: "Disable reports", Desc: "stop the scheduled reports"},
+	idx := tui.ChooseOpt("Telegram Bot", []tui.Option{
+		{Title: "Configure Bot", Desc: "token, admin id, relay"},
+		{Title: "Alerts", Desc: "CPU, memory, disk, tunnels"},
+		{Title: "Admins", Desc: "who may use the bot"},
+		{Title: "Diagnose Relay", Desc: "find the broken hop"},
+		{Title: "Send Test Report", Desc: ""},
+		{Title: "Disable Reports", Desc: ""},
 	})
 	switch idx {
 	case 0:
@@ -50,14 +50,14 @@ func telegramMenu() {
 		if err := telegram.SendStatusNow(); err != nil {
 			tui.Error("Failed: " + err.Error())
 		} else {
-			tui.Success("Report sent.")
+			tui.Success("Report Sent.")
 		}
 		tui.PressEnter()
 	case 5:
 		if err := telegram.Disable(); err != nil {
 			tui.Error("Failed: " + err.Error())
 		} else {
-			tui.Success("Telegram reports disabled.")
+			tui.Success("Reports Disabled.")
 		}
 		tui.PressEnter()
 	}
@@ -79,17 +79,15 @@ func configureAdmins(cfg telegram.Config) {
 		return
 	}
 
-	tui.Info("Currently allowed:")
+	tui.Info("Allowed:")
 	tui.Info(telegram.AdminsSummary(cfg))
 	fmt.Println()
-	tui.Info("Enter the extra ids separated by commas. Add \":ro\" to an id to give")
-	tui.Info("it every screen but no buttons that change anything.")
-	tui.Info("Leave blank to keep the list as it is; type \"none\" to clear it.")
+	tui.Info("Ids, Comma Separated (id:ro = Read Only). Blank = Keep, none = Clear.")
 	fmt.Println()
 
 	// Blank means "changed my mind", not "remove everyone": pressing enter at a
 	// prompt is how people back out, and it must not delete the admin list.
-	answer := tui.Prompt("Extra admins: ")
+	answer := tui.Prompt("Extra Admins: ")
 	switch {
 	case answer == "":
 		tui.Info("Unchanged.")
@@ -100,18 +98,18 @@ func configureAdmins(cfg telegram.Config) {
 	default:
 		cfg.Admins = telegram.ParseAdmins(answer)
 		if len(cfg.Admins) == 0 {
-			tui.Error("None of those look like Telegram ids — nothing was changed.")
+			tui.Error("No valid Telegram ids — nothing changed.")
 			tui.PressEnter()
 			return
 		}
 	}
 
 	if err := telegram.Save(cfg); err != nil {
-		tui.Error("Failed to save: " + err.Error())
+		tui.Error("Failed: " + err.Error())
 		tui.PressEnter()
 		return
 	}
-	tui.Success(fmt.Sprintf("Saved — %d account(s) may use the bot.", telegram.AdminCount(cfg)))
+	tui.Success(fmt.Sprintf("Saved — %d Account(s).", telegram.AdminCount(cfg)))
 	tui.PressEnter()
 }
 
@@ -147,9 +145,7 @@ func configureAlerts(cfg telegram.Config) {
 	tui.Clear()
 	tui.Title("Alerts")
 	fmt.Println()
-	tui.Warn("The bot messages you when a threshold is crossed, and again when")
-	tui.Warn("it recovers. A value sitting on the line only reports once.")
-	tui.Warn("Enter 0 for a threshold to stop watching it.")
+	tui.Warn("Alert When Crossed And When Recovered. 0 = Off.")
 	fmt.Println()
 
 	if cfg.Token == "" {
@@ -159,7 +155,7 @@ func configureAlerts(cfg telegram.Config) {
 	}
 
 	a := cfg.Alerts
-	a.Enabled = tui.Confirm("Send alerts", a.Enabled)
+	a.Enabled = tui.Confirm("Send Alerts", a.Enabled)
 	if a.Enabled {
 		a.CPUPercent = tui.PromptInt("Processor threshold %", a.CPUPercent)
 		a.MemPercent = tui.PromptInt("Memory threshold %", a.MemPercent)
@@ -172,11 +168,11 @@ func configureAlerts(cfg telegram.Config) {
 
 	cfg.Alerts = a
 	if err := telegram.Save(cfg); err != nil {
-		tui.Error("Failed to save: " + err.Error())
+		tui.Error("Failed: " + err.Error())
 		tui.PressEnter()
 		return
 	}
-	tui.Success("Alert settings saved.")
+	tui.Success("Alerts Saved.")
 	fmt.Println()
 	tui.Info(a.Summary())
 	fmt.Println()
@@ -189,10 +185,10 @@ func configureAlerts(cfg telegram.Config) {
 // first, then a loopback-only tunnel forward as fallback. Neither path binds
 // local port 443; that number is the remote Telegram API destination.
 func configureTelegram(cfg telegram.Config) {
-	tui.Info("Get a bot token from @BotFather and your numeric user id from @userinfobot.")
+	tui.Info("Token From @BotFather, Your Id From @userinfobot.")
 	fmt.Println()
-	cfg.Token = tui.PromptDefault("Bot token", cfg.Token)
-	cfg.AdminID = tui.PromptDefault("Admin user id", cfg.AdminID)
+	cfg.Token = tui.PromptDefault("Bot Token", cfg.Token)
+	cfg.AdminID = tui.PromptDefault("Admin Id", cfg.AdminID)
 
 	if cfg.Token == "" || cfg.AdminID == "" {
 		tui.Error("Token and admin id are required.")
@@ -220,16 +216,16 @@ func configureTelegram(cfg telegram.Config) {
 		}}
 		for _, t := range tunnels {
 			opts = append(opts, tui.Option{
-				Title: "Always use " + t.Name,
+				Title: "Always " + t.Name,
 				Desc:  fmt.Sprintf("%s %s — pinned; the bot goes quiet if it drops", t.Role, t.Transport),
 			})
 		}
 		opts = append(opts, tui.Option{
 			Title: "Direct",
-			Desc:  "only if THIS server can reach Telegram (e.g. kharej)",
+			Desc:  "only where Telegram is reachable",
 		})
 
-		idx := tui.ChooseOpt("Send Telegram traffic through:", opts)
+		idx := tui.ChooseOpt("Send Through", opts)
 		switch {
 		case idx < 0:
 			return
@@ -244,8 +240,8 @@ func configureTelegram(cfg telegram.Config) {
 			} else if port == 0 {
 				tui.Success("Agent relay ready through " + name + ".")
 			} else {
-				tui.Success(fmt.Sprintf("Relay ready on %s (port %d).", name, port))
-				tui.Warn("Restart the CLIENT side of that tunnel once so it picks up the port.")
+				tui.Success(fmt.Sprintf("Relay Ready On %s (Port %d).", name, port))
+				tui.Warn("Restart That Tunnel's Kharej Side Once.")
 			}
 
 		case idx <= len(tunnels):
@@ -253,13 +249,13 @@ func configureTelegram(cfg telegram.Config) {
 			tui.Info("Setting up Telegram TLS forwarding through tunnel " + cfg.ViaTunnel + "...")
 			port, err := manage.EnsureTelegramPort(cfg.ViaTunnel)
 			if err != nil {
-				tui.Error("Could not set up relay: " + err.Error())
+				tui.Error("Relay failed: " + err.Error())
 				tui.PressEnter()
 				return
 			}
 			cfg.SocksPort = port
-			tui.Success(fmt.Sprintf("Relay ready — port %d added to the tunnel.", port))
-			tui.Warn("Reconnect/restart the CLIENT tunnel once so it picks up the new port.")
+			tui.Success(fmt.Sprintf("Relay Ready (Port %d).", port))
+			tui.Warn("Restart The Kharej Side Once.")
 
 		default:
 			cfg.ViaTunnel = ""
@@ -267,16 +263,16 @@ func configureTelegram(cfg telegram.Config) {
 	}
 
 	fmt.Println()
-	cfg.IntervalHours = tui.PromptInt("Send status every N hours", maxInt(cfg.IntervalHours, 6))
+	cfg.IntervalHours = tui.PromptInt("Report Every (Hours)", maxInt(cfg.IntervalHours, 6))
 	if err := telegram.Configure(cfg); err != nil {
-		tui.Error("Failed to save: " + err.Error())
+		tui.Error("Failed: " + err.Error())
 		tui.PressEnter()
 		return
 	}
 	if err := telegram.SendTest(cfg); err != nil {
-		tui.Warn("Saved, but test message failed: " + err.Error())
+		tui.Warn("Saved, But The Test Failed: " + err.Error())
 	} else {
-		tui.Success("Saved and test message delivered.")
+		tui.Success("Saved — Test Delivered.")
 	}
 	tui.PressEnter()
 }

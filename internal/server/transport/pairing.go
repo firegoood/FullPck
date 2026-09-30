@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -65,8 +66,9 @@ func requeueLocal(ch chan LocalTCPConn, conn LocalTCPConn, lim *limiter, logger 
 	default:
 		if conn.conn != nil {
 			logger.Warnf("the local queue is full, dropping a client from %s", conn.conn.RemoteAddr())
+			conn.conn.Close()
 		}
-		conn.closeAndRelease(lim)
+		lim.release()
 		return false
 	}
 }
@@ -86,37 +88,15 @@ func drainOnEnd(ctx context.Context, queue <-chan LocalTCPConn, limits *limiter)
 	sweepAfterEnd(ctx, func() bool {
 		select {
 		case c := <-queue:
-			c.closeAndRelease(limits)
+			if c.conn != nil {
+				c.conn.Close()
+			}
+			limits.release()
 			return true
 		default:
 			return false
 		}
 	})
-}
-
-// A generation may end with unused tunnel sockets or mux sessions buffered in
-// its pool. Close them after cancellation, including late arrivals from an
-// admission goroutine that had already passed its context check.
-func drainTunnelOnEnd[T any](ctx context.Context, queue <-chan T, closeConn func(T)) {
-	sweepAfterEnd(ctx, func() bool {
-		select {
-		case c := <-queue:
-			closeConn(c)
-			return true
-		default:
-			return false
-		}
-	})
-}
-
-// Some focused admission tests build a generation without a context. A nil
-// done channel disables cancellation in their select without changing the
-// behaviour of real generations.
-func generationDone(ctx context.Context) <-chan struct{} {
-	if ctx == nil {
-		return nil
-	}
-	return ctx.Done()
 }
 
 // sweepAfterEnd waits for ctx to end, then calls take until it reports the
@@ -139,3 +119,37 @@ const (
 	drainGrace = 3 * time.Second
 	drainSweep = 100 * time.Millisecond
 )
+
+// handshakeSweep closes whatever control claim is still queued when a
+// generation ends. A claim can be filed an instant before the end — past
+// admitControlChannel's check, before channelHandshake chose the end over it —
+// and would otherwise be a connection its client believes is established and
+// nobody on this side will ever read.
+func handshakeSweep(ctx context.Context, q chan controlCandidate) {
+	sweepAfterEnd(ctx, func() bool {
+		select {
+		case c := <-q:
+			c.conn.Close()
+			return true
+		default:
+			return false
+		}
+	})
+}
+
+// endedClaim closes a control claim that reached a generation which has
+// already ended, and reports whether it did. Such a claim is closed, not
+// answered: nothing will read this generation's handshake again, and a client
+// told it is connected would sit on a channel nobody holds until its keepalive
+// ran out. It dials again, and the next generation answers it. The listener is
+// still accepting in the instant between a restart cancelling the generation
+// and the socket closing, and each claim is admitted in a goroutine of its own,
+// which is how one gets here. See handshakeSweep for a claim filed a moment
+// before the end.
+func endedClaim(ctx context.Context, conn io.Closer) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	conn.Close()
+	return true
+}

@@ -75,7 +75,10 @@ func (m muxSession) run(session *smux.Session) {
 	// this session: the loop blocks at the top when it is full, and every path
 	// out of a stream has to give one back or the session quietly stops taking
 	// work.
-	counter := make(chan struct{}, m.muxCon)
+	// The config loader never leaves this below one, but a zero here would be an
+	// unbuffered channel the loop blocks on forever, and the session would take
+	// no streams at all — so it is not left to the caller.
+	counter := make(chan struct{}, max(m.muxCon, 1))
 	defer session.Close()
 	defer close(counter)
 
@@ -87,10 +90,26 @@ func (m muxSession) run(session *smux.Session) {
 		case <-m.ctx.Done():
 			return
 
+		// The session ended under it: the client that opened it has gone, or
+		// been replaced by a newer one (see clientSeat). Ending the generation
+		// used to be what freed these; a generation now outlives its clients,
+		// so a session has to notice its own end.
+		case <-session.CloseChan():
+			return
+
 		case incomingConn := <-m.local:
 			if nowMillis()-incomingConn.timeCreated > pairingTimeout.Milliseconds() {
 				m.log.Debugf("timeouted local connection: %d ms", nowMillis()-incomingConn.timeCreated)
-				m.releaseLocal(incomingConn)
+				incomingConn.conn.Close()
+
+				// Free the slot this connection took on accept. It is otherwise
+				// released only by the handler goroutine, which never runs for a
+				// connection that timed out waiting to be paired — so a tunnel
+				// with max_connections set loses a slot to every timeout and
+				// eventually refuses everything.
+				m.limits.release()
+
+				atomic.AddInt32(m.streams, -1)
 				<-counter
 				continue
 			}
@@ -119,15 +138,8 @@ func (m muxSession) run(session *smux.Session) {
 				// and stays counted; one there was no room for is counted out
 				// here, because nothing downstream will ever do it.
 				if !requeueLocal(m.local, incomingConn, m.limits, m.log) {
-					if incomingConn.lease == nil {
-						atomic.AddInt32(m.streams, -1)
-					}
+					atomic.AddInt32(m.streams, -1)
 				}
-				continue
-			}
-			if !incomingConn.claim() {
-				stream.Close()
-				<-counter
 				continue
 			}
 
@@ -135,10 +147,11 @@ func (m muxSession) run(session *smux.Session) {
 			go func() {
 				// Free the connection slot once the transfer ends, or the
 				// limit would fill up permanently.
-				defer m.releaseLocal(incomingConn)
+				defer m.limits.release()
 				handlers.TCPConnectionHandler(m.ctx, m.proxyProtocol && !isUDPFlow(incomingConn.conn),
 					incomingConn.conn, metrics.CountedConn(stream), m.log, m.usage,
 					localForwardPort(incomingConn.conn), m.sniffer)
+				atomic.AddInt32(m.streams, -1)
 				<-counter // read signal from the channel
 			}()
 		}
@@ -159,9 +172,7 @@ func (m muxSession) failed(incomingConn *LocalTCPConn, err error) {
 	// A connection there was no room for is counted out, since nothing
 	// downstream will do it.
 	if !requeueLocal(m.local, *incomingConn, m.limits, m.log) {
-		if incomingConn.lease == nil {
-			atomic.AddInt32(m.streams, -1)
-		}
+		atomic.AddInt32(m.streams, -1)
 	}
 
 	// Attempt to request a new connection
@@ -169,13 +180,5 @@ func (m muxSession) failed(incomingConn *LocalTCPConn, err error) {
 	case m.reqNewConn <- struct{}{}:
 	default:
 		m.log.Warn("request new connection channel is full")
-	}
-}
-
-func (m muxSession) releaseLocal(local LocalTCPConn) {
-	local.closeAndRelease(m.limits)
-	// Focused tests construct literal LocalTCPConn values without a lease.
-	if local.lease == nil {
-		atomic.AddInt32(m.streams, -1)
 	}
 }

@@ -11,6 +11,8 @@ package sysstat
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -61,6 +63,14 @@ func Get() Snapshot {
 		s.OS = strings.TrimSpace(titleCase(info.Platform) + " " + info.PlatformVersion)
 		s.Uptime = time.Duration(info.Uptime) * time.Second
 	}
+	// /proc/uptime wins over the library's figure. gopsutil derives uptime from
+	// the boot time in /proc/stat for every guest it does not recognise as LXC
+	// or Docker, and on an OpenVZ/Virtuozzo container that is the host node's
+	// boot — so a VPS bought an hour ago reported months of uptime. The
+	// kernel virtualises /proc/uptime per container, so it is right on both.
+	if u, ok := readUptime(procUptimePath); ok {
+		s.Uptime = u
+	}
 
 	if pct, err := cpu.Percent(0, false); err == nil && len(pct) > 0 {
 		s.CPUPercent = Round1(pct[0])
@@ -86,7 +96,28 @@ func Get() Snapshot {
 	return s
 }
 
-// LoadString formats the three load averages the way uptime(1) does.
+// procUptimePath is where the machine's own uptime is read; a variable so a
+// test can hand it a file.
+var procUptimePath = "/proc/uptime"
+
+// readUptime parses the first field of /proc/uptime: seconds since this
+// machine — or this container — started.
+func readUptime(path string) (time.Duration, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+	f := strings.Fields(string(data))
+	if len(f) == 0 {
+		return 0, false
+	}
+	secs, err := strconv.ParseFloat(f[0], 64)
+	if err != nil || secs <= 0 {
+		return 0, false
+	}
+	return time.Duration(secs) * time.Second, true
+}
+
 // CPUPercentOver samples the processor across a real window.
 //
 // Get's figure is the instantaneous one — cpu.Percent with a zero interval,
@@ -108,6 +139,7 @@ func CPUPercentOver(d time.Duration) float64 {
 	return Round1(pct[0])
 }
 
+// LoadString formats the three load averages the way uptime(1) does.
 func (s Snapshot) LoadString() string {
 	return fmt.Sprintf("%.2f, %.2f, %.2f", s.Load1, s.Load5, s.Load15)
 }

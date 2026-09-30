@@ -21,8 +21,13 @@ separate from using one, so a `write` token cannot mint itself a better one —
 nor reach anything that would amount to the same thing. The password, the
 Telegram admin list and a backup (which carries the password out, and on
 restore replaces every credential file) are each a way to become `admin`, so
-they are `admin` too. The whole table is tested as it is wired, in
-`internal/webui/routes_test.go`.
+they are `admin` too. So are the fleet actions that handle a server's login:
+the panel holds a root password for every managed server, and a `write` token
+that could change a server's address could have that password sent to a
+machine of its choosing. The rest of the fleet — refresh, upgrade, pin, the
+rollout — stays `write`. The whole table is tested as it is wired, in
+`internal/webui/routes_test.go`, and the fleet actions in
+`internal/webui/nodes_test.go`.
 
 The vocabulary is the Telegram bot's, deliberately. The bot has had
 `ReadOnly` / `canWrite` for a while; two permission models in one product is
@@ -106,7 +111,7 @@ fix it.
 می‌شود: `read` (فقط `/metrics` و وضعیت، تونل‌ها، هشدارها و drift)، `write` (به‌علاوهٔ
 ساختن و ویرایش تونل، ری‌استارت سرویس، لاگ، ارتقا) و `admin` (به‌علاوهٔ هر چیزی که
 تعیین می‌کند چه کسی وارد شود: توکن‌ها، سابقه، رمز پنل، 2FA، دستگاه‌های واردشده،
-ادمین‌های تلگرام، پورت و گواهی پنل، و backup/restore). ورود با رمز پنل یعنی `admin`. *دادن* یک اعتبارنامه از *استفاده* از
+ادمین‌های تلگرام، پورت و گواهی پنل، backup/restore، و افزودن، عوض‌کردن اطلاعات ورود یا حذف یک سرور مدیریت‌شده — چون پنل رمز root هر سرور را نگه می‌دارد). ورود با رمز پنل یعنی `admin`. *دادن* یک اعتبارنامه از *استفاده* از
 آن جداست، پس یک توکن `write` نمی‌تواند برای خودش توکن بهتری بسازد. واژگان عمداً
 همان واژگان ربات تلگرام است؛ دو مدل دسترسیِ متفاوت در یک محصول، همان‌جایی است که
 شکاف باز می‌شود.

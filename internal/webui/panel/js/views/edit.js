@@ -15,6 +15,40 @@ import * as store from '../store.js';
 import { openScreen } from '../ui/screen.js';
 import { oops, toast } from '../ui/toast.js';
 import { go } from '../router.js';
+import { setupLinkHTML, bindSetupLink } from '../ui/setuplink.js';
+
+/* The Iran end of a reverse tunnel: the one whose edits the kharej follows. */
+const tunnelIsIranEnd = (t, settings) => (settings.role || t?.role) === 'server';
+
+/* After an edit both ends must agree on: the form gives way to the kharej's
+   line, and Save becomes Done. */
+function handOver(root, info, close) {
+  const panes = root.querySelector('.panes');
+  root.querySelectorAll('.tabs > button').forEach(b => { b.hidden = true; });
+  if (panes) {
+    panes.innerHTML = `<div class="pane ed-hand">
+      <div class="ed-hand-h"><span class="ed-ok"></span><div><b>Saved on this server</b>
+        <small>The kharej is still on the old settings. Run this there and both ends match again —
+        it updates the tunnel it made before, it does not add a second one.</small></div></div>
+      ${setupLinkHTML(info)}</div>`;
+    bindSetupLink(panes);
+  }
+  root.querySelectorAll('.lede, .intro, .dsub').forEach(n => { n.hidden = true; });
+  [...root.querySelectorAll('button')].filter(b => /^cancel$/i.test(b.textContent.trim()))
+    .forEach(b => { b.hidden = true; });
+  const note = root.querySelector('.note');
+  if (note) note.textContent = 'Saved on this server.';
+  const sub = root.querySelector('.dh .ttl small');
+  if (sub) sub.textContent = 'saved here · the kharej follows with the line below';
+  const save = root.querySelector('.save, [data-save], .primary');
+  if (save) {
+    const done = save.cloneNode(true);
+    done.textContent = 'Done';
+    done.disabled = false;
+    save.replaceWith(done);
+    done.addEventListener('click', close);
+  }
+}
 
 /* The form's controls are named after the keys the server reads — dotted where
    the payload nests (tune.keepAlive, limits.bandwidthMbps) — so filling the
@@ -246,9 +280,11 @@ function selectFamilyFor(root, opts, transport) {
   if (sel.childNodes[0]) sel.childNodes[0].textContent = fams[i].label;
 }
 
-async function wireControls(root) {
-  let opts = { families: [], presets: [] };
-  try { opts = await api.tunnelOptions(); } catch (e) { /* the menus stay empty */ }
+async function wireControls(root, given) {
+  let opts = given || { families: [], presets: [] };
+  if (!given) {
+    try { opts = await api.tunnelOptions(); } catch (e) { /* the menus stay empty */ }
+  }
   wireControls.opts = opts;
 
   root.querySelectorAll('.sww[data-name]').forEach(sw => {
@@ -305,6 +341,20 @@ async function wireControls(root) {
           if (name === '__family') {
             const tr = root.querySelector('.sel[data-name="transport"]');
             tr?.dispatchEvent(new CustomEvent('repaint'));
+            /* And the transport follows. It used to stay where it was, so
+               choosing TCP on a UDP tunnel showed "udp" under the TCP family,
+               and the save that followed sent the old transport — the edit
+               that took several tries to make. A transport the new family
+               lists is kept; otherwise its first one is chosen. */
+            const fam = (opts.families || [])[Number(c.value)];
+            const trIn = root.querySelector('input[name="transport"]');
+            if (tr && trIn && fam?.entries?.length && !fam.entries.some(x => x.value === trIn.value)) {
+              const first = fam.entries[0];
+              trIn.value = first.value;
+              tr.dataset.value = first.value;
+              if (tr.childNodes[0]) tr.childNodes[0].textContent = first.label;
+              trIn.dispatchEvent(new Event('change', { bubbles: true }));
+            }
           }
         });
         menu.append(b);
@@ -359,6 +409,51 @@ function syncControls(root) {
       .find(o => o.textContent.trim().toLowerCase() === input.value.trim().toLowerCase());
     sel.childNodes[0].textContent = opt ? opt.textContent : input.value;
   });
+}
+
+/* A direct tunnel has a form of its own.
+ *
+ * It used to be handed the reverse form: transport families, mux sizes and KCP
+ * windows a layer-3 tunnel does not have, filled from settings with none of
+ * those keys, and saved with every field at the top of the request — where the
+ * direct edit reads nothing, since its fields travel under "direct". Opening
+ * Edit on a direct tunnel showed the wrong dialog and could not save it. The
+ * reverse panes are replaced with the settings a direct tunnel really has, and
+ * the save goes where the server reads it. */
+const sw = (name, title, text) => `<div class="tg"><div class="tx"><b>${title}</b><span>${text}</span></div>` +
+  `<div class="sww" data-name="${name}"><i></i></div></div>`;
+const field = (name, label, hint = '') => `<div class="f"><label>${label}</label>` +
+  `<input name="${name}" type="text">${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+
+function directMarkup(set) {
+  const ports = !!set.holdsPorts;
+  return `<div class="pane" data-tab="Direct">` +
+    (ports ? field('ports', 'Forwarded ports', 'Comma separated. Blank leaves a plain TUN tunnel.') +
+      sw('acceptUdp', 'Accept UDP', 'Carry UDP over the forwarded ports.') : '') +
+    `<div class="f"><label>Performance preset</label><div class="sel" data-name="preset">Turbo` +
+    `<span class="sp"></span><svg class="x" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div></div>` +
+    `<div class="two">${field('mtu', 'MTU')}` +
+    (set.carrier === 'udp' ? field('paths', 'Sockets', '1 is one socket; 2–8 spread it.') : '<div></div>') + `</div>` +
+    sw('autoMtu', 'Auto MTU', 'Measure the path and correct the MTU once up.') +
+    sw('fec', 'Error correction (FEC)', 'Spare packets repair loss. Both ends must match.') +
+    (set.carrier === 'spoof' ? sw('stealth', 'Stealth', 'Padding and header cosmetics. Both ends must match.') : '') +
+    (ports ? `<div class="two">${field('maxConnections', 'Max connections', '0 is no limit.')}` +
+      `${field('bandwidthMbps', 'Bandwidth (Mbit/s)', '0 is no limit.')}</div>` : '') +
+    `</div>`;
+}
+
+const DIRECT_NUMBERS = new Set(['mtu', 'paths', 'maxConnections', 'bandwidthMbps']);
+
+function readDirect(root) {
+  const out = {};
+  root.querySelectorAll('.panes input[name]').forEach(n => {
+    const v = n.type === 'checkbox' ? n.checked
+            : DIRECT_NUMBERS.has(n.name) ? Number(n.value.trim())
+            : n.value;
+    if (typeof v === 'number' && Number.isNaN(v)) return;
+    out[n.name] = v;
+  });
+  return out;
 }
 
 export async function editView(ctx) {
@@ -476,10 +571,24 @@ export async function editView(ctx) {
             save.disabled = false;
             return;
           }
+          store.refresh();
+          /* This end is the Iran end of a reverse tunnel and something both
+             ends must agree on changed: the kharej is now on the old settings
+             and will not reach it. Its setup link describes the tunnel as it
+             is now, and applying it on the kharej brings that end into step —
+             so the dialog stays open on the one line that does it. */
+          const both = !direct && tunnelIsIranEnd(t, settings) && ['transport', 'tunnelPort', 'preset']
+            .some(k => payload[k] !== undefined && String(payload[k]) !== String(k === 'tunnelPort' ? bindValue(settings) : settings[k] ?? ''));
+          if (both && !r.node) {
+            try {
+              handOver(root, await api.tunnelLink(name), close);
+              toast('Saved here — one line on the kharej and both ends match again.');
+              return;
+            } catch (e) { /* the link could not be made; the toast below still holds */ }
+          }
           toast(r.node
             ? `Saved on this server and on ${r.node}.`
             : 'Saved — the tunnel restarted on the new settings.');
-          store.refresh();
           close();
         } catch (e) { oops(e); }
         save.disabled = false;

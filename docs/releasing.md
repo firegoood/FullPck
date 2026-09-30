@@ -22,7 +22,19 @@ written down, so a release made in a hurry is the same release.
 - [ ] The full suite is green, with `-race`, and so are `staticcheck` and
       `govulncheck`.
 - [ ] The compatibility job passed: the previous release talks to this one in
-      both directions.
+      both directions, over every reverse transport and under concurrent load.
+- [ ] The l3 carriers ran on a real TUN, on a machine that allows unprivileged
+      user namespaces (CI does not), with the previous release at one end:
+      ```
+      git worktree add --detach /tmp/prev <previous tag>
+      (cd /tmp/prev && go build -o /tmp/fullpack-prev .)
+      BP_L3_LIVE=1 BACKPACK_PREV_BINARY=/tmp/fullpack-prev \
+        go test ./internal/e2e -run TestL3CarriersOverARealTUN -count=1 -v
+      ```
+      Every carrier, a listener killed and restarted, a lossy path, and udp,
+      quic and pck across versions both ways. On Ubuntu this needs
+      `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` first; it
+      resets on reboot.
 
 ## Tagging
 

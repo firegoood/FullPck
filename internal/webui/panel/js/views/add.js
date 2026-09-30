@@ -12,6 +12,7 @@ import { $$, el, esc, dialogSubtitle } from '../lib/dom.js';
 import { isUp } from '../lib/tstate.js';
 import { NUMERIC } from '../lib/numeric.js';
 import * as api from '../api.js';
+import { setupLinkHTML, bindSetupLink } from '../ui/setuplink.js';
 import * as store from '../store.js';
 import { openScreen } from '../ui/screen.js';
 import { oops, toast } from '../ui/toast.js';
@@ -22,7 +23,7 @@ export function addView(ctx) {
   openScreen('add', {
     pick: '.dlg',
     bind: async (root, close) => {
-      dialogSubtitle(root, store.get().stats, 'you will do this on both servers');
+      dialogSubtitle(root, store.get().stats, 'this server’s end — the other is built from its setup link');
       let opts = { families: [], presets: [] };
       try { opts = await api.tunnelOptions(); } catch (e) { oops(e); }
 
@@ -52,8 +53,20 @@ export function addView(ctx) {
        *
        * Read from the markup rather than hard-coded, so the default is
        * whichever button carries `on`, and it stays right if that changes. */
+      /* Reverse and direct each have a row of presets, and both are in the
+         page. The first `.rp.on` in the document is the reverse row's, so a
+         direct tunnel read Balance from a row it could not see. Only the row
+         in the shape on screen counts — a step being hidden is not the row
+         being hidden, which is why steps are passed over. */
+      const inShape = n => {
+        for (let at = n; at && at !== root; at = at.parentElement) {
+          if (at.hidden && !at.classList.contains('step')) return false;
+        }
+        return true;
+      };
       const markedPreset = () => {
-        const b = root.querySelector('.rp.on:not([hidden])') || root.querySelector('.rp:not([hidden])');
+        const live = [...root.querySelectorAll('.rp')].filter(inShape);
+        const b = live.find(x => x.classList.contains('on')) || live[0];
         return (b?.querySelector('.key2, .k3')?.textContent || b?.dataset.pre || '')
           .trim().toLowerCase() || null;
       };
@@ -258,6 +271,7 @@ export function addView(ctx) {
           sw.dataset.wired = '1';
           const input = el('input', { type: 'checkbox', name, hidden: true });
           input.checked = sw.classList.contains('on');
+          input.dataset.drawn = '1';
           sw.after(input);
           sw.setAttribute('role', 'switch');
           sw.setAttribute('aria-checked', String(input.checked));
@@ -265,6 +279,7 @@ export function addView(ctx) {
           const flip = () => {
             sw.classList.toggle('on');
             input.checked = sw.classList.contains('on');
+            delete input.dataset.drawn;
             sw.setAttribute('aria-checked', String(input.checked));
           };
           sw.addEventListener('click', flip);
@@ -285,6 +300,7 @@ export function addView(ctx) {
           const shown = sel.childNodes[0]?.textContent?.trim() || '';
           const start = choices.find(c => c.label === shown) || choices[0];
           input.value = start.value;
+          input.dataset.drawn = '1';
           sel.after(input);
           sel.setAttribute('role', 'combobox');
           sel.tabIndex = 0;
@@ -295,6 +311,7 @@ export function addView(ctx) {
             opt.addEventListener('click', ev => {
               ev.stopPropagation();
               input.value = c.value;
+              delete input.dataset.drawn;
               sel.childNodes[0].textContent = c.label;
               close4();
             });
@@ -447,6 +464,10 @@ export function addView(ctx) {
         if (spoofField) spoofField.hidden = !(direct && chosen.carrier === 'spoof'
                                               && chosen.side === 'client');
         if (!direct) { applyFields(); applyPresets(); }
+        /* Direct has no applyPresets, so without this an untouched direct
+           form sent no preset and the server took its default: Turbo, under a
+           row showing Balance. */
+        else chosen.preset = markedPreset();
       }
 
       /* The result reports one local end for Manual mode and both ends for a
@@ -465,20 +486,12 @@ export function addView(ctx) {
         if (conn) runBuild(conn);
       }
 
-      /* Building both ends, said out loud.
+      /* Building this end, said out loud.
        *
-       * Four stages, and each one is a fact from the answer rather than a
-       * timer: the config written here, the service up here, the config written
-       * there, and both ends agreeing. The panel makes one call — the work is
-       * one transaction on the server — so these are not live telemetry and are
-       * not dressed up as it. They resolve in order as the answer is read, and a
-       * stage that did not happen is marked failed and says which end it was.
-       *
-       * That last part is the whole reason for showing stages at all. "Could
-       * not create the tunnel" is a message with nowhere to go. "Written here,
-       * started here, not written on kharej-de" is one that tells you which
-       * machine to look at.
-       */
+       * Two stages, each a fact from the answer rather than a timer: the config
+       * written, and the service up. Then the setup link — the other end is
+       * the operator's to build, and the line that does it is what this screen
+       * owes them, the way the menu's wizard prints it. */
       let building = false;
       async function runBuild(conn) {
         if (!conn || building) return;
@@ -493,21 +506,14 @@ export function addView(ctx) {
         const t0 = Date.now();
         if (!onNode) { rows[2]?.remove(); rows[3]?.remove(); }
 
-        const labels = [
-          'Writing the configuration on this server',
-          'Starting it here',
-          `Writing the configuration on ${onNode || 'the other server'}`,
-          'Both ends reporting up',
-        ];
-        rows.forEach((r, i) => {
-          const tx = r.querySelector('.tx6');
-          if (tx && labels[i]) tx.textContent = labels[i];
-          r.classList.remove('done', 'doing', 'failed');
-          const d = r.querySelector('.dur');
-          if (d) d.textContent = '';
+        rows.slice(2).forEach(r => r.remove());
+        ['Writing the configuration', 'Starting it here'].forEach((lb, i) => {
+          const tx = rows[i]?.querySelector('.tx6');
+          if (tx) tx.textContent = lb;
+          rows[i]?.classList.remove('done', 'doing', 'failed');
         });
         if (title) title.textContent = 'Building…';
-        if (sub) sub.textContent = 'Both ends are written from what you filled in.';
+        if (sub) sub.textContent = 'This server’s end, from what you filled in.';
 
         const settle = (i, ok) => {
           if (!rows[i]) return;
@@ -527,7 +533,7 @@ export function addView(ctx) {
           settle(0, false);
           spin?.setAttribute('hidden', '');
           if (title) title.textContent = 'Nothing was created';
-          if (sub) sub.textContent = 'This server refused the settings, so neither end was written.';
+          if (sub) sub.textContent = 'This server refused the settings.';
           if (result) {
             result.innerHTML = `<div class="doneline warn"><span class="tick">!</span><div>
               <b>${esc(e.message || 'The panel could not build the tunnel')}</b>
@@ -559,7 +565,6 @@ export function addView(ctx) {
 
         spin?.setAttribute('hidden', '');
         store.refresh();
-        paired = partial ? false : (onNode || false);
 
         const good = !partial && r.active !== false;
         if (title) title.textContent = !onNode ? 'This end was created'
@@ -618,7 +623,7 @@ export function addView(ctx) {
         if (fn === 'setPre') chosen.preset = (el.querySelector('.key2, .k3')?.textContent
           || el.textContent).trim().toLowerCase().split(/\s+/)[0];
         applyShape();
-        if (fn === 'setPre' || fn === 'setTr' || fn === 'setSide') showPresetDefaults();
+        if (fn === 'setPre' || fn === 'setTr' || fn === 'setSide' || fn === 'mode3') showPresetDefaults();
       });
 
       /* The Fine Tune drawer calls itself "preset defaults" and showed empty
@@ -639,6 +644,47 @@ export function addView(ctx) {
           const key = inp.name.slice('tune.'.length);
           const v = d[key];
           inp.placeholder = (v === undefined || v === null || v === '') ? '' : String(v);
+        });
+        paintPresetSets(d);
+      }
+
+      /* Under the preset cards: what the chosen one actually sets on this
+         transport, read from the same answer the Fine Tune drawer shows. The
+         step was three buttons and a screen of nothing; this is the thing an
+         operator comparing them wants to see. */
+      const DIRECT_SETS = {
+        turbo: [['Socket buffer', '8 MB'], ['Queue', 'fq_codel'], ['Suits', 'most links']],
+        balance: [['Socket buffer', 'smallest'], ['Queue', 'fq_codel'], ['Suits', 'small VPS']],
+        aggressive: [['Socket buffer', '32 MB'], ['Queue', 'deep'], ['Suits', 'fast, bursty links']],
+      };
+      function paintPresetSets(d) {
+        root.querySelectorAll('.rpgrid').forEach(grid => {
+          let box = grid.nextElementSibling;
+          if (!box || !box.classList.contains('rp-sets')) {
+            box = el('div', { class: 'rp-sets' });
+            grid.after(box);
+          }
+          const direct = !!grid.closest('[data-mode="dir"], .step3direct');
+          const p = chosen.preset || 'turbo';
+          let cells;
+          if (direct) cells = DIRECT_SETS[p] || [];
+          else {
+            const n = (k, unit = '') => (d[k] ? [d[k] + unit] : []);
+            cells = [
+              ['Keepalive', ...n('keepAlive', ' s')], ['Heartbeat', ...n('heartbeat', ' s')],
+              ['Channel', ...n('channelSize')],
+              ...(isMux(chosen.transport) ? [['Mux streams', ...n('muxCon')]] : []),
+              ...(isKCP(chosen.transport) ? [
+                ['KCP window', ...(d.kcpSndWnd ? [`${d.kcpSndWnd}/${d.kcpRcvWnd}`] : [])],
+                ['FEC', ...(d.kcpDataShards ? [`${d.kcpDataShards}+${d.kcpParityShards}`] : [])]] : []),
+              ['No-delay', d.nodelay ? 'on' : 'off'],
+            ].filter(c => c.length === 2);
+          }
+          const label = p[0].toUpperCase() + p.slice(1);
+          box.innerHTML = `<div class="rp-sets-h"><b>What ${esc(label)} sets</b>
+              <small>${direct ? 'on this direct tunnel' : `on ${esc((chosen.transport || '').toUpperCase())}`} · change any of it under Optional → Fine Tune</small></div>
+            <div class="rp-sets-g">${cells.map(([k, v], i) =>
+              `<div style="--d:${i * 35}ms"><span>${esc(k)}</span><b>${esc(String(v))}</b></div>`).join('')}</div>`;
         });
       }
       showPresetDefaults();
@@ -695,6 +741,34 @@ export function addView(ctx) {
             } catch (e) { oops(e); }
           });
         }));
+
+      /* Forwarded ports get a Random of their own, asked for by name: a port
+         free on this server, added to the list. It is a port for users to
+         reach this server on, and the kharej hands it to the same port there —
+         which the hint under the field now says in as many words, because the
+         service on the kharej has to be listening on it. */
+      root.querySelectorAll('input[name="ports"]').forEach(inp => {
+        if (inp.closest('.withb')) return;
+        const wrap = el('div', { class: 'withb' });
+        inp.before(wrap);
+        wrap.append(inp);
+        const b = el('button', { type: 'button', class: 'mini3 rnd', text: 'Random' });
+        wrap.append(b);
+        b.addEventListener('click', async () => {
+          try {
+            const r = await api.tunnelSuggest();
+            if (!r.port) return;
+            const have = inp.value.split(',').map(x => x.trim()).filter(Boolean);
+            if (!have.includes(String(r.port))) have.push(String(r.port));
+            inp.value = have.join(', ');
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+          } catch (e) { oops(e); }
+        });
+        const hint = wrap.parentElement?.querySelector('.hint');
+        if (hint) hint.textContent = 'Users connect to these ports on this server. A bare port is handed to the same '
+          + 'port on the kharej, so the service there has to listen on it — 443=8080 sends this server’s 443 to '
+          + 'the kharej’s 8080. Random adds a port that is free here. Separate several with commas.';
+      });
 
       [...root.querySelectorAll('button')]
         .filter(b => /show as a cli command/i.test(b.textContent.trim()))
@@ -963,31 +1037,115 @@ export function addView(ctx) {
 
       nodeSel?.addEventListener('change', () => {
 
-        /* The address is not asked for, because it is already known.
+        root.querySelectorAll('.step3rev .grp3, .step3rev .dr2b')
+          .forEach(g => { g.dataset.mode = 'rev'; });
+        root.querySelectorAll('.step3direct .grp3, .step3direct .dr2b')
+          .forEach(g => { g.dataset.mode = 'dir'; });
+
+        /* This server is the Iran end.
          *
-         * A managed server dials this panel, and reports what it is when it
-         * gets there — hostname, version, addresses. This side of a direct
-         * tunnel needs that address, and it is a worse answer coming from a
-         * person: it can be mistyped, and it goes stale when the machine's
-         * address changes. So the field goes, the value is carried in the
-         * payload, and it is shown here as a fact rather than a question.
-         */
-        peerIP = nodeAddr.get(nodeSel.value) || '';
-        const addr = root.querySelector('[name="peerAddr"], [name="serverAddr"]');
-        const box = addr?.closest('.f3');
-        if (box) box.classList.toggle('addrgone', !!nodeSel.value && !!peerIP);
-        if (addr && peerIP) addr.value = peerIP;
-        applyShape();
+         * The panel runs where tunnels are started from, and that is Iran: the
+         * kharej end is made from the setup link at the end, with one line, and
+         * a kharej-side form here was a second way to do the same thing that
+         * nobody needed. The side question is gone; the side buttons stay in
+         * the markup, hidden, because the rest of the form listens to them. */
+        chosen.side = 'server';
+        root.querySelector('[data-fn="setSide"][data-args*="server"]')?.click();
+        side.querySelector('.choices')?.setAttribute('hidden', '');
+        const lede = side.querySelector('.lede2');
+        if (lede) lede.hidden = true;
 
-        if (nodeMsg) {
-          nodeMsg.hidden = !(nodeSel.value && peerIP);
-          if (!nodeMsg.hidden) {
-            nodeMsg.querySelector('span:last-child').textContent =
-              `${nodeSel.value} reports its address as ${peerIP}. Nothing else about it needs entering.`;
-          }
+        /* Reverse or direct, in cards under that. It was a small switch above
+           the transport list, easy to miss and the one choice that changes
+           every field after it. The switch is kept, hidden, because it is what
+           the rest of the form listens to. */
+        const kind = el('div', { class: 'typegrp' });
+        kind.innerHTML = `<div class="here-card">
+            <span class="here-flag">🇮🇷</span>
+            <div><b>Iran — this server</b><small>This end is built here. The kharej is set up from the one line
+              you get at the end: paste it there and the tunnel comes up.</small></div>
+            <span class="here-pill"><i></i>this server</span></div>
+          <div class="lede2 kindq">How do the two servers reach each other?</div>
+          <div class="grp3 kindgrp"><div class="choices">
+            <button type="button" class="ch4" data-kind="rev">
+              <span class="ic4"><svg viewBox="0 0 24 24"><path d="M20 12H4"/><path d="M10 6l-6 6 6 6"/></svg></span>
+              <b>Reverse<span class="rec">usual</span></b>
+              <i>The kharej dials in to this server. Ten transports, from plain TCP to WebSocket behind a CDN — what to try first.</i>
+              <div class="diagram">🌍 kharej <b>→</b> 🇮🇷 Iran</div></button>
+            <button type="button" class="ch4" data-kind="dir">
+              <span class="ic4"><svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M14 6l6 6-6 6"/></svg></span>
+              <b>Direct</b>
+              <i>This server dials out to the kharej over a layer-3 carrier. For paths where reverse is filtered.</i>
+              <div class="diagram">🇮🇷 Iran <b>→</b> 🌍 kharej</div></button>
+          </div></div>`;
+        side.append(kind);
+        const swap = root.querySelector('.modeswap');
+        const markKind = () => kind.querySelectorAll('[data-kind]').forEach(b =>
+          b.classList.toggle('on', b.dataset.kind === (chosen.direction === 'direct' ? 'dir' : 'rev')));
+        kind.addEventListener('click', ev => {
+          const b = ev.target.closest('[data-kind]');
+          if (!b) return;
+          swap?.querySelector(`[data-args*="${b.dataset.kind}"]`)?.click();
+          markKind();
+        });
+        if (swap) swap.hidden = true;
+        markKind();
+        dressPresets();
+
+        const pane = () => el('div', { class: 'step', hidden: true });
+        const perf = pane(), opt = pane();
+        root.querySelectorAll('.grp3').forEach(g => {
+          const head = g.querySelector('.gl3')?.childNodes[0]?.textContent?.trim();
+          if (head === 'Performance') perf.append(g);
+          if (head === 'Optional') opt.append(g);
+        });
+        details.after(perf);
+        perf.after(opt);
+
+        [...body.querySelectorAll('.step')].forEach((x, i) => {
+          x.dataset.s = String(i);
+          x.hidden = i !== 0;
+        });
+        const rail = root.querySelector('.steps');
+        if (rail) {
+          rail.innerHTML = '';
+          SINGLE.forEach((lb, i) => {
+            if (i) rail.append(el('span', { class: 'bar4' }));
+            rail.append(el('span', { class: 'st2' + (i ? '' : ' on'), dataset: { s: String(i) } }, [
+              el('span', { class: 'n3', text: String(i + 1) }),
+              el('span', { class: 'lb4', text: lb }),
+            ]));
+          });
         }
-      });
+        const back = root.querySelector('#backb');
+        if (back) back.disabled = true;
+        paintNav(0);
+        applyShape();
+      }
+      stageSingle();
+      reveal();
 
+      /* The token, made here.
+       *
+       * The form still has the two-pass wording: one side "creates" the secret
+       * with a Copy button and the other "pastes" it. With the setup link that
+       * split is gone — whichever end is built first makes the token and the
+       * link carries it to the other one. So every token field starts filled
+       * with a fresh one from the server and stays editable, for the case where
+       * the other end already exists and its token is the one to use. The
+       * creating field on the reverse side was drawn with no name at all, which
+       * is why a create from here used to be refused for having no token. */
+      const tokenFields = [...root.querySelectorAll('#atok, [name="token"]')];
+      tokenFields.forEach(i => {
+        i.name = 'token';
+        i.removeAttribute('data-unwired');
+        const hint = i.closest('.f3')?.querySelector('.hint');
+        if (hint) hint.textContent = 'Made for this tunnel — the setup link carries it to the other server. '
+          + 'If that server is already set up, paste its token here instead.';
+      });
+      api.tunnelToken()
+        .then(r => tokenFields.forEach(i => { if (!i.value || i.defaultValue === i.value) i.value = r.token || ''; }))
+        .catch(() => tokenFields.forEach(i => { i.value = ''; i.placeholder = 'type a long random token'; }));
 
       /* Building the tunnel.
        *
@@ -1015,8 +1173,15 @@ export function addView(ctx) {
         const payload = {};
         root.querySelectorAll('input[name], select[name]').forEach(n => {
           if (irrelevant(n)) return;
+          /* A drawer switch or menu nobody touched says nothing. Posting what
+             it was drawn with sent every knob in Fine Tune on every create, and
+             a tunnel given its own numbers is a tunnel off its preset: pick
+             Aggressive, get no preset line and the drawing's buffers — which
+             are Turbo's. Touched, it is sent, off included. */
+          if (n.dataset.drawn) return;
+          const wired = n.hidden && n.type === 'checkbox';
           const v = n.type === 'checkbox' ? n.checked : n.value.trim();
-          if (v === '' || v === false) return;
+          if (v === '' || (v === false && !wired)) return;
           const keys = n.name.split('.'), last = keys.pop();
           let at = payload;
           for (const k of keys) at = at[k] ??= {};

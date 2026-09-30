@@ -16,8 +16,9 @@ Three things, and it helps to know which is which before reading the list:
 right now: processor, memory, and what is moving this second. It keeps updating
 while a dialog is open.
 
-**Three sections**, chosen from the dock: **Overview**, **Servers**,
-**Tunnels**. Only these three are pages. Each renders into the same slot, and
+**Four sections**, chosen from the dock: **Overview**, **Connection test**,
+**Tunnels**, **Manage**. Only these are pages (Servers is out of
+the dock for now, and its address still works). Each renders into the same slot, and
 switching between them is the only navigation that replaces what you are
 looking at.
 
@@ -34,7 +35,7 @@ Addresses in this page are relative to the panel's secret base path, which is
 random per installation: the real URL of the Overview is
 `https://your-server:7654/<base>/#/`.
 
-## The three sections
+## The sections
 
 ### Overview — `#/`
 
@@ -50,13 +51,33 @@ them is a page that gets glanced at and trusted.
 
 ### Servers — `#/servers`
 
-The managed fleet: other machines this panel can build and run tunnels on.
+Out of the dock for now; the address still opens it. The managed fleet: other machines this panel can build and run tunnels on.
 
 Adding one generates a one-time code. Run `sudo fullpack node join` on the
 foreign server and enter that code. Its Agent connects outward to the panel's
 existing WebUI endpoint. See [managed servers](managed-servers.md).
 
 *CLI: `sudo fullpack node join` on the foreign server.*
+
+### Connection test — `#/conntest`
+
+The Iran side of the menu's Connection Test, in two panes of one size. The left
+one is what to do now: the form, then a 15-minute dial with the one line for the
+kharej — `sudo fullpack link apply 'fullpack://t.…'` — then the test's own
+countdown, then *Best for this path*. The right one fills a row per transport as
+its echoes come back and, at the end, keeps only what held or was unstable. The
+test tunnels are removed when it ends.
+
+*CLI: 0 Connection Test → Iran.*
+
+### Manage — `#/manage`
+
+Auto Refresh (a 24-hour dial counting down to the next restart on the server's
+clock), the Built-in Proxy (on this server, or wired to a reverse tunnel with the
+kharej's `fullpack proxy enable` line; a test that speaks its handshake) and
+File Locations (a search bar that opens), on one page.
+
+*CLI: 3 Manage → Auto Refresh, Built-in Proxy, File Locations.*
 
 ### Tunnels — `#/tunnels`
 
@@ -90,7 +111,7 @@ These belong to the machine rather than to one tunnel.
 | Settings | `#/settings` | Panel access, security, the Telegram bot, and the release channel. | 5 Web Panel, 7 Telegram Bot, 8 Update → Release channel |
 | Alerts | `#/alerts` | The alert history: what fired, when, and about which tunnel. | The alert history |
 | Health check | `#/health` | The machine-level checks — the same list the CLI runs, with the same fixes offered. Reached from the warning bar as well as directly. | Manage → Health Check |
-| Maintenance | `#/maintenance` | Update, restore points and backup: the machine-level chores. | 4 Backup & Restore, 8 Update |
+| Maintenance | `#/maintenance` | Update (also from an uploaded archive), restore points with roll back, and backup: download or upload one, the archives kept on this server with Test / Restore / Delete, and the off-site copy command. The fleet key stays in the menu on purpose. | 4 Backup & Restore, 8 Update |
 | Support | `#/support` | Static. Addresses copy on click. | — |
 | Enjoying FullPack? | `#/star` | Static. | — |
 
@@ -121,8 +142,8 @@ it.
 
 **شکل پنل سه چیز است.** **نوار بالا** به هیچ صفحه‌ای تعلق ندارد: همین حالای این
 ماشین — پردازنده، حافظه، و آنچه همین ثانیه در حرکت است — و زیر دیالوگ هم به کارش
-ادامه می‌دهد. **سه بخش** که از dock انتخاب می‌شوند: **Overview**، **Servers** و
-**Tunnels**؛ فقط همین سه‌تا صفحه‌اند. **دیالوگ‌ها** بقیهٔ چیزهایند: روی بخشی که در
+ادامه می‌دهد. **پنج بخش** که از dock انتخاب می‌شوند: **Overview**، **Connection test**،
+**Tunnels** و **Manage**؛ فقط همین‌ها صفحه‌اند (Servers فعلاً از dock بیرون است). **دیالوگ‌ها** بقیهٔ چیزهایند: روی بخشی که در
 آن بودی باز می‌شوند و بستن‌شان دقیقاً به همان‌جا برمی‌گرداند — پس بازکردن Health
 check از Overview، موقع بستن تو را روی Tunnels نمی‌اندازد.
 

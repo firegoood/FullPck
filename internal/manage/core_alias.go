@@ -27,8 +27,15 @@ var (
 	Find             = core.Find
 	LoadTunnelConfig = core.LoadTunnelConfig
 	Delete           = core.Delete
+	Rename           = core.Rename
 	RestartAll       = core.RestartAll
 	TunnelCountry    = core.TunnelCountry
+
+	SetScheduledRestart   = core.SetScheduledRestart
+	ScheduledRestart      = core.ScheduledRestart
+	EffectiveRestartHours = core.EffectiveRestartHours
+	LinkHosts             = core.LinkHosts
+	SetLinkHosts          = core.SetLinkHosts
 
 	RestartForNewBinary = core.RestartForNewBinary
 	RestartLater        = core.RestartLater
@@ -37,6 +44,7 @@ var (
 	// core/restartorder.go.
 	FinishDeferredRestarts = core.FinishDeferredRestarts
 
+	Systemctl      = core.Systemctl
 	DaemonReload   = core.DaemonReload
 	IsActive       = core.IsActive
 	IsEnabled      = core.IsEnabled
@@ -69,7 +77,6 @@ var (
 	orDefault  = core.OrDefault
 	writeUnit  = core.WriteUnit
 	validName  = core.ValidName
-	checkName  = core.CheckName
 	directRole = core.DirectRole
 	l3Role     = core.L3Role
 )

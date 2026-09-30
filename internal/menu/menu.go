@@ -52,7 +52,7 @@ func Run() {
 	// they survive the panel being stopped. Installing it here is also how an
 	// install that predates the service picks it up.
 	if err := manage.EnsureMonitorService(); err != nil {
-		tui.Warn("Monitor service could not start: " + err.Error())
+		tui.Warn("Monitor Could Not Start: " + err.Error())
 		tui.PressEnter()
 	}
 
@@ -77,6 +77,8 @@ func Run() {
 			return
 		}
 		switch choice {
+		case "0":
+			manage.ConnectionTest()
 		// Both entries ask which direction the tunnel should be built in, and
 		// a reverse one is then built by exactly the code that has always
 		// built it. See manage.SetupIran.
@@ -103,7 +105,7 @@ func Run() {
 			updateMenu()
 		case "9":
 			uninstallMenu()
-		case "10", "0":
+		case "10":
 			tui.Info("Goodbye!")
 			return
 		default:
@@ -121,7 +123,7 @@ func printUpdateBanner() {
 	if !ok {
 		return
 	}
-	fmt.Printf("  %s⬆ %s is available%s %s— option 8 to update safely%s\n",
+	fmt.Printf("  %s⬆ %s Is Available%s %s— Option 8%s\n",
 		tui.Bold+tui.Red, tag, tui.Reset, tui.Gray, tui.Reset)
 }
 
@@ -147,7 +149,7 @@ func printMenuForRole(managedNode bool) {
 	menuItem(7, "Telegram Bot", "status reports, relayed through a tunnel")
 	updateDesc := "safe update with automatic rollback"
 	if tag, ok := manage.UpdateAvailable(); ok {
-		updateDesc = tag + " is out — safe update with automatic rollback"
+		updateDesc = tag + " is out"
 	}
 	menuItem(8, "Update", updateDesc)
 	menuItem(9, "Uninstall", "remove everything")

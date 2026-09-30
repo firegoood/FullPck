@@ -19,6 +19,434 @@ All notable changes to FullPack are documented here.
 - Made Node enrollment retry-safe and bounded recovery for provisioned enrollment.
 - Preserved manual tunnel setup while adding managed Nodes.
 
+## v1.8.5 — 2026-09-30
+
+### Added
+
+- **A traffic limit per tunnel.** Set on the Iran end from the pencil in the
+  card's bottom band, which now reads *used / limit* with a line that turns
+  amber at 70% and red at 90% (no limit is the default, shown as ∞). The
+  Traffic limit dialog has presets from 50 GB to 10 TB, any amount in GB or
+  TB, and quick adds. The engine enforces it: the running total, in and out
+  together, is checked four times a second and the tunnel goes offline the
+  moment it reaches the limit — the card says *Limit reached* — and stays
+  offline, service still up, until the limit is raised; then it comes back on
+  its own within two seconds. The count is the tunnel's own total, which
+  restarts, reloads and updates carry over and a backup restores, so nothing
+  resets it but deleting the tunnel. `/api/tunnel/quota`; the limit is
+  `<name>.quota.json` beside the config.
+- **`backpack proxy enable <socks5|http> <port> [--user U --pass P]`**, `proxy
+  disable` and `proxy status` — the menu's Built-in Proxy without the menu,
+  and the line Manage → Built-in Proxy hands over for the kharej.
+- **Applying a setup link again updates the tunnel it made.** After an edit on
+  the Iran end, `sudo backpack link apply '…'` on the kharej rewrites its end
+  of that tunnel in place — same name, the new transport and port — instead of
+  refusing because the tunnel exists. `link apply` also reads better: a boxed
+  report with the result, and "waiting for the Iran server" printed while it
+  waits, not after.
+
+- **Web panel: the dock is now Overview · Connection test · Tunnels · Terminal
+  · Manage.** *Connection test* runs the Iran side of the menu's Connection
+  Test from the browser — start it, copy the one `sudo backpack link apply
+  '…'` line (or the install-and-test line for a kharej without Backpack), and
+  watch every transport's row fill live, ending in the best-settings card.
+  *Terminal* is a root shell on the server (xterm.js, vendored under
+  `panel/js/vendor`, MIT): browser sessions only — never an API token —
+  same-origin WebSocket, at most four at once, and every one opened is written
+  to the audit record and the alert feed. The shell survives moving between
+  sections. *Manage* carries Auto Refresh (with a 24-hour dial of when the
+  restarts land), the Built-in Proxy (enable, disable, and a test that speaks
+  the SOCKS5/HTTP handshake with the configured credentials) and File
+  Locations (grouped, filterable, with size, item count and age). *Servers* is
+  out of the dock for now; its route still answers.
+- **Web panel: the rest of the menu's setup, backup, update and panel screens.**
+  *Setup link* (tunnel card → ⋯ → Setup link…, and at the end of Add tunnel
+  when only this end is built) shows the link with the kharej's
+  `sudo backpack link apply '…'` line and the install-and-set-up line.
+  *Maintenance → Backup* lists the archives kept in the backups folder with
+  Back up now, Test (the menu's Test A Restore — changes nothing), Download,
+  Restore and Delete, and sets and tries the off-site copy command.
+  *Maintenance → Update* installs from an uploaded
+  `backpack_linux_<arch>.tar.gz` (+ SHA256SUMS), refusing another
+  architecture's archive, and *Restore points* can roll back. *Settings →
+  Panel access* moves the address path (random, your own, none), issues a new
+  login code and restarts the panel, following it to its new address. The
+  fleet key stays in the menu only, on purpose (see menu/backup.go).
+- **Web panel: Add tunnel no longer needs a managed server.** It is the CLI
+  wizard again — Iran or kharej, then reverse or direct (as two cards, not a
+  small switch), then the tunnel, performance, optional and done — and it
+  builds this server's end only, ending on the setup link for the other one.
+  The token is made here and carried by the link; the reverse Iran side's
+  token field had no name, so it was never sent.
+- **Connection Test (main menu, option 0): which transports actually hold
+  between two servers.** Started on the Iran server, it runs a real engine for
+  every reverse transport the wizard offers (tcp, tcpmux, stealth, pck, ws,
+  wss, wsmux, wssmux, kcp, quic, udp) and, as root, every direct carrier (udp,
+  quic, pck, xdi, sni) on free ports, with the performance preset the operator
+  picks, and checks IP spoofing both ways the way Manage → IP Spoofing Tester
+  does, with 10.10.10.10 as the forged source. It prints a short link —
+  `backpack://t.` and 26 characters: where the Iran side's coordinator is and
+  the test's secret. On the kharej, the same menu item or `backpack link apply
+  '<link>'` fetches the rest from the coordinator in one packet and builds the
+  other end of each tunnel from it, by the path a real tunnel takes. The Iran
+  side then pushes traffic through every tunnel, an echo a second for a minute
+  and a 1 MB transfer, and both servers show one table, live: each tunnel's
+  row fills as its echoes come back (TESTING, echoes sent, a bar), rewritten
+  in place. At the end the rows are grouped OK, UNSTABLE and DOWN, each bar
+  filled by the echoes that came back, with the tunnels that carried
+  everything listed under it with their round trip and speed. Under that, a
+  second table gives the settings to build with: the fastest steady transport,
+  the preset its speed and round trip call for, the path MTU (measured with
+  unfragmentable probes) and the TCP MSS clamp it implies, the MTU the direct
+  tunnels measured, keepalive and heartbeat, and FEC — the timers and FEC by
+  the same rules as Link Test. Nothing is installed and nothing is left
+  behind. Made after a route that cut every flow after a few packets had to be
+  diagnosed by hand; over a simulated route like that it reports every
+  ordinary transport as failing and names the carriers that got through.
+
+- **A kharej without Backpack is set up with one command.** Under the setup
+  link, the Iran wizard (and Manage → Setup Link) now prints a second line:
+  `bash <(curl -fsSL …/install.sh) link apply 'backpack://…'`. Run as root on
+  the kharej, it installs Backpack, builds the tunnel from the link, starts it,
+  and waits to say whether it connected — nothing is asked. On a kharej that
+  already runs Backpack the same is `backpack link apply '<link>'`, which also
+  takes `--name` and `--host` (for a link that does not carry the Iran
+  server's address). Applying the same link twice is refused, since a second
+  tunnel with one token takes the connection from the first.
+- **The setup link carries backup addresses.** The reverse Iran wizard asks
+  for this server's other addresses — another IP, a domain, a CDN edge — and
+  a kharej built from the link fails over to them on its own.
+- **A tunnel can restart on both servers at once, on a schedule.** Both Iran
+  wizards ask *Restart This Tunnel On Both Servers Every N Hours (0 = Off)*;
+  off by default. The schedule is a systemd timer in UTC, so an Iran server on
+  +03:30 and a kharej on UTC restart together; the link carries it to the
+  kharej. (Auto Refresh, from cron in each machine's own timezone, restarts
+  the two ends hours apart.)
+- **A setup link can be pasted as it arrived** — inside a Telegram message, in
+  quotes, or broken over two lines.
+
+
+### Changed
+
+- **Setup links are half as long.** A new link format (backpack://2.) carries
+  exactly the same settings as before — each field as a one-byte number, the
+  repeated words as one byte, an IPv4 address in four bytes, the token packed
+  as the base-62 number it is, and the default name left out — with a checksum
+  so a link cut short in a paste is refused. A reverse tunnel's link went from
+  264 characters to 132. Links from older builds (backpack://1.) still work; a
+  build older than this one cannot read the new format and says so.
+
+- **IP spoofing and SNI spoofing use the new wizard and the setup link.** Both
+  are set up from the Iran server like every other carrier: the Iran side
+  answers what both ends share (packet profile, Stealth, the SNI domain) and
+  its own forged source, and the link carries the shared answers — and, for
+  spoof, the Iran server's real address — to the kharej, which asks only its
+  own: the source it forges, its interface, and the Iran server's address when
+  a link lacks it. The classic both-ends-by-hand wizard is gone.
+
+- **The menus are shorter.** Every screen of the terminal menu — the main
+  menu, Manage, the wizards, Edit, Backup, Web Panel, Telegram, Update and the
+  tools — now reads in short Title Case labels, and the paragraphs of
+  explanation are one line or gone.
+
+### Security
+
+- **Anyone could redirect a direct tunnel on the default `udp` carrier.** The
+  carrier took the source of every datagram it read as the peer — before the
+  tunnel had authenticated anything — and sent the whole tunnel there. One
+  forged datagram to the listening port moved the tunnel to the sender. A
+  single path now hands its peer to the tunnel, which moves it only on an
+  authenticated packet. With `paths` above 1 each extra socket still follows
+  its own sender; that is documented as the price of multipath.
+- **A write-scoped panel token could send a managed server's root password to
+  a machine of its choosing.** Changing a server's address kept its password
+  and forgot its host key, so the next login trusted whatever answered at the
+  new address and gave it the password. A new address now needs the password
+  typed again, and adding, re-crediting and removing a server need the admin
+  scope.
+- **`wss` now proves the server, not only the client.** The server answers the
+  upgrade with `X-Backpack-Proof`, a MAC of the TLS session under the tunnel
+  token, so something on the path that terminates the TLS can no longer pose
+  as the Iran server. An older server that does not answer is still accepted;
+  one that has answered once in this run and then stops is refused. Plain
+  `tcp`, `tcpmux`, `ws` and `udp` still do not authenticate the server — the
+  docs now say so instead of implying they do.
+- **With the password known, the second factor could be guessed without
+  limit.** The password step reset the failure count, so password, four wrong
+  codes, password again never reached the lockout. The count is now reset only
+  by a complete sign-in, and a pending sign-in dies after three wrong codes.
+- **The built-in SOCKS5/HTTP proxy without auth was an open door into the
+  server itself.** It binds loopback, but a tunnel forwards its port to the
+  public side, and the tunnel token authenticates servers, not the people using
+  the port — so anyone could reach the server's loopback services and the cloud
+  metadata address through it. Loopback, unspecified, link-local and multicast
+  destinations are now refused after resolution, for CONNECT, UDP ASSOCIATE and
+  the HTTP proxy alike.
+- **The Update menu ran any release archive it found in the current
+  directory, as root,** just to show its version. It now looks only in `/root`
+  and the install directory, and skips a directory that is not root's (or this
+  user's) or that others can write to.
+- **A failed Telegram send put the bot token in the error**, and the panel's
+  *Send test message* showed that error to anyone with a write token. Errors
+  are redacted now.
+- **The bot answered admins in group chats** — the panel password on `/webui`
+  and the backup archive included — for every member to read. It answers in
+  private chats only and says so elsewhere.
+- **Fleet requests, tunnel tokens included, were readable in a managed
+  server's process list.** The panel passed each request as an argument to
+  `backpack node exec`. It now sends it on stdin (`node exec -`); a server too
+  old to read stdin still gets it the old way until it is upgraded.
+- **The panel accepted state-changing requests from a sibling subdomain.**
+  `Sec-Fetch-Site: same-site` is another origin, and the session cookie is sent
+  on its POSTs. Those are now refused like cross-site ones.
+- **A flood of connections that never proved the token was unbounded.** Every
+  ingress now bounds what a stranger may hold, and a host that has proved the
+  token is never refused because of a flood: reverse `tcp`/`tcpmux`/stealth
+  tunnel ports and the `udp` control port take at most 128 unproven
+  connections per host (per /64 for IPv6) and 1024 in all; `udp` control
+  claims are judged side by side, so one silent connection no longer holds the
+  real client for 15 seconds; a reverse `quic` connection may keep 8 streams
+  waiting; `ws`/`wss` tunnel ports time out slow request headers; a direct
+  origin bounds its handshakes the same way and no longer keeps a goroutine per
+  finished `ws`/`wss` session; the l3 `quic` carrier evicts strangers before
+  its peer, `pck` caps and ages its peer table, and the l3 listener remembers
+  only authenticated handshakes, so made-up ones cannot push real ones out of
+  its replay memory. A refused connection is logged as *too many connections
+  that have not proved the token*. See `docs/adr/0004-what-an-unproven-peer-may-hold.md`.
+- **A direct tunnel's handshake freshness could be walked backwards** while no
+  session was up. A stale stamp is now adopted only once its session is
+  confirmed by traffic.
+
+### Fixed
+
+- **Web panel field report, 2026-09-30.**
+  - Every tunnel made in the panel came out as Turbo's numbers with no preset
+    (the edit dialog then said Custom), whatever preset was picked: Add tunnel
+    posted every switch and menu of the Fine Tune drawer as it was drawn, and
+    any tuning sent clears the preset. Only what was touched is sent now. An
+    untouched direct form also read the reverse form's preset row and sent
+    none, which the server took as Turbo.
+  - Editing a reverse tunnel's transport — UDP to TCP, reported on v1.8.4 —
+    took several tries: choosing the TCP family left the transport on "udp",
+    so saving changed nothing. The transport now follows the family. And the
+    kharej, still on the old transport, could not reconnect; after a change
+    both ends must agree on, the dialog now shows the kharej's one line, which
+    brings that end into step (see Added).
+  - A direct tunnel whose flow the path stopped passing stayed down until its
+    port was changed by hand (reported on v1.8.4). The reopen-from-new-ports
+    fix pck and sni got in this version now covers udp, xdi and quic too: after
+    90 seconds of unanswered handshakes the dialling end opens a new socket,
+    which is a new flow. Spoof is left out — its source is forged, not a port
+    this end can move.
+  - Settings and Maintenance showed the preview's sample figures (1.7.6, five
+    restore points, another server's port) for the seconds it took to ask
+    GitHub for the latest release. Dialogs now open on a loader until their
+    values are in, and the release check is kept for ten minutes and warmed
+    when the panel starts.
+  - On a phone, the tunnel Metrics dialog ran off its right edge — its section
+    rules had taken the log lines' grid — and the Logs toolbar, the Edit tabs,
+    the Settings search and the History figures overflowed. All fit now.
+  - Connection test is two panes of one size: the left one is the form, then a
+    15-minute dial with the kharej's line under it, then the test's own
+    countdown, then *Best for this path*; the right one waits, fills row by row
+    as each transport is tried (patched in place, not redrawn), and at the end
+    lists only what held or wobbled, with what went down counted underneath.
+    "Preset" in the verdict is now "Suggested preset", and the preset the test
+    ran on is named beside it.
+  - Manage: Auto Refresh is a square card with a 24-hour dial and a live
+    countdown to the next restart on the server's own clock and zone; the
+    Built-in Proxy beside it can be wired to a reverse tunnel — it adds the
+    forward and hands over the kharej's `backpack proxy enable` line; File
+    Locations is a search bar that opens.
+  - Tunnel cards fill the row — two tunnels take the width between them, three
+    to a row at most — and carry the preset as a chip (Reverse · TCP ·
+    Aggressive · 443).
+  - Add tunnel builds the Iran end only: one first step, *this server is Iran*,
+    with Reverse and Direct under it; forwarded ports have a Random button; and
+    the presets are cards with their own mark, what each is for and its load,
+    over a table of what the chosen one sets on this transport.
+
+- **Web panel field report, 2026-09-29.**
+  - Tunnel cards' live chart started from nothing on every sign-in: the rate
+    history was fed only by the browser's poll. The panel now samples every
+    tunnel's snapshot on its own clock.
+  - A tunnel card's "up" figure reset whenever the engine reloaded; it is the
+    systemd service's ActiveEnterTimestamp now.
+  - The overview's server uptime was the host node's on OpenVZ/Virtuozzo
+    guests (gopsutil reads /proc/stat's btime there); it is read from
+    /proc/uptime.
+  - Logs showed "[blob data]" instead of the engine's lines on systemd ≤ 254
+    (Ubuntu 20.04/22.04): the coloured level tag made journalctl refuse the
+    line without `--all`. The read now passes `--all` and strips the colour
+    codes, and the dialog parses the short-iso line into clock, level and
+    message.
+  - Settings threw "Cannot read properties of null" on any restore point taken
+    with no tunnels, which left the preview's sample points (1.7.4/1.7.5) and
+    its "Install 1.7.6" row on screen; the Release row now says what is
+    actually available.
+  - Panel access → Copy did nothing (it found no input to copy, and plain HTTP
+    has no `navigator.clipboard`); every Copy button now falls back to
+    `execCommand`.
+  - Security's two-factor, token and audit text fell back to 16px browser
+    type; the audit record is drawn as rows.
+  - Alerts: newest first, with day separators, real insets and no "NaN d ago".
+  - Metrics dialog: the legend sat on the edge, and the state chip said
+    "Running" for any state.
+  - Tabbed dialogs (Edit, Settings, Add) keep one height between tabs.
+  - The Link test button is gone from tunnel cards.
+- **Editing a direct tunnel in the web panel opened the reverse form and could
+  not save.** The Edit dialog filled the reverse form — transport families,
+  mux and KCP settings a direct tunnel does not have — and posted its fields
+  where the direct edit reads nothing. A direct tunnel now gets its own form:
+  forwarded ports, UDP, preset, MTU and Auto MTU, sockets (udp), FEC, Stealth
+  (spoof) and limits, saved under the direct edit.
+
+- **The web panel was slow.** Three causes. The tunnel list looked up every
+  peer's location on every poll with nothing remembered on failure — on a
+  server that cannot reach the geo providers, which an Iran server usually
+  cannot, that was three providers at up to six seconds each, every six
+  seconds; a failed lookup is now remembered for ten minutes and the list
+  never waits for one (the answer arrives on a later poll). Every card also
+  probed its far end afresh on each poll, and the list waited for the slowest;
+  probes and name lookups are now reused for a few seconds and renewed in the
+  background. And the panel's files were served with no ETag and no
+  compression, so every visit downloaded all of them again: they now go
+  gzipped (721 KB to 225 KB) with an ETag, and a return visit is a 304 per
+  file.
+
+- **A reverse pck tunnel stopped carrying anything the first time it was
+  pushed hard.** When the local transmit queue filled, the packet socket
+  reported "no buffer space available", and KCP — which runs on top of pck —
+  takes any send error as the end of its session: it closed it for good and
+  dropped the rest of what it was sending. Echoes passed; a 1 MB transfer both
+  ways stalled at about two thirds, every time, with nothing in the Iran log.
+  A full queue is now a lost packet, as it is on a UDP socket, and KCP resends
+  it. Found by the new Connection Test; on the same path the transfer now
+  runs at 50–80 Mbps, with Turbo and Aggressive alike.
+
+- **The panel's "carried since this server was set up" went back down after
+  every update.** Three separate leaks. A direct (layer-3) tunnel's engine
+  counts its own traffic, and those counters replaced the carried-over total
+  instead of adding to it, so every update, restart or config edit started a
+  direct tunnel from zero. A reload of a reverse tunnel added what the process
+  had already counted a second time, and could read the file before the last
+  write of the previous run was in. And deleting a tunnel took everything it
+  had carried out of the total, while the next tunnel given the same name
+  started from the old one's figure. Totals now carry over exactly, and a
+  deleted tunnel's traffic moves into a server-wide ledger
+  (`/etc/backpack/retired-traffic.json`, kept in backups) that the headline
+  figure includes. Traffic already lost before this version cannot be
+  recovered.
+
+- **Automatic failover to a backup address brought the control channel up and
+  left every user connection failing.** With *Automatic Failover To The
+  Healthiest Address* on, the kharej raced its addresses and connected the
+  control channel through the backup — but its data connections followed the
+  health scorer, which measured only ping. A primary address that answers
+  ping with its tunnel port closed or filtered (common on these routes, where
+  ICMP gets through) kept the pool pointed at it: the tunnel showed connected
+  and carried nothing. The address the race reached now steers the pool, and
+  for TCP transports the scorer counts an address as reachable only when the
+  tunnel port itself takes a connection.
+- **A reverse tunnel on an unsteady path restarted every time the kharej
+  re-dialed, cutting every user on it.** Reported from several Iran servers on
+  v1.8.4: `restarting server...` over and over, and forwarded ports that kept
+  dropping. Any trouble with the control channel — the kharej re-dialing after a
+  one-second drop, a failed read, a second claim — rebuilt the whole run: the
+  tunnel port and every forwarded port were closed and bound again, and every
+  user connection through them ended. Now the tunnel and its ports stay up and
+  only the kharej is replaced: its new control channel takes over in place, the
+  old one's pool is dropped, and users who connect in between wait for it
+  rather than being refused. All seven transports; nothing changes on the wire,
+  and older kharej servers are served as before. Two kharej servers set up with
+  one token — which takes the tunnel from each other every few seconds — are
+  named in the Iran log. See `docs/adr/0005-a-generation-outlives-its-clients.md`.
+- **A direct `pck` tunnel died after about a day, and only deleting it and
+  making it again brought it back — restarts and Auto Refresh did not.**
+  Reported on v1.8.4. The dialling end's source port was derived from the
+  token, so every restart sent the same flow — the one the path had stopped
+  passing — and only a new tunnel, with a new token, got out. The ports are now
+  drawn afresh whenever the carrier opens, and when no handshake over a `pck` or
+  `sni` flow is answered for 90 seconds the tunnel reopens the carrier on its
+  own, from new ports. Tested live with the flow dropped on the path: v1.8.4
+  never came back; this build is back within three minutes. The startup log
+  now names the source port, interface, next hop and RST guard, as the reverse
+  transport's already did; firewall rules left by an earlier run are found by
+  the tunnel's tag and removed.
+- **Stopping the web panel did not last.** Web Panel → Stop panel stopped it,
+  and the next `sudo backpack` started it again. The stop is now recorded and
+  kept until Restart panel; a panel stopped under v1.8.4 is recognised as
+  stopped, and a restored backup keeps its owner's choice.
+- **A reverse kharej made from a setup link could not be created**, while the
+  same tunnel typed in by hand worked. The link under Manage → Setup Link did
+  not carry the Iran server's address, and Set up from a link then refused with
+  "the server address is required" without asking for it. The link now carries
+  this server's public address, and a link without one asks for it; the Iran
+  wizard also says when it has none to put in the link.
+- **There was no way to change the kharej's address in Edit.** A direct tunnel
+  whose kharej moved had to be deleted and made again. Edit now has *Kharej
+  address* on the Iran side of direct and layer-3 tunnels — an IP or domain
+  keeps the port, IP:port changes both, and a spoof carrier's recorded peer
+  moves with it — and *Iran server's real IP* on a spoof kharej. The change is
+  written to the tunnel's file and the tunnel restarts.
+- **Adding a server to the fleet, and upgrading one, installed nothing and
+  reported success.** The installer was piped into a shell whose stdin was then
+  replaced by `/dev/null`, so the shell ran an empty script and exited 0. The
+  installer is now downloaded whole, refused if empty, then run, and a failure
+  fails the step. An upgrade also restarts the tunnels, the monitor and the
+  panel on that server, so they run the new build rather than only the file on
+  disk being new.
+- **An update started from the panel or the Telegram bot stopped before it
+  restarted the tunnels.** It restarted the panel's own service (or the bot's)
+  first, which killed the update midway: the tunnels kept running the old
+  binary and the health check and rollback never ran. The tunnels are now
+  restarted and checked first, and the panel and monitor last.
+- **Saving a config that parsed but failed a check stopped the tunnel.** The
+  reload watcher kept a tunnel running through a file that did not parse, but a
+  file that parsed and then failed one of the checks run at startup took the
+  running tunnel down. The reload now logs why and keeps the running tunnel.
+- **An unreadable state file was emptied by the next save.** The fleet
+  registry, the panel's config and the bot's settings were read with the error
+  ignored, so a damaged file came back empty and the next change wrote that
+  emptiness over it. A file that does not parse is now moved aside to
+  `<file>.unreadable-<time>` and the journal says so; a file with one field of
+  the wrong type keeps the rest, and a copy is kept.
+- **`max_connections` shrank with every restart of a reverse tunnel.** A
+  connection queued when the tunnel restarted kept its slot for ever, so after
+  enough restarts the cap refused everyone. Queued connections are now closed
+  and their slots given back when a generation ends.
+- **A reverse `udp` tunnel's restart raced its own connections**, replacing a
+  lock that the previous generation was still holding.
+- **A kharej whose transport ended without a restart — a config reload, a
+  fallback chain moving on — left its `kcp`/`quic` sessions and control
+  connection open for ever.** Over KCP nothing tells those sockets the peer is
+  gone. They are closed with the generation now.
+- **A kharej that reconnected just as the Iran end restarted could sit
+  "connected" for 20 seconds carrying nothing.** Its claim was accepted by the
+  ending generation and then abandoned; it is now refused, and the client
+  redials at once.
+- **Changing the panel password from the panel always failed.** The panel sent
+  it as JSON to a handler that reads a form, so the password arrived empty and
+  was refused as too short. It is sent as a form now, and the handler also
+  reads JSON, for a panel page cached from before.
+- **The l3 `udp` carrier never used its batched and GSO send paths.** The same
+  wrapper as the redirection above hid them, so every packet was its own
+  system call. They run now: measured live, about 24 datagrams per `sendmsg`.
+- **Plain `ws` carried less than half of what `wsmux` did** on the same link:
+  every message was read into a fresh buffer and every 64 KiB write split into
+  4–16 frames. It now copies through a pooled buffer and writes in 64 KiB
+  frames (2.8 → 7 Gbit/s on loopback).
+- **Every KCP dial ran 100,000 rounds of PBKDF2**, once per pooled connection.
+  The key is derived once per token now.
+- **On a tunnel with PROXY protocol and a bandwidth cap, every forwarded UDP
+  flow was closed** with an error about the address type.
+- **Each junk datagram to a reverse `udp` tunnel port wrote an ERROR line.**
+  They are logged at debug now.
+- **The file-descriptor warning named the limit it failed to set** rather than
+  the one in force.
+- **A kharej could not dial a bracketed IPv6 target** such as
+  `[2001:db8::1]:443` ("invalid port format").
+
 ## v1.8.4 — 2026-09-26
 
 ### Changed

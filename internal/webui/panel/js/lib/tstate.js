@@ -17,6 +17,9 @@ const UP = 'online';
 
 export const isUp = t => !!t && t.state === UP;
 
+/* Stopped on purpose — the service is not running — as against offline. */
+export const isStopped = t => !!t && t.state === 'stopped';
+
 /* A tunnel that is online and delivering into nothing.
  *
  * The state is still "online" and that is not a mistake: the tunnel is up, and
@@ -26,7 +29,12 @@ export const isUp = t => !!t && t.state === UP;
  * sentence; this is the one place that decides what to do with it. */
 export const serviceDown = t => !!(t && t.serviceDown);
 
-export const stateLabel = t => (serviceDown(t) ? 'No service' : ({
+/* A tunnel that has carried its traffic limit is offline on purpose: the
+ * engine stopped it and holds it until the limit is raised. Said as that, not
+ * as "Offline", which sends somebody looking for a fault. */
+const limitReached = t => !!(t && t.quotaHit);
+
+export const stateLabel = t => (limitReached(t) ? 'Limit reached' : serviceDown(t) ? 'No service' : ({
   online: 'Online',
   offline: 'Offline',
   stopped: 'Stopped',
@@ -36,4 +44,4 @@ export const stateLabel = t => (serviceDown(t) ? 'No service' : ({
  * unanswered, it is not up at all. A tunnel whose far service is missing takes
  * the middle one — it is up, and it is not carrying anything. */
 export const stateTone = t =>
-  (serviceDown(t) ? 'warn' : (isUp(t) ? 'ok' : (t && t.state === 'offline' ? 'warn' : 'off')));
+  (limitReached(t) || serviceDown(t) ? 'warn' : (isUp(t) ? 'ok' : (t && t.state === 'offline' ? 'warn' : 'off')));

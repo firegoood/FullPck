@@ -19,8 +19,7 @@ func TestThePanelKeepsManualAndManagedCreationPaths(t *testing.T) {
 		t.Fatalf("cannot read api.js: %v", err)
 	}
 	if strings.Contains(string(api), "sharelink") {
-		t.Error("the panel still calls the share-link endpoint, which is gone — the " +
-			"call would 404 and the wizard would offer a link it cannot build")
+		t.Error("the panel calls the old share-link endpoint, which is gone")
 	}
 
 	add, err := fs.ReadFile(panelRoot, "js/views/add.js")
@@ -30,7 +29,7 @@ func TestThePanelKeepsManualAndManagedCreationPaths(t *testing.T) {
 	src := string(add)
 	for _, gone := range []string{"shareLinkDecode", "paintHandoff", "applyPastedLink"} {
 		if strings.Contains(src, gone) {
-			t.Errorf("add.js still has %s, so the second-pass path is still on screen", gone)
+			t.Errorf("add.js still has %s, the second-pass paste flow", gone)
 		}
 	}
 	mode, err := fs.ReadFile(panelRoot, "js/lib/addmode.js")

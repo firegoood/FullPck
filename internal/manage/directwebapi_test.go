@@ -19,7 +19,7 @@ func TestThePanelFormBuildsAWorkingDirectConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("spec: %v", err)
 	}
-	cfg := decode(t, spec.render())
+	cfg := decode(t, spec.Render())
 
 	if cfg.L3.Mode != "dial" {
 		t.Errorf("the Iran side does not dial: %q", cfg.L3.Mode)
@@ -59,7 +59,7 @@ func TestThePanelKharejSideListens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("spec: %v", err)
 	}
-	cfg := decode(t, spec.render())
+	cfg := decode(t, spec.Render())
 
 	if cfg.L3.Mode != "listen" {
 		t.Errorf("the kharej side does not listen: %q", cfg.L3.Mode)
@@ -131,7 +131,7 @@ func TestThePanelSNISettingReachesTheConfig(t *testing.T) {
 	if spec.SNIDomain != "mci.ir" {
 		t.Fatalf("sni domain = %q", spec.SNIDomain)
 	}
-	if got := decode(t, spec.render()).L3.SNIDomain; got != "mci.ir" {
+	if got := decode(t, spec.Render()).L3.SNIDomain; got != "mci.ir" {
 		t.Fatalf("rendered sni domain = %q", got)
 	}
 }

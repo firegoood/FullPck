@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"github.com/firegoood/FullPck/internal/metrics"
 	"github.com/firegoood/FullPck/internal/tunhist"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -97,6 +98,10 @@ func Run(args []string) Result {
 		return runTunnel(args[1:])
 	case "check":
 		return runCheck(args[1:])
+	case "link":
+		return runLink(args[1:])
+	case "proxy":
+		return runProxy(args[1:])
 	case "version":
 		return runVersion(args[1:])
 	case "help", "-h", "--help":
@@ -313,6 +318,17 @@ func tunnelStatus(name string, asJSON bool) Result {
 	return r
 }
 
+// EngineCheck is the engine's own load-time validation of a config file —
+// the checks that decide whether `fullpack -c` starts, machine-dependent ones
+// included. It lives in package cmd, which this package cannot import, so
+// main installs it; nil leaves check to its static checks alone.
+var EngineCheck func(path string) error
+
+// unparsable reports whether the static checks stopped at a parse failure.
+func unparsable(problems []string) bool {
+	return len(problems) == 1 && strings.HasPrefix(problems[0], manage.ConfigUnparsable)
+}
+
 // runCheck validates a config file without starting anything.
 //
 // The gap it closes: the engine validates thoroughly at load and does it by
@@ -344,6 +360,15 @@ func runCheck(args []string) Result {
 	}
 
 	problems := manage.ValidateConfigFile(path)
+	// Then the engine's own verdict, from the same code that decides whether
+	// the tunnel starts: its load-time checks, including the ones only this
+	// machine can answer. Skipped for a file that does not parse, which the
+	// first check has already said.
+	if EngineCheck != nil && !unparsable(problems) {
+		if err := EngineCheck(path); err != nil {
+			problems = append(problems, "the engine would refuse to start it on this machine: "+err.Error())
+		}
+	}
 
 	if asJSON {
 		r := jsonResult(struct {
@@ -357,9 +382,12 @@ func runCheck(args []string) Result {
 		return r
 	}
 	if len(problems) == 0 {
-		return ok(path + ": looks valid\n" +
-			"(checks that need this machine — raw sockets, interfaces, iptables — are " +
-			"made by the engine when the tunnel starts)\n")
+		if EngineCheck == nil {
+			return ok(path + ": looks valid\n" +
+				"(checks that need this machine — raw sockets, interfaces, iptables — are " +
+				"made by the engine when the tunnel starts)\n")
+		}
+		return ok(path + ": looks valid, and the engine would start it on this machine\n")
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s: %d problem(s)\n", path, len(problems))
@@ -415,7 +443,7 @@ func takeJSONFlag(args []string) (bool, []string) {
 // drifting — a command added below is routable immediately.
 func IsCommand(s string) bool {
 	switch s {
-	case "tunnel", "check", "version":
+	case "tunnel", "check", "version", "link", "proxy":
 		return true
 	}
 	return false
@@ -437,4 +465,152 @@ func humanBytes(n uint64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTP"[exp])
+}
+
+// applyLink and awaitLink are what `link apply` calls; variables so a test can
+// see what it would have done without a machine to do it on.
+var (
+	applyLink = manage.ApplySetupLink
+	awaitLink = manage.AwaitLinkedTunnel
+	isRoot    = func() bool { return os.Geteuid() == 0 }
+	// runConnTest is the kharej's side of a Connection Test, printing as it
+	// goes: a test takes minutes and the person running it should see it move.
+	runConnTest = manage.RunConnTestKharejTUI
+)
+
+// linkAwait is how long `link apply` waits to see the tunnel reach the far end.
+var linkAwait = 25 * time.Second
+
+// runLink is `fullpack link apply`: the kharej end of a tunnel from the setup
+// link the Iran server printed, with nothing asked. It is also what the
+// one-line install runs once FullPack is on the machine.
+func runLink(args []string) Result {
+	if len(args) == 0 || args[0] != "apply" {
+		return fail(CodeUsage, "link needs a subcommand: apply\n\n%s", usage)
+	}
+	var o manage.LinkApplyOptions
+	var link string
+	rest := args[1:]
+	for i := 0; i < len(rest); i++ {
+		switch a := rest[i]; {
+		case a == "--name" || a == "--host":
+			if i+1 >= len(rest) {
+				return fail(CodeUsage, "%s needs a value\n", a)
+			}
+			if a == "--name" {
+				o.Name = rest[i+1]
+			} else {
+				o.Host = rest[i+1]
+			}
+			i++
+		case strings.HasPrefix(a, "--name="):
+			o.Name = strings.TrimPrefix(a, "--name=")
+		case strings.HasPrefix(a, "--host="):
+			o.Host = strings.TrimPrefix(a, "--host=")
+		case strings.HasPrefix(a, "-"):
+			return fail(CodeUsage, "unknown option %q\n", a)
+		default:
+			// A link split by the shell or by a paste arrives as several
+			// arguments; they are one link.
+			link += a
+		}
+	}
+	if strings.TrimSpace(link) == "" {
+		return fail(CodeUsage, "link apply needs the setup link: fullpack link apply 'fullpack://…'\n")
+	}
+	if manage.IsConnTestLink(link) {
+		// A Connection Test link from the Iran server: nothing is installed,
+		// the test tunnels run for a few minutes and the verdict is printed.
+		if !runConnTest(link) {
+			return Result{Code: CodeFailed}
+		}
+		return ok("")
+	}
+	if !isRoot() {
+		return fail(CodeFailed, "link apply creates a tunnel and its service: run it as root (sudo)\n")
+	}
+
+	done, err := applyLink(link, o)
+	if err != nil {
+		return fail(CodeFailed, "could not set up the tunnel: %v\n", err)
+	}
+	return linkReport(done)
+}
+
+// Progress, when set, receives the lines of a long command as they happen —
+// main.go points it at the terminal, so "waiting for the Iran server" is on the
+// screen while it waits rather than after. Unset, everything lands in the
+// Result, which is what a test reads.
+var Progress func(string)
+
+// Color turns on the terminal's colours in reports; main.go sets it when the
+// output is a terminal.
+var Color bool
+
+func paint(code, s string) string {
+	if !Color {
+		return s
+	}
+	return "\033[" + code + "m" + s + "\033[0m"
+}
+
+const rule = "  ────────────────────────────────────────────\n"
+
+// linkReport is what `link apply` says: what was built or brought into step,
+// then whether it reached the Iran server — the answer the person at this
+// terminal is actually waiting for.
+func linkReport(done manage.LinkApplied) Result {
+	var b strings.Builder
+	say := func(format string, a ...any) {
+		line := fmt.Sprintf(format, a...)
+		if Progress != nil {
+			Progress(b.String() + line)
+			b.Reset()
+			return
+		}
+		b.WriteString(line)
+	}
+	ok := paint("32;1", "✓")
+	row := func(k, v string) { say("    %s %s\n", paint("2", fmt.Sprintf("%-9s", k)), v) }
+
+	say("\n  %s\n%s", paint("1", "FullPack · setup link"), rule)
+	verb := "created"
+	if done.Updated {
+		verb = "updated to match the Iran side"
+	}
+	say("  %s Tunnel %q %s   %s\n", ok, done.Name, verb, paint("2", done.Kind+" · "+strings.ToUpper(done.Transport)))
+	if done.Dials != "" {
+		row("dials", done.Dials)
+	}
+	if len(done.Backups) > 0 {
+		row("backups", strings.Join(done.Backups, ", ")+" — tried in turn if the main one stops answering")
+	}
+	if done.RestartHours > 0 {
+		row("restart", fmt.Sprintf("every %d hours at :%02d UTC, together with the Iran server", done.RestartHours, done.RestartMinute))
+	}
+	if done.ScheduleFailed != "" {
+		row("restart", "could not be set: "+done.ScheduleFailed)
+	}
+	if !done.Active {
+		say("  %s The service %s did not start — see: journalctl -u %s -n 30\n%s", paint("31;1", "✗"), done.Service, done.Service, rule)
+		return Result{Out: b.String(), Code: CodeUnhealthy}
+	}
+	if done.Kind == "direct" {
+		say("  %s Running. It connects as soon as the Iran server dials in.\n%s", ok, rule)
+		return Result{Out: b.String()}
+	}
+	say("  %s Waiting for the Iran server …\n", paint("33", "◌"))
+	if connected, detail := awaitLink(done.Name, linkAwait); connected {
+		say("  %s %s\n", ok, paint("32;1", "Connected — the tunnel is up."))
+		if d := strings.TrimSpace(detail); d != "" {
+			row("link", d)
+		}
+		say("%s", rule)
+		return Result{Out: b.String()}
+	} else {
+		say("  %s Not connected yet (%s). It keeps trying on its own; if it stays down, check that the "+
+			"Iran server's tunnel port is open and that both ends are on the same version: "+
+			"fullpack tunnel status %s\n%s", paint("33;1", "!"), strings.TrimSpace(detail), done.Name, rule)
+		return Result{Out: b.String(), Code: CodeUnhealthy}
+	}
 }

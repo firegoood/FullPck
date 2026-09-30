@@ -2,18 +2,14 @@ package transport
 
 import (
 	"context"
-	"fmt"
 	"net"
-	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/firegoood/FullPck/internal/controlwire"
 	"github.com/firegoood/FullPck/internal/metrics"
 	"github.com/firegoood/FullPck/internal/utils"
-	"github.com/firegoood/FullPck/internal/utils/handlers"
 	"github.com/firegoood/FullPck/internal/utils/network"
-	"github.com/firegoood/FullPck/internal/web"
 
 	"github.com/sirupsen/logrus"
 	"github.com/xtaci/kcp-go/v5"
@@ -24,20 +20,13 @@ import (
 // server over UDP and carries SMUX streams inside a reliable KCP session, so
 // the tunnel survives paths where a long-lived TCP connection would stall.
 type KcpTransport struct {
-	// The status shown in the panel. Behind a lock because the run being
-	// replaced and the run replacing it both write it. See tunnelStatus.
-	status          tunnelStatus
-	config          *KcpConfig
-	smuxConfig      *smux.Config
-	kcpSettings     network.KCPSettings
-	parentctx       context.Context
-	state           clientState
-	sessionSlots    *sessionSlots
-	logger          *logrus.Logger
-	restartMutex    sync.Mutex
-	poolConnections int32
-	loadConnections int32
-	controlFlow     chan struct{}
+	// The generations of this transport and what outlives them: see
+	// lifecycle.go.
+	lifecycle
+
+	config      *KcpConfig
+	smuxConfig  *smux.Config
+	kcpSettings network.KCPSettings
 }
 
 type KcpConfig struct {
@@ -130,8 +119,6 @@ func (c *KcpConfig) settings() network.KCPSettings {
 }
 
 func NewKcpClient(parentCtx context.Context, config *KcpConfig, logger *logrus.Logger) *KcpTransport {
-	ctx, cancel := context.WithCancel(parentCtx)
-
 	client := &KcpTransport{
 		smuxConfig: &smux.Config{
 			Version:           network.ResolveStaticMuxVersion(config.MuxVersion),
@@ -141,90 +128,29 @@ func NewKcpClient(parentCtx context.Context, config *KcpConfig, logger *logrus.L
 			MaxReceiveBuffer:  config.MaxReceiveBuffer,
 			MaxStreamBuffer:   config.MaxStreamBuffer,
 		},
-		config:          config,
-		kcpSettings:     config.settings(),
-		parentctx:       parentCtx,
-		logger:          logger,
-		poolConnections: 0,
-		loadConnections: 0,
-		controlFlow:     make(chan struct{}, 100),
-		sessionSlots:    newSessionSlots(muxPoolLimit(config.ConnPoolSize, config.MaxReceiveBuffer)),
+		config:      config,
+		kcpSettings: config.settings(),
 	}
 	// Surface the carrier's startup diagnostics (effective FEC/MTU, and for pck
 	// the discovered egress and RST-guard status) in the tunnel log, so a client
 	// that never connects reports why instead of staying silent.
 	client.kcpSettings.Logf = logger.Infof
-	// Seed the first generation through the same path a restart uses, so
-	// there is only one way this state is ever published.
-	client.state.Reset(ctx, cancel, web.NewDataStore(fmt.Sprintf(":%v", config.WebPort), ctx, config.SnifferLog, config.Sniffer, client.status.get, logger))
+	client.firstGeneration(parentCtx, logger, usageSpec{webPort: config.WebPort, snifferLog: config.SnifferLog, sniffer: config.Sniffer})
 	return client
 }
 
 func (c *KcpTransport) Start() {
 	if c.config.WebPort > 0 {
-		c.state.Go(c.state.Usage().Monitor)
+		go c.state.Usage().Monitor()
 	}
 
 	c.status.set("Disconnected (" + c.transportLabel() + ")")
 
-	c.state.Go(c.channelDialer)
+	go c.channelDialer()
 }
 
 func (c *KcpTransport) Restart() {
-	if !c.restartMutex.TryLock() {
-		c.logger.Warn("client is already restarting")
-		return
-	}
-	defer c.restartMutex.Unlock()
-
-	c.logger.Info("restarting client...")
-
-	// for removing timeout logs
-	level := c.logger.GetLevel()
-	c.logger.SetLevel(logrus.FatalLevel)
-
-	c.state.StopAndWait()
-
-	// The whole tunnel may have been shut down while this restart was waiting —
-	// on a reload, or on the process going down. Rebuilding the run from a
-	// parent context that is already finished would bind the listeners again
-	// only to close them, and on a reload that means fighting the run that is
-	// replacing this one for its own ports. Nothing here is worth starting.
-	if c.parentctx.Err() != nil {
-		// The level was turned down to hide the timeouts a teardown produces;
-		// leaving it there would silence the shutdown itself.
-		c.logger.SetLevel(level)
-		// Abandoning is not a reason to keep claiming a peer. See the same
-		// branch in internal/server/transport — this end publishes the status
-		// the panel reads and the "connected" flag the watchdog reads, and both
-		// used to survive a restart that gave up.
-		c.status.set("")
-		metrics.ClearPeer()
-		c.logger.Debug("restart abandoned: the tunnel is shutting down")
-		return
-	}
-
-	ctx, cancel := context.WithCancel(c.parentctx)
-
-	// Publish the whole new generation at once: a reader must never see
-	// the new context paired with the old monitor, or vice versa.
-	c.state.Reset(ctx, cancel, web.NewDataStore(fmt.Sprintf(":%v", c.config.WebPort), ctx, c.config.SnifferLog, c.config.Sniffer, c.status.get, c.logger))
-	c.status.set("")
-	atomic.StoreInt32(&c.poolConnections, 0)
-	atomic.StoreInt32(&c.loadConnections, 0)
-	// The published pool figures belong to the run that just ended. Left
-	// behind, the panel would keep showing the size and throughput of a
-	// connection that is gone until the new run's first tick replaced them.
-	metrics.ClearPool()
-	// Likewise the peer: this generation's control channel is gone, and a
-	// stale address would keep the card green across a reconnect that has not
-	// happened yet.
-	metrics.ClearPeer()
-	drain(c.controlFlow)
-
-	c.logger.SetLevel(level)
-
-	c.Start()
+	c.restart(nil, nil, c.Start)
 }
 
 // dial opens one KCP session.
@@ -331,9 +257,7 @@ func (c *KcpTransport) channelDialer() {
 			// Heartbeats every few seconds are all it carries once the pool is
 			// up, so it idles like any pool session (kcpidle.go) — keeping the
 			// ack-nodelay it was given above when it wakes.
-			if !c.state.SetConn(network.IdleAwareKCP(tunnelConn, c.kcpSettings, true)) {
-				return
-			}
+			c.state.SetConn(network.IdleAwareKCP(tunnelConn, c.kcpSettings, true))
 			c.logger.Info("control channel established successfully")
 
 			// The dialling side has to record its peer for the same reason the
@@ -352,8 +276,8 @@ func (c *KcpTransport) channelDialer() {
 
 			c.status.set("Connected (" + c.transportLabel() + ")")
 
-			c.state.Go(c.poolMaintainer)
-			c.state.Go(c.channelHandler)
+			go c.poolMaintainer()
+			go c.control().run()
 
 			return
 		}
@@ -367,7 +291,6 @@ func (c *KcpTransport) poolMaintainer() {
 		ctx:        c.state.Ctx(),
 		log:        c.logger,
 		size:       c.config.ConnPoolSize,
-		maxSize:    c.sessionSlots.max(),
 		aggressive: c.config.AggressivePool,
 		open:       &c.poolConnections,
 		taken:      &c.loadConnections,
@@ -376,119 +299,12 @@ func (c *KcpTransport) poolMaintainer() {
 	}.maintain()
 }
 
-func (c *KcpTransport) channelHandler() {
-	// See beatClock: learns how often the server really heartbeats.
-	beats := newBeatClock(time.Now())
-
-	msgChan := make(chan byte, 1000)
-
-	// The generation this handler belongs to, captured once.
-	//
-	// Everything below used to ask c.state.Cancel() != nil before deciding a
-	// failure was worth restarting for. That is always true: the constructor
-	// sets a cancel function before any of this can run, and Reset sets another
-	// on every restart. So the guard was open in every case it was written to
-	// close, and each goroutine dying during a teardown queued another restart
-	// of a tunnel that was already on its way down. The server transports were
-	// corrected to ask their generation's context instead; the client ones were
-	// not.
-	//
-	// Captured rather than read through c.state each time, for the same reason
-	// the server holds its context in the generation: Restart publishes a new
-	// one while these goroutines are still winding down, and a goroutine that
-	// went on to watch the new context would never see its own run end.
-	ctx := c.state.Ctx()
-
-	// Goroutine to handle the blocking ReceiveBinaryByte
-	c.state.Go(func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				// KCP gives no signal when the peer disappears: unlike TCP there
-				// is no connection for the operating system to tear down, so a
-				// read on a dead tunnel would block forever and the client would
-				// never reconnect. The server heartbeats regularly, so silence
-				// for longer than the keepalive period means the peer is gone.
-				window := beats.deadline(c.config.KeepAlive)
-				if err := c.state.Conn().SetReadDeadline(time.Now().Add(window)); err != nil {
-					c.logger.Errorf("failed to set control channel deadline: %v", err)
-					go c.Restart()
-					return
-				}
-				msg, err := utils.ReceiveBinaryByte(c.state.Conn())
-				if err != nil {
-					if hint := beats.explain(err, c.config.KeepAlive); hint != "" && ctx.Err() == nil {
-						c.logger.Warn(hint)
-					}
-					if ctx.Err() == nil {
-						// A timeout is said above, by beats.explain, which can
-						// tell a server that stopped heartbeating from one
-						// whose heartbeat never reached this client in time.
-						// The line that stood here always blamed the path,
-						// which on a heartbeat longer than the keepalive sent
-						// people looking at the wrong thing (#45).
-						if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
-							c.logger.Error("failed to read from control channel. ", err)
-						}
-						go c.Restart()
-					}
-					return
-				}
-				if msg == utils.SG_HB {
-					beats.beat(time.Now())
-				}
-				select {
-				case msgChan <- msg:
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-	})
-
-	for {
-		select {
-		case <-ctx.Done():
-			_ = utils.SendBinaryByteWithin(c.state.Conn(), utils.SG_Closed, controlWriteTimeout)
-			return
-
-		case msg := <-msgChan:
-			switch msg {
-			case utils.SG_Chan:
-				atomic.AddInt32(&c.loadConnections, 1)
-
-				select {
-				case <-c.controlFlow: // Do nothing
-
-				default:
-					c.logger.Debug("channel signal received, initiating tunnel dialer")
-					c.state.Go(c.tunnelDialer)
-				}
-
-			case utils.SG_HB:
-				c.logger.Debug("heartbeat signal received successfully")
-
-			case utils.SG_Closed:
-				c.logger.Warn("control channel has been closed by the server")
-				go c.Restart()
-				return
-
-			default:
-				c.logger.Errorf("unexpected response from channel: %v.", msg)
-				go c.Restart()
-				return
-			}
-		}
-	}
+// control is this generation's control loop. See controlLoop.
+func (c *KcpTransport) control() controlLoop {
+	return c.lifecycle.control(controlwire.Net(c.state.Conn()), c.config.KeepAlive, c.tunnelDialer, c.Restart)
 }
 
 func (c *KcpTransport) tunnelDialer() {
-	if !c.sessionSlots.tryAcquire() {
-		return
-	}
-	defer c.sessionSlots.release()
 	addr := c.config.Endpoints.Next()
 	c.logger.Debugf("initiating new tunnel connection to address %s", addr)
 
@@ -497,12 +313,6 @@ func (c *KcpTransport) tunnelDialer() {
 		c.logger.Errorf("tunnel server dialer: %v", err)
 		return
 	}
-	untrack, ok := c.state.Track(tunnelConn)
-	if !ok {
-		return
-	}
-	defer untrack()
-	defer tunnelConn.Close()
 
 	// KCP has no connection handshake of its own: the server's listener only
 	// materialises a session once it receives a packet from this socket. So
@@ -531,74 +341,19 @@ func (c *KcpTransport) handleSession(tunnelConn net.Conn) {
 		tunnelConn.Close()
 		return
 	}
-	defer session.Close()
 
-	for {
-		select {
-		case <-c.state.Ctx().Done():
-			return
-		default:
-			stream, err := session.AcceptStream()
-			if err != nil {
-				c.logger.Trace("session is closed: ", err)
-				session.Close()
-				return
-			}
-
-			remoteAddr, err := utils.ReceiveBinaryString(stream)
-			if err != nil {
-				c.logger.Errorf("unable to get port from stream connection %s: %v", tunnelConn.RemoteAddr().String(), err)
-				stream.Close()
-				continue
-			}
-
-			if !c.state.Go(func() { c.localDialer(stream, remoteAddr) }) {
-				stream.Close()
-			}
-		}
-	}
+	c.serveSession(session, tunnelConn.RemoteAddr(), c.backend())
 }
 
-// dialUDP forwards a target marked as UDP, reporting whether it took the flow.
-func (c *KcpTransport) dialUDP(stream net.Conn, remoteAddr string) bool {
-	return dialForwardedUDP(stream, remoteAddr, c.logger, c.state.Usage(), c.config.Sniffer)
-}
-
-func (c *KcpTransport) localDialer(stream *smux.Stream, remoteAddr string) {
-	if c.dialUDP(stream, remoteAddr) {
-		return
+// backend is how this transport's users reach the local service. See
+// backend.go.
+func (c *KcpTransport) backend() backendOpts {
+	return backendOpts{
+		dialTimeout: c.config.DialTimeOut,
+		keepAlive:   c.config.KeepAlive,
+		rcvBuf:      c.config.SO_RCVBUF,
+		sndBuf:      c.config.SO_SNDBUF,
+		mss:         0,
+		sniffer:     c.config.Sniffer,
 	}
-	port, resolvedAddr, err := network.ResolveRemoteAddr(remoteAddr)
-	if err != nil {
-		c.logger.Infof("failed to resolve remote port: %v", err)
-		stream.Close()
-		return
-	}
-	// Pick a healthy backend when several are configured (single = unchanged).
-	resolvedAddr = backends.pick(resolvedAddr)
-
-	var sendBuf, recvBuf int
-
-	if strings.Contains(resolvedAddr, "127.0.0.1") {
-		// Use 32 KB for localhost
-		sendBuf = 32 * 1024
-		recvBuf = 32 * 1024
-	} else {
-		sendBuf = c.config.SO_SNDBUF
-		recvBuf = c.config.SO_RCVBUF
-	}
-
-	localConnection, err := network.TcpDialer(c.state.Ctx(), resolvedAddr, c.config.DialTimeOut, c.config.KeepAlive, true, 1, recvBuf, sendBuf, 0)
-	if err != nil {
-		localDial.Report(c.logger, resolvedAddr, err)
-		stream.Close()
-		return
-	}
-
-	// The last hop worked, so any run of failures recorded for the panel
-	// ends here. See localdial.go.
-	ReportLocalDialOK()
-	c.logger.Debugf("connected to local address %s successfully", remoteAddr)
-
-	handlers.TCPConnectionHandler(c.state.Ctx(), false, metrics.CountedConn(stream), localConnection, c.logger, c.state.Usage(), int(port), c.config.Sniffer)
 }

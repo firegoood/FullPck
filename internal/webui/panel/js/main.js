@@ -15,6 +15,10 @@ import { editView } from './views/edit.js';
 import { addView } from './views/add.js';
 import { settingsView } from './views/settings.js';
 import { serversView } from './views/servers.js';
+import { connTestView } from './views/conntest.js';
+import { manageView } from './views/manage.js';
+import { shareView } from './views/share.js';
+import { quotaView } from './views/quota.js';
 import { maintView, undoView } from './views/maint.js';
 import { alertsView, healthView } from './views/monitor.js';
 import { starView, supportView } from './views/support.js';
@@ -91,7 +95,12 @@ function paintHeader(state) {
 /* The four sections. Each renders into #view; the strip above them is chrome
    and belongs to no section. */
 router.route('/', overview);
+router.route('/conntest', connTestView);
 router.route('/tunnels', dashboard);
+router.route('/manage', manageView);
+/* Servers is out of the dock while the fleet is reworked. The route stays so a
+   bookmark or a link from an alert still opens something rather than bouncing
+   to the overview. */
 router.route('/servers', serversView);
 
 /* A screen that opens over the fleet keeps the fleet underneath: the route
@@ -99,7 +108,10 @@ router.route('/servers', serversView);
    the dialog lands back on the cards rather than on an empty page. */
 /* The pages a dialog can be opened over. Which one is drawn underneath is the
    page you were on, not a guess — see router.setHome. */
-const PAGES = { '/': overview, '/tunnels': dashboard, '/servers': serversView };
+const PAGES = {
+  '/': overview, '/conntest': connTestView, '/tunnels': dashboard,
+  '/manage': manageView, '/servers': serversView,
+};
 
 function over(view, fixed) {
   return ctx => {
@@ -127,6 +139,8 @@ router.route('/t/:name/logs',    over(logsView));
 router.route('/t/:name/metrics', over(metricsView));
 router.route('/t/:name/history', over(historyView));
 router.route('/t/:name/link',    over(linkTestView));
+router.route('/t/:name/share',   over(shareView));
+router.route('/t/:name/quota',   over(quotaView));
 router.route('/t/:name/edit',    over(editView));
 router.route('/t/:name/undo',    over(undoView));
 
@@ -245,8 +259,9 @@ document.addEventListener('DOMContentLoaded', () => {
     /* A dialog opened over a section leaves that section marked, because it is
        still where you are. Settings is one of those dialogs now: the overview
        has a button for it, so the dock does not carry a second door to it. */
-    const at = ['/servers', '/tunnels'].find(p => path.startsWith(p))
-      || (path.startsWith('/t/') ? '/tunnels' : '/');
+    const at = ['/conntest', '/tunnels', '/manage'].find(p => path.startsWith(p))
+      || (path.startsWith('/t/') || path === '/add' ? '/tunnels'
+        : PAGES[router.getHome()] && router.getHome() !== '/servers' ? router.getHome() : '/');
     document.querySelectorAll('#dock [data-dock]').forEach(b => {
       const on = b.dataset.dock === at;
       b.classList.toggle('on', on);
@@ -263,12 +278,15 @@ document.addEventListener('DOMContentLoaded', () => {
      "no servers" until you happen to open the section. It is deliberately not
      polled: a count that is one page-load stale is not worth a request every
      few seconds, and the section itself is live while you are on it. */
-  api.nodes()
-    .then(state => {
-      const n = $('#dock-s');
-      if (n) n.textContent = state.nodes?.length ? String(state.nodes.length) : '';
+  /* The Connection Test's dot: a test runs for minutes, often while you look
+     at something else, so the dock says one is going. Read once here and then
+     by the section itself while it is open. */
+  api.connTest()
+    .then(v => {
+      const n = $('#dock-c');
+      if (n) n.textContent = ['starting', 'waiting', 'running'].includes(v.state) ? '●' : '';
     })
-    .catch(() => { /* the badge simply stays empty */ });
+    .catch(() => {});
 
   mountStrip();
   router.start(path => {
