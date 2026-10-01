@@ -24,4 +24,4 @@ FullPack می‌تواند گزارش وضعیت، هشدار و کنترل‌ه
 
 </div>
 
-*Last verified against FullPack v1.8.11.*
+*Last verified against FullPack v1.8.12.*

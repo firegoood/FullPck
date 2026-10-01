@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"net"
@@ -181,6 +182,13 @@ func (s *server) writeNodeStateWith(w http.ResponseWriter, extra map[string]any)
 		}(i, n.Name, n.LastSeen)
 	}
 	wg.Wait()
+	// Hello can take several seconds. Publish session state after that wait,
+	// so a disconnect during metadata collection cannot be shown as Online.
+	if run != nil {
+		for i := range rows {
+			rows[i].Online, rows[i].Why = run.Reachable(rows[i].Name)
+		}
+	}
 
 	out := map[string]any{"nodes": rows}
 	for k, v := range extra {
@@ -394,7 +402,20 @@ func (s *server) handleNodePair(w http.ResponseWriter, r *http.Request) {
 	// Checked before anything is written. Creating this end and then finding
 	// the other server unreachable leaves half a tunnel and an operator who has
 	// to know that is what happened.
-	if ok, why := run.Reachable(req.Node); !ok {
+	ok, why := run.Reachable(req.Node)
+	if ready, supported := run.(interface {
+		Ready(context.Context, string) error
+	}); supported {
+		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+		err := ready.Ready(ctx, req.Node)
+		cancel()
+		ok = err == nil
+		if err != nil {
+			why = err.Error()
+		}
+	}
+	if !ok {
+		w.Header().Set(fixHeader, "managed-node")
 		msg := req.Node + " could not be reached — nothing was created"
 		if why != "" {
 			msg += ": " + why

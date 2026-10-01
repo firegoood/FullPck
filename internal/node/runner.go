@@ -80,6 +80,28 @@ func (r *AgentRunner) IsOnline(name string) bool {
 	return ok && !n.Revoked && n.ID != "" && r.hub.IsOnline(n.ID)
 }
 
+// Ready tolerates a brief reconnect and requires an authenticated Ping reply.
+func (r *AgentRunner) Ready(ctx context.Context, name string) error {
+	n, ok := Find(name)
+	if !ok {
+		return fmt.Errorf("no server called %q", name)
+	}
+	if n.Revoked {
+		return ErrAgentRevoked
+	}
+	if n.ID == "" {
+		return ErrOffline{Name: name, Why: ErrAgentOffline.Error(), Err: ErrAgentOffline}
+	}
+	if err := r.hub.Ready(ctx, n.ID); err != nil {
+		why := agentFailureReason(err)
+		if !r.hub.IsOnline(n.ID) && ctx.Err() != nil {
+			why = "managed node is offline; reconnect did not finish before the deadline"
+		}
+		return ErrOffline{Name: name, Why: why, Err: err}
+	}
+	return nil
+}
+
 func (r *AgentRunner) Reachable(name string) (bool, string) {
 	n, ok := Find(name)
 	if !ok {

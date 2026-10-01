@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createTunnelForMode } from '../panel/js/lib/addmode.js';
+import { createTunnelForMode, managedNodeSelection } from '../panel/js/lib/addmode.js';
 
 function fakeAPI() {
   const calls = [];
@@ -12,6 +12,16 @@ function fakeAPI() {
     nodePair: async p => { calls.push(['paired', p]); return { status: 'ok' }; },
   };
 }
+
+test('refresh never silently changes the chosen managed destination', () => {
+  const offline = { name: 'TR', online: false };
+  const other = { name: 'DE', online: true };
+  assert.equal(managedNodeSelection('TR', [offline, other], 'managed'), 'TR');
+  assert.equal(managedNodeSelection('TR', [other], 'managed'), '');
+  assert.equal(managedNodeSelection('', [other], 'managed'), 'DE');
+  assert.equal(managedNodeSelection('', [other], 'manual'), '');
+  assert.equal(managedNodeSelection('', [other, { ...offline, online: true }], 'managed'), '');
+});
 
 test('manual reverse and direct always use local APIs even with a selected Node', async () => {
   const api = fakeAPI();

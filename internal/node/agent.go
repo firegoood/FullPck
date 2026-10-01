@@ -81,12 +81,14 @@ type Hub struct {
 	mu         sync.RWMutex
 	sessions   map[string]*agentSession
 	generation map[string]uint64
+	changed    chan struct{}
 }
 
 func NewHub() *Hub {
 	return &Hub{
 		sessions:   make(map[string]*agentSession),
 		generation: make(map[string]uint64),
+		changed:    make(chan struct{}),
 	}
 }
 
@@ -189,6 +191,7 @@ func (h *Hub) CloseNode(id string) {
 	if s != nil {
 		delete(h.sessions, id)
 	}
+	h.notifyLocked()
 	h.mu.Unlock()
 	if s != nil {
 		s.closeWith(ErrAgentRevoked)
@@ -202,6 +205,7 @@ func (h *Hub) Close() {
 	h.mu.Lock()
 	sessions := h.sessions
 	h.sessions = make(map[string]*agentSession)
+	h.notifyLocked()
 	h.mu.Unlock()
 	for id, s := range sessions {
 		s.closeWith(ErrAgentOffline)
@@ -222,6 +226,7 @@ func (h *Hub) replace(id string, s *agentSession) bool {
 	h.generation[id]++
 	s.generation = h.generation[id]
 	h.sessions[id] = s
+	h.notifyLocked()
 	h.mu.Unlock()
 	if old != nil {
 		old.closeWith(ErrAgentOffline)
@@ -233,9 +238,55 @@ func (h *Hub) remove(id string, s *agentSession) {
 	h.mu.Lock()
 	if h.sessions[id] == s {
 		delete(h.sessions, id)
-		noteConnection(id, "", "Agent connection closed", false)
+		h.notifyLocked()
+		noteConnection(id, "", agentFailureReason(s.closeErr), false)
 	}
 	h.mu.Unlock()
+}
+
+// notifyLocked wakes readiness checks after publication, replacement or loss.
+// The registry mutex protects both the session snapshot and its notification.
+func (h *Hub) notifyLocked() {
+	close(h.changed)
+	h.changed = make(chan struct{})
+}
+
+// Ready proves the typed operation path. Only the idempotent Ping is retried;
+// apply/start/delete must never be replayed after an uncertain response.
+func (h *Hub) Ready(ctx context.Context, id string) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if n, ok := findByID(id); !ok || n.Revoked {
+			return ErrAgentRevoked
+		}
+		h.mu.RLock()
+		s, changed := h.sessions[id], h.changed
+		h.mu.RUnlock()
+		if s != nil && !s.isClosed() {
+			resp, err := s.call(ctx, Request{Op: OpPing})
+			if err == nil {
+				if !resp.OK {
+					return ErrAgentProtocol
+				}
+				current, online := h.SessionFor(id)
+				if current == s && online {
+					if n, ok := findByID(id); ok && !n.Revoked {
+						return nil
+					}
+					return ErrAgentRevoked
+				}
+			} else if !s.isClosed() {
+				return err
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-changed:
+		}
+	}
 }
 
 // SessionFor returns the current session for a stable node identity.
@@ -288,6 +339,7 @@ type agentSession struct {
 	writeQ     chan []byte
 	done       chan struct{}
 	closeOnce  sync.Once
+	closeErr   error // assigned before done closes; readers wait for done
 	writeMu    sync.Mutex
 	readMu     sync.Mutex
 	pendingMu  sync.Mutex
@@ -327,6 +379,7 @@ func (s *agentSession) runGuarded(fn func()) {
 
 func (s *agentSession) closeWith(err error) {
 	s.closeOnce.Do(func() {
+		s.closeErr = err
 		close(s.done)
 		_ = s.ws.Close()
 		s.pendingMu.Lock()
@@ -350,23 +403,32 @@ func (s *agentSession) writeLoop() {
 		case <-s.done:
 			return
 		case plain := <-s.writeQ:
-			_ = s.ws.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			frame, err := s.encrypt(plain)
-			if err != nil {
-				s.closeWith(err)
-				return
-			}
-			if err := s.ws.WriteMessage(websocket.BinaryMessage, frame); err != nil {
+			if err := s.writeEncrypted(plain); err != nil {
 				s.closeWith(err)
 				return
 			}
 		case <-t.C:
+			// Encrypted heartbeats also survive intermediaries that filter
+			// WebSocket control frames. Older Agents already accept this type.
+			if err := s.writeEncrypted(marshalBody(agentEnvelope{Version: agentProtocolVersion, Type: "heartbeat"})); err != nil {
+				s.closeWith(err)
+				return
+			}
 			if err := s.ws.WriteControl(websocket.PingMessage, []byte("bp"), time.Now().Add(5*time.Second)); err != nil {
 				s.closeWith(err)
 				return
 			}
 		}
 	}
+}
+
+func (s *agentSession) writeEncrypted(plain []byte) error {
+	_ = s.ws.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	frame, err := s.encrypt(plain)
+	if err != nil {
+		return err
+	}
+	return s.ws.WriteMessage(websocket.BinaryMessage, frame)
 }
 
 func (s *agentSession) readLoop() {
@@ -394,6 +456,9 @@ func (s *agentSession) readLoop() {
 			s.closeWith(ErrAgentProtocol)
 			return
 		}
+		// Authenticated, valid traffic also proves liveness; malformed
+		// ciphertext must never refresh the deadline.
+		_ = s.ws.SetReadDeadline(time.Now().Add(agentPongTimeout))
 		s.dispatch(env)
 	}
 }
@@ -428,8 +493,7 @@ func (s *agentSession) dispatch(env agentEnvelope) {
 			_ = s.enqueue(s.handler(env))
 		})
 	case "heartbeat":
-		// WebSocket Ping/Pong handles liveness; application heartbeats are
-		// accepted for forward compatibility and intentionally carry no action.
+		// The encrypted heartbeat proves liveness and carries no operation.
 	case "stream_open", "stream_opened", "stream_data", "stream_close", "stream_error":
 		s.dispatchStream(env)
 	default:
@@ -851,23 +915,28 @@ func RunAgent(ctx context.Context, cfg AgentConfig) {
 		}
 	}()
 	backoff := time.Second
+	controller, _ := controllerIdentity(cfg.ControllerURL)
 	for {
 		if ctx.Err() != nil {
 			return
 		}
-		ws, _, err := dialController(ctx, cfg)
+		stage := "connect"
+		ws, response, err := dialController(ctx, cfg)
 		if err == nil {
 			s, serr := clientSession(ws, cfg)
+			stage, err = "authenticate", serr
 			if serr == nil {
 				active = s
 				s.start()
 				connectedAt := time.Now()
+				log.Printf("Agent Controller %s: authenticated connection established", controller)
 				select {
 				case <-ctx.Done():
 					s.closeWith(ctx.Err())
 					return
 				case <-s.done:
 				}
+				stage, err = "session", s.closeErr
 				// A rapidly dropped authenticated connection needs the same
 				// jittered backoff as a failed dial. Reset after a stable session.
 				if time.Since(connectedAt) >= agentPongTimeout {
@@ -877,6 +946,14 @@ func RunAgent(ctx context.Context, cfg AgentConfig) {
 			_ = ws.Close()
 		}
 		d := backoff + time.Duration(mrand.Int64N(int64(backoff/2)+1))
+		if ctx.Err() != nil {
+			return
+		}
+		reason := agentFailureReason(err)
+		if response != nil && response.StatusCode != http.StatusSwitchingProtocols {
+			reason = fmt.Sprintf("HTTP %d", response.StatusCode)
+		}
+		log.Printf("Agent Controller %s: %s failed (%s); reconnecting in %s", controller, stage, reason, d.Round(10*time.Millisecond))
 		t := time.NewTimer(d)
 		select {
 		case <-ctx.Done():
@@ -891,6 +968,32 @@ func RunAgent(ctx context.Context, cfg AgentConfig) {
 			}
 		}
 	}
+}
+
+// Do not log raw dial/TLS/peer errors: they can contain URL credentials or
+// peer-controlled strings. Fixed reasons still identify the failing stage.
+func agentFailureReason(err error) string {
+	switch {
+	case errors.Is(err, ErrAgentRevoked):
+		return "Node credential revoked"
+	case errors.Is(err, ErrAgentProtocol):
+		return "Agent authentication or protocol failed"
+	case errors.Is(err, ErrAgentBackpress):
+		return "Agent queue is full"
+	case errors.Is(err, context.Canceled):
+		return "Agent stopped"
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, net.ErrClosed):
+		return "Agent connection closed"
+	}
+	var closed *websocket.CloseError
+	if errors.As(err, &closed) {
+		return fmt.Sprintf("WebSocket closed (code %d)", closed.Code)
+	}
+	var network net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &network) && network.Timeout()) {
+		return "Agent connection timed out"
+	}
+	return "Agent connection failed"
 }
 
 func dialController(ctx context.Context, cfg AgentConfig) (*websocket.Conn, *http.Response, error) {

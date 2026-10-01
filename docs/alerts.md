@@ -47,4 +47,4 @@ stopped.
 
 ---
 
-*Last verified against FullPack v1.8.11.*
+*Last verified against FullPack v1.8.12.*

@@ -17,7 +17,7 @@ import * as store from '../store.js';
 import { openScreen } from '../ui/screen.js';
 import { oops, toast } from '../ui/toast.js';
 import { go } from '../router.js';
-import { createTunnelForMode } from '../lib/addmode.js';
+import { createTunnelForMode, managedNodeSelection } from '../lib/addmode.js';
 
 export function addView(ctx) {
   openScreen('add', {
@@ -538,13 +538,15 @@ export function addView(ctx) {
           settle(0, false);
           spin?.setAttribute('hidden', '');
           if (title) title.textContent = 'Nothing was created';
-          if (sub) sub.textContent = 'This server refused the settings.';
+          const offline = e.fix === 'managed-node';
+          if (sub) sub.textContent = offline ? 'The selected server did not answer.' : 'This server refused the settings.';
           if (result) {
             result.innerHTML = `<div class="doneline warn"><span class="tick">!</span><div>
               <b>${esc(e.message || 'The panel could not build the tunnel')}</b>
-              <span>Go back and change what it names, then press Create again.</span>
+              <span>${offline ? 'Go back, refresh servers and wait for the selected server to reconnect, then press Create again. Check fullpack-monitor on the foreign server if it stays offline.' : 'Go back and change what it names, then press Create again.'}</span>
             </div></div>`;
           }
+          if (offline) refreshNodes();
           building = false;
           return;
         }
@@ -1032,6 +1034,7 @@ export function addView(ctx) {
       let peerIP = '';               // the one for the server that was picked
       let nodeTimer = null;
       let checkingNodes = false;
+      let pickedNode = '';
       async function refreshNodes() {
         if (checkingNodes || !root.isConnected) return;
         clearTimeout(nodeTimer);
@@ -1040,7 +1043,7 @@ export function addView(ctx) {
         try {
           const state = await api.nodesCached();
           if (!root.isConnected) return;
-          const selected = nodeSel.value;
+          const selected = nodeSel.value || pickedNode;
           const nodes = state.nodes || [];
           const live = nodes.filter(n => n.online && !n.revoked);
           nodeAddr.clear();
@@ -1052,8 +1055,7 @@ export function addView(ctx) {
             const ip = n.info?.ipv4;
             if (online && ip && ip !== '-') nodeAddr.set(n.name, ip);
           }
-          if (live.some(n => n.name === selected)) nodeSel.value = selected;
-          else if (creationMode === 'managed' && live.length === 1) nodeSel.value = live[0].name;
+          nodeSel.value = managedNodeSelection(selected, nodes, creationMode);
           nodeStatus.textContent = live.length ? `${live.length} managed server(s) online.`
             : nodes.length ? 'No server is online. Check the foreign monitor service; this list refreshes automatically.'
               : 'No managed servers enrolled. Add one under Servers and run fullpack node join on it.';
@@ -1070,6 +1072,7 @@ export function addView(ctx) {
       refreshNodes();
 
       nodeSel?.addEventListener('change', () => {
+        if (nodeSel.value) pickedNode = nodeSel.value;
 
         /* The address is not asked for, because it is already known.
          *

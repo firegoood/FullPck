@@ -257,4 +257,4 @@ context)، پورت‌های فوروارد (`forward.go`)، حلقهٔ کانا
 
 ---
 
-*Last verified against FullPack v1.8.11.*
+*Last verified against FullPack v1.8.12.*

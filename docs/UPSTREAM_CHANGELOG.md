@@ -10,7 +10,7 @@ This file preserves the upstream release history for reference. FullPack release
 
 </div>
 
-*Last verified against FullPack v1.8.11.*
+*Last verified against FullPack v1.8.12.*
 
 ## v1.8.5 — 2026-09-30
 

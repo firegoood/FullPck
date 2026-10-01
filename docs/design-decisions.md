@@ -271,4 +271,4 @@ roadmap است: چیزهایی که ساخته می‌شوند دیگر جالب
 
 ---
 
-*Last verified against FullPack v1.8.11.*
+*Last verified against FullPack v1.8.12.*
