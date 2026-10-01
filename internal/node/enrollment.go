@@ -18,6 +18,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -544,8 +545,6 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	}
 	defer ws.Close()
 	ws.SetReadLimit(16 << 10)
-	_ = ws.SetReadDeadline(time.Now().Add(agentHandshakeTimeout))
-	_ = ws.SetWriteDeadline(time.Now().Add(agentHandshakeTimeout))
 	hs, err := handshakeConfigWithPrologue(true, HashCredential(e.Token), "fullpack-node-enrollment-v1")
 	if err != nil {
 		return AgentConfig{}, err
@@ -554,10 +553,10 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	if err != nil {
 		return AgentConfig{}, err
 	}
-	if err := ws.WriteMessage(websocket.BinaryMessage, first); err != nil {
+	if err := writeEnrollmentFrame(ws, first, "sending Noise hello"); err != nil {
 		return AgentConfig{}, err
 	}
-	_, second, err := ws.ReadMessage()
+	second, err := readEnrollmentFrame(ws, "receiving Noise reply")
 	if err != nil {
 		return AgentConfig{}, err
 	}
@@ -570,10 +569,10 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	if err != nil {
 		return AgentConfig{}, err
 	}
-	if err := ws.WriteMessage(websocket.BinaryMessage, sealed); err != nil {
+	if err := writeEnrollmentFrame(ws, sealed, "sending permanent credential"); err != nil {
 		return AgentConfig{}, err
 	}
-	_, ciphertext, err := ws.ReadMessage()
+	ciphertext, err := readEnrollmentFrame(ws, "receiving provisioning response")
 	if err != nil {
 		return AgentConfig{}, err
 	}
@@ -601,14 +600,54 @@ func JoinWithEnrollment(code string, client *http.Client) (AgentConfig, error) {
 	// lost, the normal authenticated Agent connection also completes enrollment.
 	ack, _ := json.Marshal(enrollmentMessage{Version: EnrollmentVersion, NodeID: e.NodeID, Ack: true})
 	if sealedAck, sealErr := send.Encrypt(nil, nil, ack); sealErr == nil {
-		if ws.WriteMessage(websocket.BinaryMessage, sealedAck) == nil {
+		if writeEnrollmentFrame(ws, sealedAck, "sending durable acknowledgement") == nil {
 			// Give the Controller a chance to commit completion before returning.
 			// Its response can be lost; the durable Agent config remains usable.
-			_, _, _ = ws.ReadMessage()
+			_, _ = readEnrollmentFrame(ws, "receiving completion acknowledgement")
 		}
 	}
 	return cfg, nil
 }
+
+// The budget belongs to each I/O phase. A single deadline for the entire
+// exchange disconnects a progressing peer, and does not bound Controller writes.
+// Phase names must be constants: never include a payload or peer-supplied text.
+func readEnrollmentFrame(ws *websocket.Conn, phase string) ([]byte, error) {
+	if err := ws.SetReadDeadline(time.Now().Add(agentHandshakeTimeout)); err != nil {
+		return nil, &enrollmentIOError{phase, err}
+	}
+	typ, body, err := ws.ReadMessage()
+	if err == nil && typ != websocket.BinaryMessage {
+		err = ErrAgentProtocol
+	}
+	if err != nil {
+		return nil, &enrollmentIOError{phase, err}
+	}
+	return body, nil
+}
+
+func writeEnrollmentFrame(ws *websocket.Conn, body []byte, phase string) error {
+	if err := ws.SetWriteDeadline(time.Now().Add(agentHandshakeTimeout)); err != nil {
+		return &enrollmentIOError{phase, err}
+	}
+	if err := ws.WriteMessage(websocket.BinaryMessage, body); err != nil {
+		return &enrollmentIOError{phase, err}
+	}
+	return nil
+}
+
+// Preserve errors.Is/As for callers without printing an arbitrary close reason
+// supplied by a peer. The public error identifies only the phase and error class.
+type enrollmentIOError struct {
+	phase string
+	cause error
+}
+
+func (e *enrollmentIOError) Error() string {
+	return fmt.Sprintf("enrollment %s failed: %s", e.phase, agentFailureReason(e.cause))
+}
+
+func (e *enrollmentIOError) Unwrap() error { return e.cause }
 
 // Retry state belongs to a Controller, not to the whole foreign machine.
 // Keep a matching old intent recoverable; never replace another Controller's
@@ -719,74 +758,107 @@ func HandleEnrollmentHTTP(w http.ResponseWriter, r *http.Request) {
 	up := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 	ws, err := up.Upgrade(w, r, nil)
 	if err != nil {
+		log.Printf("Enrollment Node %s: WebSocket upgrade failed (%s)", agentNodeLabel(id), agentFailureReason(err))
 		return
 	}
 	defer ws.Close()
 	ws.SetReadLimit(16 << 10)
-	_ = ws.SetReadDeadline(time.Now().Add(agentHandshakeTimeout))
-	hs, err := handshakeConfigWithPrologue(false, stored.TokenHash, "fullpack-node-enrollment-v1")
+	_ = controllerEnrollmentExchange(ws, id, stored.TokenHash)
+}
+
+func controllerEnrollmentExchange(ws *websocket.Conn, id, tokenHash string) (resultErr error) {
+	phase := "initializing Noise"
+	defer func() {
+		if resultErr != nil {
+			log.Printf("Enrollment Node %s: %s failed (%s)", agentNodeLabel(id), phase, agentFailureReason(resultErr))
+		} else {
+			log.Printf("Enrollment Node %s: completed", agentNodeLabel(id))
+		}
+	}()
+	hs, err := handshakeConfigWithPrologue(false, tokenHash, "fullpack-node-enrollment-v1")
 	if err != nil {
-		return
+		return err
 	}
-	_, first, err := ws.ReadMessage()
+	phase = "receiving Noise hello"
+	first, err := readEnrollmentFrame(ws, phase)
 	if err != nil {
-		return
+		return err
 	}
+	phase = "authenticating Noise hello"
 	payload, _, _, err := hs.ReadMessage(nil, first)
 	if err != nil {
-		return
+		return ErrAgentProtocol
 	}
 	var hello agentHello
 	if json.Unmarshal(payload, &hello) != nil || hello.Version != agentProtocolVersion || hello.NodeID != id {
-		return
+		return ErrAgentProtocol
 	}
+	phase = "sending Noise reply"
 	second, cs0, cs1, err := hs.WriteMessage(nil, nil)
-	if err != nil || ws.WriteMessage(websocket.BinaryMessage, second) != nil {
-		return
-	}
-	_, ciphertext, err := ws.ReadMessage()
 	if err != nil {
-		return
+		return err
+	}
+	if err = writeEnrollmentFrame(ws, second, phase); err != nil {
+		return err
+	}
+	phase = "receiving permanent credential"
+	ciphertext, err := readEnrollmentFrame(ws, phase)
+	if err != nil {
+		return err
 	}
 	plain, err := cs0.Decrypt(nil, nil, ciphertext)
 	if err != nil {
-		return
+		return ErrAgentProtocol
 	}
 	var request enrollmentMessage
 	if json.Unmarshal(plain, &request) != nil || request.Version != EnrollmentVersion || request.NodeID != id {
-		return
+		return ErrAgentProtocol
 	}
-	_, err = completeEnrollmentRecord(id, stored.TokenHash, request.Credential)
+	phase = "saving managed Node"
+	_, err = completeEnrollmentRecord(id, tokenHash, request.Credential)
 	answer := enrollmentMessage{Version: EnrollmentVersion, NodeID: id}
 	if err != nil {
 		answer.Error = err.Error()
 	}
 	b, _ := json.Marshal(answer)
 	sealed, sealErr := cs1.Encrypt(nil, nil, b)
-	if sealErr == nil {
-		_ = ws.WriteMessage(websocket.BinaryMessage, sealed)
+	if sealErr != nil {
+		return sealErr
 	}
-	if err != nil || sealErr != nil {
-		return
+	if writeErr := writeEnrollmentFrame(ws, sealed, "sending provisioning response"); writeErr != nil {
+		phase = "sending provisioning response"
+		return writeErr
 	}
-	_, encryptedAck, err := ws.ReadMessage()
 	if err != nil {
-		return
+		return err
+	}
+	phase = "receiving durable acknowledgement"
+	encryptedAck, err := readEnrollmentFrame(ws, phase)
+	if err != nil {
+		return err
 	}
 	plainAck, err := cs0.Decrypt(nil, nil, encryptedAck)
 	if err != nil {
-		return
+		return ErrAgentProtocol
 	}
 	var ack enrollmentMessage
 	if json.Unmarshal(plainAck, &ack) != nil || !ack.Ack || ack.Version != EnrollmentVersion || ack.NodeID != id {
-		return
+		return ErrAgentProtocol
 	}
 	answer = enrollmentMessage{Version: EnrollmentVersion, NodeID: id, Ack: true}
-	if finishEnrollment(id, request.Credential) != nil {
+	phase = "saving completion acknowledgement"
+	finishErr := finishEnrollment(id, request.Credential)
+	if finishErr != nil {
 		answer.Error = "enrollment confirmation could not be saved"
 	}
 	b, _ = json.Marshal(answer)
-	if reply, sealErr := cs1.Encrypt(nil, nil, b); sealErr == nil {
-		_ = ws.WriteMessage(websocket.BinaryMessage, reply)
+	reply, sealErr := cs1.Encrypt(nil, nil, b)
+	if sealErr != nil {
+		return sealErr
 	}
+	if writeErr := writeEnrollmentFrame(ws, reply, "sending completion acknowledgement"); writeErr != nil {
+		phase = "sending completion acknowledgement"
+		return writeErr
+	}
+	return finishErr
 }

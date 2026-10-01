@@ -155,4 +155,4 @@ throttle می‌شود و علتش چیزی است که روی *اتصال* عم
 
 ---
 
-*Last verified against FullPack v1.8.13.*
+*Last verified against FullPack v1.8.14.*

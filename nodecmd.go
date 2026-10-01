@@ -21,6 +21,11 @@ const nodeUsage = `fullpack node — the reverse Agent side of this server
         Repeat with each Iran Controller's code to connect this Node to more
         than one Controller. Existing enrollments remain connected.
 
+  fullpack node retire-http <http-origin>
+        Remove this HTTP enrollment after separately joining its HTTPS
+        replacement on the same host and port with a certificate pin.
+        Save a private backup first. Other Controllers and tunnels remain.
+
 The node dials the configured Controller over WebSocket from the existing
 fullpack-monitor.service. It does not open an inbound management listener.
 `
@@ -33,12 +38,30 @@ func runNode(args []string) {
 	switch args[0] {
 	case "join":
 		nodeJoin(args[1:])
+	case "retire-http":
+		nodeRetireHTTP(args[1:])
 	case "-h", "--help", "help":
 		fmt.Print(nodeUsage)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", args[0], nodeUsage)
 		os.Exit(2)
 	}
+}
+
+func nodeRetireHTTP(args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: fullpack node retire-http <http-origin>")
+		os.Exit(2)
+	}
+	backup, err := node.RetireHTTPController(args[0])
+	if backup != "" {
+		fmt.Printf("Private Controller backup: %s\n", backup)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Println("HTTP enrollment retired. The monitor will keep the remaining Controllers connected without restarting tunnels.")
 }
 
 func nodeJoin(args []string) {

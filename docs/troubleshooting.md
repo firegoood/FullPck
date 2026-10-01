@@ -258,6 +258,35 @@ The audit record and its hash reference remain available. Authentication and
 authorisation refusals (`401`/`403`), and rate limits (`429`), keep their security
 Alert label.
 
+During `node join`, `controller enrollment failed` means the TLS or WebSocket
+upgrade did not complete. Errors such as `enrollment receiving Noise reply
+failed` and `enrollment receiving provisioning response failed` identify a later
+phase. Each I/O phase has a bounded deadline that resets with progress. Retry an
+interrupted enrollment with its original code and private retry intent; do not
+delete the intent or send the code and credential in diagnostic reports.
+
+A single `curl --http1.1` response at `/` does not prove a persistent connection
+works. Test two requests on the same connection, using your Controller origin:
+
+```sh
+curl -vkI --http1.1 --connect-timeout 5 --max-time 20 \
+  https://controller.example:9443/ https://controller.example:9443/
+```
+
+`404` at `/` is normal. `-k` is only for this self-signed curl diagnostic; Agent
+certificate verification remains enabled. If the first request works but the
+second times out, compare TCP sequence and ACK metadata from both hosts during
+one attempt and inspect the network path. Do not infer the cause from a different
+connection's counters or disable TLS/Noise to work around it.
+
+If an HTTPS Controller still receives `client sent an HTTP request to an HTTPS
+server`, the Node may retain its old HTTP enrollment beside the new HTTPS one.
+After confirming that HTTPS operations work, use `sudo fullpack node retire-http
+http://controller.example:9443` on that Node, with the old origin. It requires an
+already enrolled HTTPS entry with a valid pin on the same host and port, writes a
+private backup, and keeps other Agent sessions and tunnels running. See
+[Managed Servers](managed-servers.md#حذف-تنظیم-http-پس-از-ثبت-https).
+
 ---
 
 ## After an update
@@ -438,6 +467,22 @@ Node با Agent از طریق اتصال خروجی به آدرس Controller و�
 این گزینه به listener یا پورت 443 جدید نیاز ندارد. خطای `502` ساخت Managed یک
 خطای عملیاتی است و در نسخهٔ جدید با هشدار امنیتی ورود اشتباه گرفته نمی‌شود.
 
+خطای `controller enrollment failed` قبل از تکمیل TLS/WebSocket است. خطای
+`enrollment receiving Noise reply failed` یا `receiving provisioning response`
+مرحلهٔ بعدی توقف را مشخص می‌کند. هر خواندن و نوشتن مهلت مستقل دارد؛ اگر شبکه پاسخ
+را گم کرده، با همان کد و intent خصوصی دوباره تلاش کن و کد یا credential را نفرست.
+
+اگر درخواست نخست curl موفق و درخواست دوم روی همان اتصال timeout می‌شود، مشکل
+انتقال اتصال پایدار را بررسی کن؛ پاسخ منفرد ۴۰۴ سلامت Agent را ثابت نمی‌کند.
+برای مقایسهٔ sequence و ACK، خروجی metadata بسته‌های همان تلاش را از هر دو سر
+بگیر. تغییر نسخهٔ TLS یا افزایش timeout بدون شواهد، رفع مشکل را تضمین نمی‌کند.
+
+اگر در کنار HTTPS سالم، تنظیم HTTP قبلی باقی مانده، فرمان
+`sudo fullpack node retire-http http://controller.example:9443` روی Node فقط
+همان HTTP را پس از ذخیرهٔ پشتیبان خصوصی حذف می‌کند. آدرس مثال را با origin قدیمی
+خود جایگزین کن. این فرمان به ثبت‌نام HTTPS مستقل با pin معتبر روی همان میزبان و
+پورت نیاز دارد و سایر کنترلرها و تونل‌ها را restart نمی‌کند.
+
 ### بعد از آپدیت
 
 قبل از هر آپدیت snapshot گرفته می‌شود و اگر تونل‌ها برنگردند خودش برمی‌گردد.
@@ -494,4 +539,4 @@ journalctl -u fullpack-webui -n 100
 
 ---
 
-*Last verified against FullPack v1.8.13.*
+*Last verified against FullPack v1.8.14.*

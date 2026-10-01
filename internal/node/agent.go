@@ -778,6 +778,10 @@ func LoadAgentConfigs() ([]AgentConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	return decodeAgentConfigs(b)
+}
+
+func decodeAgentConfigs(b []byte) ([]AgentConfig, error) {
 	var file agentConfigFile
 	if err := json.Unmarshal(b, &file); err != nil {
 		return nil, err

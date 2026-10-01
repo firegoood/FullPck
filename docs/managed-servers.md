@@ -19,6 +19,16 @@ Node آدرس و پورت WebUI را از کد ثبت‌نام می‌گیرد. 
 
 برای مسیرهایی که WebSocket روی HTTP بعد از handshake دیگر داده منتقل نمی‌کند، HTTPS/WSS را روی همان پورت فعلی امتحان کنید: `Web Panel → Certificate → Self-Signed`، سپس آدرس HTTPS در enrollment تازه. کد گواهی را pin می‌کند و Noise نیز برقرار می‌ماند؛ پورت 443 یا listener جدید لازم نیست. [راهنمای تشخیص قطع Agent](troubleshooting.md#a-managed-server-shows-as-offline) تفاوت timeout شبکه و خطای ثبت‌نام را توضیح می‌دهد.
 
+### حذف تنظیم HTTP پس از ثبت HTTPS
+
+پس از اطمینان از کارکرد ثبت‌نام جدید HTTPS، روی سرور خارج می‌توانید فقط تنظیم HTTP قبلی همان کنترلر را حذف کنید:
+
+```sh
+sudo fullpack node retire-http http://controller.example:9443
+```
+
+origin را با آدرس HTTP قبلی خود، بدون مسیر پنل، جایگزین کنید. فرمان به ثبت‌نام مستقل HTTPS با pin معتبر روی همان میزبان و پورت نیاز دارد؛ خودش enrollment جدید نمی‌سازد. ابتدا نسخهٔ کامل `node-agent.json` را با مجوز `0600` ذخیره و مسیر آن را چاپ می‌کند، سپس فقط ورودی انتخاب‌شده را حذف می‌کند. این پشتیبان حاوی credential است و باید خصوصی بماند. monitor ظرف چند ثانیه worker HTTP را متوقف می‌کند؛ اتصال HTTPS، سایر کنترلرها و تونل‌ها restart نمی‌شوند. رکورد قدیمی در پنل کنترلر خودکار حذف یا Revoke نمی‌شود.
+
 ## ساخت و ادارهٔ تونل
 
 ### چند کنترلر ایران و یک سرور خارج
@@ -49,4 +59,4 @@ Revoke اعتبارنامهٔ Node را در کنترلر غیرفعال و جل
 
 </div>
 
-*Last verified against FullPack v1.8.13.*
+*Last verified against FullPack v1.8.14.*

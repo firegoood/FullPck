@@ -63,4 +63,4 @@ Change a tunnel's transport any time from **Edit → Change transport**.
 
 ---
 
-*Last verified against FullPack v1.8.13.*
+*Last verified against FullPack v1.8.14.*
