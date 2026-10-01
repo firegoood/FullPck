@@ -256,4 +256,4 @@ nonce و یک پروتکل سیگنال بین دو سر نیاز دارد. **ه
 
 ---
 
-*Last verified against FullPack v1.8.12.*
+*Last verified against FullPack v1.8.13.*

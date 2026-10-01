@@ -1,6 +1,45 @@
 package webui
 
-import "testing"
+import (
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/firegoood/FullPck/internal/alerthist"
+)
+
+func TestOperationalFailuresAreForwardedWithoutSecurityRefusalLabel(t *testing.T) {
+	isolateAccess(t)
+	isolateAlerts(t)
+	for _, status := range []int{http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout} {
+		record(auditEntry{At: int64(status), Who: "the panel", Method: "POST", Path: "/api/node/pair", Status: status})
+		events := alerthist.Load().Events
+		if len(events) == 0 {
+			t.Fatal("operational failure disappeared from the alert history")
+		}
+		message := events[len(events)-1].Message
+		if !strings.Contains(message, "Panel operation failed") || strings.Contains(message, "🔒") || strings.Contains(message, "Panel refused") {
+			t.Fatalf("%d was incorrectly described as a security refusal: %s", status, message)
+		}
+		_, _, head := AuditIntegrity()
+		if !strings.Contains(message, "#"+shortHash(head)) {
+			t.Fatal("operational failure lost its audit chain reference")
+		}
+	}
+}
+
+func TestAuthorizationAndRateLimitRefusalsKeepTheirSecurityLabel(t *testing.T) {
+	isolateAccess(t)
+	isolateAlerts(t)
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests} {
+		record(auditEntry{At: int64(status), Who: "anonymous", Method: "POST", Path: "/api/node/pair", Status: status})
+		events := alerthist.Load().Events
+		message := events[len(events)-1].Message
+		if !strings.Contains(message, "🔒 Panel refused") {
+			t.Fatalf("%d lost its security refusal alert: %s", status, message)
+		}
+	}
+}
 
 // What leaves the machine.
 //
@@ -14,9 +53,9 @@ import "testing"
 // thousands of messages a day from a panel that polls itself, and a channel
 // nobody reads hides the one line that mattered.
 
-func TestEveryRefusalIsForwarded(t *testing.T) {
-	// A run of these is somebody trying credentials, and it is the earliest
-	// signal there is.
+func TestEveryFailureIsForwarded(t *testing.T) {
+	// Operational failures and security refusals stay visible. Their labels
+	// distinguish the cause without dropping the audit event.
 	for _, status := range []int{401, 403, 429, 500} {
 		e := auditEntry{Path: "/api/stats", Method: "GET", Status: status}
 		if !worthForwarding(e) {

@@ -353,4 +353,4 @@ If you set it, nothing changes: it was never doing anything.
 
 ---
 
-*Last verified against FullPack v1.8.12.*
+*Last verified against FullPack v1.8.13.*

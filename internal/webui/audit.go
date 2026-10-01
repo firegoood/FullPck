@@ -318,8 +318,8 @@ func describeAudit(e auditEntry) string {
 
 // worthForwarding reports whether an entry should leave the machine.
 func worthForwarding(e auditEntry) bool {
-	// Every refusal. A run of these is somebody trying credentials, and it is
-	// the earliest signal there is.
+	// Keep failures visible as well as authentication/authorisation refusals.
+	// A 5xx describes an operational failure, not an attempt to use credentials.
 	if e.Status >= 400 {
 		return true
 	}
@@ -367,6 +367,12 @@ func forward(e auditEntry) {
 	from := e.IP
 	if from == "" {
 		from = "an unknown address"
+	}
+	if e.Status >= 500 {
+		alerthist.RecordEvent(fmt.Sprintf(
+			"⚠️ Panel operation failed: %s %s by %s from %s — %d · record #%s",
+			e.Method, what, e.Who, from, e.Status, shortHash(e.Hash)))
+		return
 	}
 	if e.Status >= 400 {
 		alerthist.RecordEvent(fmt.Sprintf(

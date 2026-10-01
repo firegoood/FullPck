@@ -77,4 +77,4 @@ clamp می‌کند.
 
 ---
 
-*Last verified against FullPack v1.8.12.*
+*Last verified against FullPack v1.8.13.*

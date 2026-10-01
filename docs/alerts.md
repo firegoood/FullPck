@@ -8,6 +8,11 @@ attention — it does not only answer when asked.
 - **CPU, memory and disk** crossing a threshold (defaults: **85% / 85% / 90%**).
 - A **tunnel going down or coming back**.
 
+Panel audit events also use the Alert history. HTTP `5xx` failures are labelled
+`⚠️ Panel operation failed`; a Managed preflight `502` is not a login failure.
+Authentication/authorisation refusals and rate limits keep `🔒 Panel refused`.
+Both kinds retain their audit-chain reference and are forwarded to Telegram.
+
 Each event also gets a **recovery message** when things return to normal.
 
 ## It will not spam you
@@ -33,6 +38,11 @@ stopped.
 ۸۵٪ / ۸۵٪ / ۹۰٪) و پایین رفتن یا برگشتن هر تونل. برای هر رویداد یک **پیام
 بازگشت به حالت عادی** هم می‌فرستد.
 
+رویدادهای audit پنل نیز در Alert ثبت می‌شوند. خطاهای `5xx` مانند `502` ساخت
+Managed با عنوان خطای عملیاتی گزارش می‌شوند؛ خطای ورود یا مجوز نیستند.
+برچسب امنیتی `🔒 Panel refused` برای خطاهای دسترسی و محدودیت درخواست باقی
+می‌ماند. هر دو نوع رویداد مرجع hash chain دارند و به Telegram ارسال می‌شوند.
+
 **اسپم نمی‌کند:** یک مقدار باید به‌وضوح زیر آستانه برگردد تا هشدار پاک شود، و
 هشدار فعال حداکثر هر ۳۰ دقیقه تکرار می‌شود. هر آستانه را روی **۰** بگذاری، دیگر
 پایش نمی‌شود.
@@ -47,4 +57,4 @@ stopped.
 
 ---
 
-*Last verified against FullPack v1.8.12.*
+*Last verified against FullPack v1.8.13.*

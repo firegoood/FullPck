@@ -539,7 +539,9 @@ export function addView(ctx) {
           spin?.setAttribute('hidden', '');
           if (title) title.textContent = 'Nothing was created';
           const offline = e.fix === 'managed-node';
-          if (sub) sub.textContent = offline ? 'The selected server did not answer.' : 'This server refused the settings.';
+          if (sub) sub.textContent = offline
+            ? (e.message || 'The selected server did not answer.')
+            : 'This server refused the settings.';
           if (result) {
             result.innerHTML = `<div class="doneline warn"><span class="tick">!</span><div>
               <b>${esc(e.message || 'The panel could not build the tunnel')}</b>

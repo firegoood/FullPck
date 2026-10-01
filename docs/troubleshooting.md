@@ -229,6 +229,35 @@ means one of:
 
 The card records the last disconnect reason reported by the Agent.
 
+An authenticated WebSocket handshake alone does not prove that Node operations
+work. The Controller publishes Online only after a valid encrypted Ping reply.
+Its journal distinguishes `readiness ended` from `operation channel ready`,
+and reports `sent`, `received` and `last_authenticated` when a session ends.
+These are application-message counters, not TCP acknowledgements.
+
+If `ss -tinp` shows repeated retransmissions while `bytes_acked` and
+`bytes_received` stop advancing, investigate packet delivery on the path.
+Extending the Agent timeout cannot restore that traffic. For a plain HTTP
+Controller, test **HTTPS/WSS on the same configured WebUI port**:
+
+1. On Iran, use `sudo fullpack → Web Panel → Certificate → Self-Signed`.
+   Set the Controller's IP or hostname and retain the current panel port.
+2. Open the panel with `https` and its existing secret path. A self-signed
+   certificate produces a browser warning. A domain and a valid certificate
+   are also supported; port 443 is not required for the self-signed option.
+3. Create a new enrollment using the panel's HTTPS Controller origin and run
+   `sudo fullpack node join` on the Node. The code carries the certificate pin;
+   do not disable verification or copy a private key to the Node.
+4. Select this new registration when testing Managed creation. Changing the
+   panel scheme alone does not rewrite existing HTTP Agent configurations;
+   each enrollment remains independent, including other Iran Controllers.
+
+A `502` on `POST /api/node/pair` means the Agent preflight failed and no tunnel
+was created. Its Alert is an operational failure, not an authentication refusal.
+The audit record and its hash reference remain available. Authentication and
+authorisation refusals (`401`/`403`), and rate limits (`429`), keep their security
+Alert label.
+
 ---
 
 ## After an update
@@ -401,6 +430,14 @@ Node با Agent از طریق اتصال خروجی به آدرس Controller و�
 `fullpack-webui` روی Controller را ببین. برای Node بازسازی‌شده، ورودی قبلی را
 لغو و با کد یک‌بارمصرف جدید ثبت کن.
 
+اگر handshake انجام می‌شود ولی `ss -tinp` ارسال مجدد زیاد و ثابت‌ماندن ACK را
+نشان می‌دهد، مسیر شبکه را بررسی کن. افزایش timeout ترافیک ازدست‌رفته را برنمی‌گرداند.
+برای کنترلر HTTP، از `Web Panel → Certificate → Self-Signed`، HTTPS را روی
+**همان پورت فعلی** فعال کن و enrollment تازه با آدرس HTTPS بساز. کد تازه pin
+گواهی را به Node می‌دهد؛ کنترلرهای دیگر و تنظیمات HTTP قبلی خودکار عوض نمی‌شوند.
+این گزینه به listener یا پورت 443 جدید نیاز ندارد. خطای `502` ساخت Managed یک
+خطای عملیاتی است و در نسخهٔ جدید با هشدار امنیتی ورود اشتباه گرفته نمی‌شود.
+
 ### بعد از آپدیت
 
 قبل از هر آپدیت snapshot گرفته می‌شود و اگر تونل‌ها برنگردند خودش برمی‌گردد.
@@ -457,4 +494,4 @@ journalctl -u fullpack-webui -n 100
 
 ---
 
-*Last verified against FullPack v1.8.12.*
+*Last verified against FullPack v1.8.13.*

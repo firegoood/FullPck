@@ -17,6 +17,8 @@ FullPack با Agent خروجی روی سرور خارجی، دو سوی تونل
 
 Node آدرس و پورت WebUI را از کد ثبت‌نام می‌گیرد. اگر پنل روی پورت دیگری مثل 8443 یا 9443 باشد، Agent همان پورت را به کار می‌برد. مسیر `/_bp/node` زیر همان origin پنل قرار دارد و به base path تصادفی رابط کاربری وابسته نیست.
 
+برای مسیرهایی که WebSocket روی HTTP بعد از handshake دیگر داده منتقل نمی‌کند، HTTPS/WSS را روی همان پورت فعلی امتحان کنید: `Web Panel → Certificate → Self-Signed`، سپس آدرس HTTPS در enrollment تازه. کد گواهی را pin می‌کند و Noise نیز برقرار می‌ماند؛ پورت 443 یا listener جدید لازم نیست. [راهنمای تشخیص قطع Agent](troubleshooting.md#a-managed-server-shows-as-offline) تفاوت timeout شبکه و خطای ثبت‌نام را توضیح می‌دهد.
+
 ## ساخت و ادارهٔ تونل
 
 ### چند کنترلر ایران و یک سرور خارج
@@ -47,4 +49,4 @@ Revoke اعتبارنامهٔ Node را در کنترلر غیرفعال و جل
 
 </div>
 
-*Last verified against FullPack v1.8.12.*
+*Last verified against FullPack v1.8.13.*

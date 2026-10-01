@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -94,7 +95,11 @@ func (r *AgentRunner) Ready(ctx context.Context, name string) error {
 	}
 	if err := r.hub.Ready(ctx, n.ID); err != nil {
 		why := agentFailureReason(err)
-		if !r.hub.IsOnline(n.ID) && ctx.Err() != nil {
+		online := r.hub.IsOnline(n.ID)
+		if online && errors.Is(err, context.DeadlineExceeded) {
+			why = "Agent connected but did not answer Ping before the deadline"
+		}
+		if !online && ctx.Err() != nil {
 			why = "managed node is offline; reconnect did not finish before the deadline"
 		}
 		return ErrOffline{Name: name, Why: why, Err: err}

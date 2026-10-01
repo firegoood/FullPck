@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/firegoood/FullPck/internal/app"
@@ -133,9 +134,15 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s, err := serverSession(ws, id, credential)
 	if err != nil {
+		log.Printf("Agent Node %s: authenticate failed (%s)", agentNodeLabel(id), agentFailureReason(err))
 		_ = ws.Close()
 		return
 	}
+	stage := "readiness"
+	defer func() {
+		log.Printf("Agent Node %s: %s ended (%s; %s)", agentNodeLabel(id), stage,
+			agentFailureReason(s.closeErr), s.activitySummary())
+	}()
 	s.start()
 	// Prove the authenticated operation channel before showing the Node online.
 	// Optional host metadata must not delay or disconnect a working session.
@@ -157,6 +164,8 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.closeWith(ErrAgentRevoked)
 		return
 	}
+	stage = "session"
+	log.Printf("Agent Node %s: operation channel ready", agentNodeLabel(id))
 	// A saved Agent config proves possession of the permanent credential. This
 	// closes the enrollment if its final acknowledgement was lost in transit.
 	_ = finishEnrollment(id, credential)
@@ -348,6 +357,9 @@ type agentSession struct {
 	handler    func(agentEnvelope) agentEnvelope
 	generation uint64
 	isClient   bool
+	sent       atomic.Uint64
+	received   atomic.Uint64
+	lastRecv   atomic.Int64
 	streamMu   sync.Mutex
 	streams    map[string]*telegramStream
 }
@@ -428,7 +440,11 @@ func (s *agentSession) writeEncrypted(plain []byte) error {
 	if err != nil {
 		return err
 	}
-	return s.ws.WriteMessage(websocket.BinaryMessage, frame)
+	if err := s.ws.WriteMessage(websocket.BinaryMessage, frame); err != nil {
+		return err
+	}
+	s.sent.Add(1)
+	return nil
 }
 
 func (s *agentSession) readLoop() {
@@ -459,6 +475,8 @@ func (s *agentSession) readLoop() {
 		// Authenticated, valid traffic also proves liveness; malformed
 		// ciphertext must never refresh the deadline.
 		_ = s.ws.SetReadDeadline(time.Now().Add(agentPongTimeout))
+		s.received.Add(1)
+		s.lastRecv.Store(time.Now().UnixNano())
 		s.dispatch(env)
 	}
 }
@@ -950,6 +968,9 @@ func RunAgent(ctx context.Context, cfg AgentConfig) {
 			return
 		}
 		reason := agentFailureReason(err)
+		if stage == "session" && active != nil {
+			reason += "; " + active.activitySummary()
+		}
 		if response != nil && response.StatusCode != http.StatusSwitchingProtocols {
 			reason = fmt.Sprintf("HTTP %d", response.StatusCode)
 		}
@@ -968,6 +989,23 @@ func RunAgent(ctx context.Context, cfg AgentConfig) {
 			}
 		}
 	}
+}
+
+// Only counters and a fixed-format age are logged. Never include envelope
+// bodies, node credentials, raw network errors or peer-provided close text.
+func (s *agentSession) activitySummary() string {
+	last := "never"
+	if at := s.lastRecv.Load(); at != 0 {
+		last = time.Since(time.Unix(0, at)).Round(time.Second).String() + " ago"
+	}
+	return fmt.Sprintf("sent=%d received=%d last_authenticated=%s", s.sent.Load(), s.received.Load(), last)
+}
+
+// A short opaque identifier correlates Controller sessions without exposing
+// the full identity or a name supplied in a request to the public gateway.
+func agentNodeLabel(id string) string {
+	sum := sha256.Sum256([]byte(id))
+	return fmt.Sprintf("%x", sum[:6])
 }
 
 // Do not log raw dial/TLS/peer errors: they can contain URL credentials or
